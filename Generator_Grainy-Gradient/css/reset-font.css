@@ -1,0 +1,26 @@
+  /* ── Reset minimal ───────────────────────────────────────────────────────
+       Supprime les marges et paddings par défaut du navigateur.
+       box-sizing: border-box inclut padding et border dans la taille totale.
+    ── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      border: none;
+      outline: none;
+      font-family: DINish;
+    }
+
+     @font-face {
+      font-family: DINish;
+      src: url(../DINish/DINish-Regular.woff);
+      font-style: normal;
+      font-weight: normal;
+    }
+
+    @font-face {
+      font-family: DINish;
+      src: url(../DINish/DINish-Bold.woff);
+      font-style: normal;
+      font-weight: bold;
+    }
