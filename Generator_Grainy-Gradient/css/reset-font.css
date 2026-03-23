@@ -9,6 +9,7 @@
       border: none;
       outline: none;
       font-family: DINish;
+      caret-color: blue;
     }
 
      @font-face {

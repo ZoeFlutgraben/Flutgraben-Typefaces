@@ -7,7 +7,6 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      
       overflow: hidden;
     }
 
@@ -56,11 +55,11 @@
          - un halo orange large (60px)
        → c'est leur superposition qui donne le dégradé chaud/froid visible.
     ── */
+
     .text-block {
       font-family: DINish;
       font-weight: bold;
       text-transform: uppercase;
-      
       letter-spacing: 3px;
       font-weight: 900;
       font-size: 5.5rem;
@@ -78,7 +77,6 @@
     /* ── Panneau de contrôles ────────────────────────────────────────────────
        Sliders pour ajuster les paramètres en temps réel via JS.
     ── */
-  
 
     .controls {
       display: flex;
@@ -143,9 +141,9 @@
       z-index: 99;    
     }
 
-    
-
     button:hover{
-     cursor: pointer;
+      cursor: pointer;
       background-color: rgba(147, 147, 147, 0.54);
     }
+
+    

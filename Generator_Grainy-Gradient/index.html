@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="CSS/reset-font.css"> 
   <link rel="stylesheet" href="CSS/styles.css"> 
 </head>
+
 <body>
 
     <!-- Scène principale : le fond bleu + filtre contrast/blur sont sur ce div -->
@@ -22,15 +23,13 @@
         opacity: 0.35;
         pointer-events: none;"></div>
     </div>
-
-    
+  
     <button id="apparition"></button>
 
-    
     <!-- Sliders de contrôle en temps réel -->
-      <div class="controls">
-         
-        <div id="textapercu" class="lorem" contenteditable="true" spellcheck="false">Flutgraben</div>
+    <div class="controls">
+    
+        <div id="textapercu" class="smallerControls" contenteditable="true" spellcheck="false">Flutgraben</div>
 
         <div class="smallerControls">
           <h1>Lettres</h1>
@@ -56,49 +55,43 @@
                 <input type="range" min="1" max="20" value="8" step="0.5" id="contrast">
                 <span id="contrast-v">8</span>
             </div>
-
             <!-- Blur sur le parent : adoucit le rendu final de toute la scène -->
             <div class="ctrl-row">
                 <label>Flou global</label>
                 <input type="range" min="0" max="10" value="0" step="0.5" id="blur2">
                 <span id="blur2-v">0px</span>
             </div>
-          </div>
+        </div>
 
-          <div class="smallerControls" id="SVG">
+        <div class="smallerControls" id="SVG">
           <h1>SVG</h1>
             <div class="ctrl-row">
                 <label>SVG size</label>
                 <input type="range" min="100" max="500" value="100" step="10" id="svg-size">
                 <span id="svg-size-v">100%</span>
             </div>
-
             <div class="ctrl-row">
                 <label>baseFrequency</label>
                 <input type="range" min="0.01" max="1" value="0.65" step="0.01" id="base-freq">
                 <span id="base-freq-v">0.65</span>
             </div>
-
              <div class="ctrl-row">
                 <label>numOctaves</label>
                 <input type="range" min="1" max="8" value="3" step="1" id="num-oct">
                 <span id="num-oct-v">3</span>
             </div>
-          </div>
+        </div>
 
-          <button id="downloadBtn" class="menu">Exporter</button>
+        <button id="downloadBtn" class="menu">Exporter</button>
           <!-- Taille du texte : les lettres plus grandes = halos plus imposants -->
           
-      </div>
+    </div>
     
-    
-
   <script src="js/reglagle-blur_apparition.js"></script>
   <script src="js/noise.js"></script>
   <script src="https://unpkg.com/dom-to-image-more/dist/dom-to-image-more.min.js"></script>
   <script src="js/export_image.js"></script>
   <script src="js/text.js"></script>  
-
 
 </body>
 </html>
