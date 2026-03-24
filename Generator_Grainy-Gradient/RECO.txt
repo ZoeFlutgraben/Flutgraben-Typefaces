@@ -1,0 +1,6 @@
+Les ressources doivent être servies depuis un serveur HTTP local plutôt qu'ouvertes directement depuis le système de fichiers (file://), 
+afin de respecter la same-origin policy du navigateur
+
+Resources must be served from a local HTTP server rather than opened directly from the file system (`file://`), in order to comply with the browser's same-origin policy
+
+python -m http.server
