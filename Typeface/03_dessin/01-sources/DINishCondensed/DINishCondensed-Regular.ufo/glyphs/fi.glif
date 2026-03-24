@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<glyph name="fi" format="2">
+  <advance width="498"/>
+  <unicode hex="FB01"/>
+  <outline>
+    <component base="f"/>
+    <component base="dotlessi" xOffset="295"/>
+    <contour>
+      <point x="361" y="613" type="line"/>
+      <point x="432" y="613" type="line"/>
+      <point x="432" y="695" type="line"/>
+      <point x="361" y="695" type="line"/>
+    </contour>
+  </outline>
+</glyph>
