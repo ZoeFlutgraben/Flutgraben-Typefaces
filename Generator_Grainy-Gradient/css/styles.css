@@ -1,149 +1,152 @@
-     /* ── Mise en page générale ───────────────────────────────────────────────
-       Fond sombre, centrage vertical et horizontal via flexbox.
-    ── */
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      overflow: hidden;
-    }
+/* ── Mise en page générale ───────────────────────────────────────────────
+   Centrage vertical et horizontal via flexbox.
+── */
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
 
-    h1{
-      font-size: 12px;
-      margin-bottom: 5px;
-    }
+h1 {
+  font-size: 12px;
+  margin-bottom: 5px;
+}
 
-    #grain svg {
-      display: block;
-    }
+/* ── Couche de grain SVG ─────────────────────────────────────────────────
+   Superposée par-dessus la scène en soft-light pour ajouter la texture.
+   pointer-events: none pour ne pas bloquer les interactions sur la scène.
+── */
+#grain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: soft-light;
+  opacity: 0.35;
+  pointer-events: none;
+}
 
-    /* ── Conteneur de la scène — clé de l'effet ─────────────────────────────
-       Le fond coloré (.scene background) est OBLIGATOIRE pour que l'effet
-       fonctionne : sans lui, le contrast() n'a rien sur quoi s'appuyer.
+#grain svg {
+  display: block;
+}
 
-       La combinaison filter: contrast() + blur() sur le PARENT est ce qui
-       crée les zones de fusion chaudes/froides autour du texte :
-         1. Le blur() sur le texte enfant crée un halo coloré diffus.
-         2. Le contrast() élevé ici "durcit" ce halo en zones nettes.
-         3. Le blur() optionnel ici adoucit légèrement le rendu final.
+/* ── Conteneur de la scène — clé de l'effet ─────────────────────────────
+   Le fond coloré (.scene background) est OBLIGATOIRE pour que l'effet
+   fonctionne : sans lui, le contrast() n'a rien sur quoi s'appuyer.
 
-       overflow: hidden empêche les halos de déborder hors du cadre.
-    ── */
-    .scene {
-      background: radial-gradient(circle,rgba(251, 185, 63, 1) 0%, rgba(83, 187, 166, 1) 44%, rgba(252, 70, 107, 1) 100%);
-      filter: contrast(8) blur(0px);
-      padding: 1rem 1.5rem;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+   La combinaison filter: contrast() + blur() sur le PARENT est ce qui
+   crée les zones de fusion chaudes/froides autour du texte :
+     1. Le blur() sur le texte enfant crée un halo coloré diffus.
+     2. Le contrast() élevé ici "durcit" ce halo en zones nettes.
+     3. Le blur() optionnel ici adoucit légèrement le rendu final.
 
-    /* ── Bloc de texte ───────────────────────────────────────────────────────
-       La couleur et le text-shadow définissent les teintes "chaudes".
-       Le filter: blur() ici est appliqué sur l'ENFANT (pas le parent) :
-       c'est ce qui crée le halo diffus autour de chaque lettre,
-       que le contrast() du parent va ensuite durcir en zones colorées.
+   overflow: hidden empêche les halos de déborder hors du cadre.
+── */
+.scene {
+  background: radial-gradient(circle, rgba(251, 185, 63, 1) 0%, rgba(83, 187, 166, 1) 44%, rgba(252, 70, 107, 1) 100%);
+  filter: contrast(8) blur(0px);
+  padding: 1rem 1.5rem;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-       Les trois couches de text-shadow empilent :
-         - un halo rose serré (18px)
-         - un halo rose moyen (35px)
-         - un halo orange large (60px)
-       → c'est leur superposition qui donne le dégradé chaud/froid visible.
-    ── */
+/* ── Bloc de texte ───────────────────────────────────────────────────────
+   La couleur et le text-shadow définissent les teintes "chaudes".
+   Le filter: blur() ici est appliqué sur l'ENFANT (pas le parent) :
+   c'est ce qui crée le halo diffus autour de chaque lettre,
+   que le contrast() du parent va ensuite durcir en zones colorées.
 
-    .text-block {
-      font-family: DINish;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 3px;
-      font-weight: 900;
-      font-size: 5.5rem;
-      line-height: 1.05;
-      color: #e8457a;            /* rose chaud — couleur principale des lettres */
-      text-shadow:
-        0 0 18px #e8457a,        /* halo rose proche */
-        0 0 35px #e8457a,        /* halo rose médian */
-        0 0 60px #f7a03a;        /* halo orange lointain */
-      filter: blur(6px);         /* diffuse le halo — traité ensuite par le parent */
-      letter-spacing: -1px;
-      user-select: none;         /* empêche la sélection du texte au clic */
-    }
+   Les trois couches de text-shadow empilent :
+     - un halo rose proche (18px)
+     - un halo rose médian (5px)
+     - un halo orange lointain (10px)
+   → c'est leur superposition qui donne le dégradé chaud/froid visible.
+── */
+.text-block {
+  font-family: DINishDot;
+  text-transform: uppercase;
+  font-size: 5.5rem;
+  line-height: 1.05;
+  letter-spacing: -1px;
+  color: #e8457a;            /* rose chaud — couleur principale des lettres */
+  text-shadow:
+    0 0 18px #e8457a,        /* halo rose proche */
+    0 0 5px #e8457a,         /* halo rose médian */
+    0 0 10px #f7a03a;        /* halo orange lointain */
+  filter: blur(6px);         /* diffuse le halo — traité ensuite par le parent */
+  user-select: none;         /* empêche la sélection du texte au clic */
+}
 
-    /* ── Panneau de contrôles ────────────────────────────────────────────────
-       Sliders pour ajuster les paramètres en temps réel via JS.
-    ── */
+/* ── Panneau de contrôles ────────────────────────────────────────────────
+   Sliders pour ajuster les paramètres en temps réel via JS.
+── */
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: rgba(240, 248, 255, 0.54);
+  border-radius: 10px;
+  padding: 15px;
+  margin: 10px;
+  color: #202020;
+  font-size: 12px;
+  z-index: 99;
+}
 
-    .controls {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      background-color: rgba(240, 248, 255, 0.54);
-      border-radius: 10px;
-      padding: 15px;
-      margin: 10px;
-      color: #202020;
-      font-size: 12px;
-      z-index: 99;
-    }
+.smallerControls {
+  background-color: rgba(255, 255, 255, 0.54);
+  border-radius: 10px;
+  padding: 15px;
+}
 
-    .smallerControls{
-      background-color: rgba(255, 255, 255, 0.54);
-      border-radius: 10px;
-      padding: 15px; 
-    }
+.ctrl-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-    .ctrl-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    
-      /* background-color: blueviolet */;
-    }
+.ctrl-row label {
+  min-width: 10px;
+}
 
-    .ctrl-row label {
-      min-width: 10px;
-      /* background-color: rgb(76, 226, 43); */
-    }
+.ctrl-row input[type="range"] {
+  flex: 1;
+  accent-color: #e8457a;   /* colore le curseur avec la teinte rose */
+  cursor: pointer;
+}
 
-    .ctrl-row input[type="range"] {
-      flex: 1;
-      accent-color: #e8457a;   /* colore le curseur avec la teinte rose */
-      cursor: pointer;
-    }
+.ctrl-row span {
+  min-width: 40px;
+  text-align: right;
+}
 
-    .ctrl-row span {
-      min-width: 40px;
-      text-align: right;
-      /* background-color: rgb(226, 73, 43); */
-    }
+button {
+  background-color: rgba(255, 255, 255, 0.54);
+  padding: 5px;
+  border-radius: 5px;
+}
 
-    button{
-      background-color: rgba(255, 255, 255, 0.54);
-      padding: 5px;
-      border-radius: 5px;
-    }
+#apparition {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 50px;
+  height: 30px;
+  margin: 20px;
+  z-index: 99;
+}
 
-    #apparition{
-      position: fixed;
-      bottom: 0;
-      right: 0;
-      width: 50px;
-      height: 30px;
-      margin: 20px;
-      z-index: 99;    
-    }
-
-    button:hover{
-      cursor: pointer;
-      background-color: rgba(147, 147, 147, 0.54);
-    }
-
-    
+button:hover {
+  cursor: pointer;
+  background-color: rgba(147, 147, 147, 0.54);
+}

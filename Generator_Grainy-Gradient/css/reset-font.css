@@ -25,3 +25,11 @@
       font-style: normal;
       font-weight: bold;
     }
+
+    
+    @font-face {
+      font-family: DINishDot;
+      src: url(../DINishDot_test/DINishDot-Bold.otf);
+      font-style: normal;
+      font-weight: bold;
+    }

@@ -5,30 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="author" content="Zoé Berthelot @neutronzoo"/>
   <title>Grainy Gradient Generator</title>
-  <link rel="stylesheet" href="CSS/reset-font.css"> 
-  <link rel="stylesheet" href="CSS/styles.css"> 
+  <link rel="stylesheet" href="CSS/reset-font.css">
+  <link rel="stylesheet" href="CSS/styles.css">
 </head>
 
 <body>
 
-    <!-- Scène principale : le fond bleu + filtre contrast/blur sont sur ce div -->
+    <!-- ===================== SCENE ===================== -->
+    <!-- Scène principale : fond dégradé + filtre contrast/blur créant l'effet gooey -->
     <div class="scene" id="scene">
         <!-- Texte : le blur sur cet élément crée les halos traités par le parent -->
         <div class="text-block" id="txt">Flutgraben</div>
-        <div id="grain" style="position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        mix-blend-mode: soft-light;
-        opacity: 0.35;
-        pointer-events: none;"></div>
+        <!-- Grain : couche SVG feTurbulence en soft-light pour la texture pixelisée -->
+        <div id="grain"></div>
     </div>
-  
+
     <button id="apparition"></button>
 
-    <!-- Sliders de contrôle en temps réel -->
+    <!-- ===================== CONTROLS ===================== -->
     <div class="controls">
-    
+
         <div id="textapercu" class="smallerControls" contenteditable="true" spellcheck="false">Flutgraben</div>
 
         <div class="smallerControls">
@@ -39,14 +35,14 @@
                 <input type="range" min="0" max="20" value="6" step="0.5" id="blur">
                 <span id="blur-v">6px</span>
             </div>
-
+            <!-- Taille du texte : les lettres plus grandes = halos plus imposants -->
             <div class="ctrl-row">
                 <label>Taille texte</label>
-                <input type="range" min="2" max="9" value="5.5" step="0.1" id="size">
+                <input type="range" min="2" max="16" value="5.5" step="0.1" id="size">
                 <span id="size-v">5.5rem</span>
             </div>
         </div>
-        
+
         <!-- Contrast sur le parent : plus élevé = zones de fusion plus dures/nettes -->
         <div class="smallerControls">
           <h1>Global</h1>
@@ -75,23 +71,22 @@
                 <input type="range" min="0.01" max="1" value="0.65" step="0.01" id="base-freq">
                 <span id="base-freq-v">0.65</span>
             </div>
-             <div class="ctrl-row">
+            <div class="ctrl-row">
                 <label>numOctaves</label>
                 <input type="range" min="1" max="8" value="3" step="1" id="num-oct">
                 <span id="num-oct-v">3</span>
             </div>
         </div>
 
-        <button id="downloadBtn" class="menu">Exporter</button>
-          <!-- Taille du texte : les lettres plus grandes = halos plus imposants -->
-          
+        <button id="downloadBtn">Exporter</button>
+
     </div>
-    
-  <script src="js/reglagle-blur_apparition.js"></script>
+
+  <script src="js/reglage-blur_apparition.js"></script>
   <script src="js/noise.js"></script>
   <script src="https://unpkg.com/dom-to-image-more/dist/dom-to-image-more.min.js"></script>
   <script src="js/export_image.js"></script>
-  <script src="js/text.js"></script>  
+  <script src="js/text.js"></script>
 
 </body>
 </html>
