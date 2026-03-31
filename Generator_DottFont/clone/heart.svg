@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Serif DrawPlus 12,0,4,27 (May 24, 08:37:51) (http://www.serif.com) -->
+
+<svg
+   version="1.1"
+   width="645.27911"
+   height="594.86517"
+   id="svg1"
+   sodipodi:docname="heart.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.83143939"
+     inkscape:cx="307.29841"
+     inkscape:cy="291.0615"
+     inkscape:window-width="1920"
+     inkscape:window-height="1122"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <g
+     id="Layer_1"
+     style="fill:#000000;fill-opacity:1;stroke:none"
+     transform="translate(-84.87675,-120.82183)">
+    <path
+       id="dp_path001"
+       fill="white"
+       fill-rule="evenodd"
+       stroke="#000000"
+       stroke-width="26.6667"
+       d="m 408,223.824 c 68.78,-122.491 204.625,-121.543 272.12,-59.585 67.493,61.957 66.635,184.922 -2.147,307.413 C 629.783,563.545 506.877,654.916 404.565,715.687 303.111,653.493 181.493,560.415 134.591,467.859 67.5267,344.42 68.3853,221.453 136.737,160.445 205.089,99.4373 340.935,100.385 408,223.824 Z"
+       style="fill:#000000;fill-opacity:1;stroke:none" />
+  </g>
+</svg>

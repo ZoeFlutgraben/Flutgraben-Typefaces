@@ -76,7 +76,8 @@ body {
 #presence-value,
 #size-value,
 #taille-generation-value,
-#export-btn {
+#export-btn,
+#export-otf-btn {
   font-family: 'DINish', sans-serif;
   font-weight: 700;
   font-size: 10px;
@@ -231,7 +232,8 @@ body {
 }
 
 /* === Export button === */
-#export-btn {
+#export-btn,
+#export-otf-btn {
   background-color: var(--bg-btn);
   padding: 5px 10px;
   border-radius: var(--radius);
@@ -241,6 +243,7 @@ body {
   width: 100%;
 }
 
-#export-btn:hover {
+#export-btn:hover,
+#export-otf-btn:hover {
   background-color: var(--bg-btn-hover);
 }
