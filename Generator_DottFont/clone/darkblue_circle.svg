@@ -2,13 +2,13 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="1.9135373mm"
-   height="1.9135373mm"
-   viewBox="0 0 1.9135373 1.9135373"
+   width="0.95700002mm"
+   height="0.95700002mm"
+   viewBox="0 0 0.95700004 0.95700004"
    version="1.1"
    id="svg1"
    inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
-   sodipodi:docname="circle.svg"
+   sodipodi:docname="darkblue_circle.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -23,9 +23,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="12.514703"
-     inkscape:cx="32.441842"
-     inkscape:cy="-27.647481"
+     inkscape:zoom="17.698462"
+     inkscape:cx="23.900382"
+     inkscape:cy="-0.16950625"
      inkscape:window-width="1920"
      inkscape:window-height="1122"
      inkscape:window-x="-8"
@@ -38,18 +38,12 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1"
-     transform="translate(-181.30094,-111.45113)">
+     transform="translate(-161.66042,-97.366661)">
     <circle
-       style="fill:#000000;stroke-width:1.7;stroke-linecap:square;stroke-dasharray:1.7, 3.4"
-       id="use127"
-       cx="182.25771"
-       cy="112.4079"
-       r="0.95676863" />
-    <circle
-       style="fill:#000000;stroke-width:1.7;stroke-linecap:square;stroke-dasharray:1.7, 3.4"
+       style="fill:#000080;stroke-width:0.850206;stroke-linecap:square;stroke-dasharray:0.850206, 1.70041"
        id="circle1"
-       cx="182.25771"
-       cy="112.4079"
-       r="0.95676863" />
+       cx="162.13892"
+       cy="97.845161"
+       r="0.47850001" />
   </g>
 </svg>

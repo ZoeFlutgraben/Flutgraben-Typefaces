@@ -1,0 +1,246 @@
+/* === Design tokens === */
+:root {
+  /* Typography */
+  --text-font-size:   15px;
+  --text-padding:     0.75rem;
+  --text-line-height: 1.1;
+
+  /* Computed panel height — shared between étape 1 and étape 2 */
+  --panel-height: calc(var(--text-font-size) * var(--text-line-height) + var(--text-padding) * 2);
+
+  /* Colors */
+  --color-dark:     #202020;
+  --color-label:    #606060;
+
+  /* Button backgrounds */
+  --bg-btn:       rgba(255, 255, 255, 0.54);
+  --bg-btn-hover: rgba(147, 147, 147, 0.54);
+
+  /* Shared radius */
+  --radius: 5px;
+}
+
+/* === Font loading === */
+@font-face {
+  font-family: 'DINish';
+  src: url('../DINish/DINish-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* === Reset === */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overflow: hidden;
+}
+
+/* === Full-viewport dot output — sits behind the panel === */
+#stage-output {
+  position: fixed;
+  inset: 0;
+}
+
+#output {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #f9f9f9;
+}
+
+/* === Floating controls panel — top-left overlay === */
+#top-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 99;
+  margin: 10px;
+  padding: 15px;
+  border-radius: 10px;
+  background-color: rgba(255, 81, 228, 0.54);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--color-dark);
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+}
+
+/* === Shared small-caps label typography (DINish 700 10px uppercase) === */
+.step-label,
+.slider-row label,
+#presence-value,
+#size-value,
+#taille-generation-value,
+#export-btn {
+  font-family: 'DINish', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* === Step labels === */
+.step-label {
+  color: var(--color-label);
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+/* === Stage: label on top, panel below === */
+.stage {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Gradient panel height matches étape 1 via shared token */
+#panel-gradient {
+  height: var(--panel-height);
+}
+
+/* Canvas scales to panel height, width follows aspect ratio */
+#gradient-canvas {
+  display: block;
+  height: 100%;
+  width: auto;
+}
+
+/* Shared white background for étape 1 and étape 2 panels */
+.panel {
+ background-color: var(--bg-btn);
+ border-radius: var(--radius);
+  line-height: 0;
+}
+
+/* === Étape 1 — editable text === */
+#text-input {
+  display: inline-block;
+  font-family: 'DINish', sans-serif;
+  font-weight: 700;
+  font-size: var(--text-font-size);
+  color: var(--color-label);
+  padding: var(--text-padding);
+  outline: none;
+  white-space: nowrap;
+  cursor: text;
+  min-width: 60px;
+}
+
+/* === Shape selector === */
+#shape-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+#shape-selector .step-label {
+  margin-bottom: 0;
+}
+
+.shape-btns {
+  display: flex;
+  flex-direction: row;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.shape-btn {
+  background: var(--bg-btn);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  padding: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.shape-btn:hover {
+  background-color: var(--bg-btn-hover);
+}
+
+.shape-btn.active {
+  border-color: var(--color-dark);
+}
+
+.shape-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* === Slider row: label + track + value on one line === */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-row label {
+  color: var(--color-label);
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+#presence-slider,
+#size-slider,
+#taille-generation-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 2px;
+  background: var(--color-dark);
+  outline: none;
+  cursor: pointer;
+}
+
+#presence-slider::-webkit-slider-thumb,
+#size-slider::-webkit-slider-thumb,
+#taille-generation-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--color-dark);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#presence-slider::-moz-range-thumb,
+#size-slider::-moz-range-thumb,
+#taille-generation-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--color-dark);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#presence-value,
+#size-value,
+#taille-generation-value {
+  color: var(--color-label);
+  min-width: 2.5ch;
+  text-align: right;
+}
+
+/* === Export button === */
+#export-btn {
+  background-color: var(--bg-btn);
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  border: none;
+  color: var(--color-label);
+  cursor: pointer;
+  width: 100%;
+}
+
+#export-btn:hover {
+  background-color: var(--bg-btn-hover);
+}

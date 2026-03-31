@@ -5,154 +5,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DottFont Generator</title>
 
-  <style>
-    /* === Font loading === */
-    @font-face {
-      font-family: 'DINish';
-      src: url('DINish/DINish-Bold.woff') format('woff');
-      font-weight: 700;
-      font-style: normal;
-    }
-
-    /* === Reset === */
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    /* === Page layout === */
-    body {
-      background: #e6e6e6;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 3rem;
-      gap: 0.75rem;
-    }
-
-    /* === Step labels === */
-    .step-label {
-      font-family: 'DINish', sans-serif;
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #999;
-    }
-
-    /* === Three steps side by side === */
-    #stages {
-      display: flex;
-      flex-direction: row;
-      align-items: flex-start;
-      gap: 2rem;
-    }
-
-    /* Each stage: label on top, panel below */
-    .stage {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    /* Shared panel style */
-    .panel {
-      background: #f9f9f9;
-      line-height: 0;
-    }
-
-    /* ===================== ÉTAPE 1 — editable text ===================== */
-    #text-input {
-      font-family: 'DINish', sans-serif;
-      font-weight: 700;
-      font-size: 120px;
-      line-height: 1.1;
-      color: #1a1a1a;
-      padding: 1.5rem 2.5rem;
-      outline: none;
-      white-space: nowrap;
-      cursor: text;
-      min-width: 100px;
-      background: #f9f9f9;
-    }
-
-    /* ===================== ÉTAPE 2 — mesh gradient canvas ===================== */
-    #gradient-canvas {
-      display: block;
-    }
-
-    /* ===================== ÉTAPE 3 — dot clone SVG ===================== */
-    #output {
-      display: block;
-    }
-
-    /* ===================== Export button ===================== */
-    #export-btn {
-      font-family: 'DINish', sans-serif;
-      font-weight: 700;
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      background: #1a1a1a;
-      color: #f9f9f9;
-      border: none;
-      padding: 0.65rem 1.8rem;
-      cursor: pointer;
-    }
-
-    #export-btn:hover {
-      background: #444;
-    }
-  </style>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-  <!-- ===================== THREE STAGES SIDE BY SIDE ===================== -->
-  <div id="stages">
+  <!-- ===================== LEFT PANEL — controls sidebar ===================== -->
+  <div id="top-panel">
 
     <!-- ÉTAPE 1 — contenteditable div with DINish -->
     <div class="stage">
-      <span class="step-label">étape 1 — texte</span>
+      <!-- <span class="step-label">étape 1 — texte</span> -->
       <div class="panel">
         <div id="text-input" contenteditable="true" spellcheck="false">Text</div>
       </div>
     </div>
 
     <!-- ÉTAPE 2 — bilinear mesh gradient clipped to text shape -->
-    <div class="stage">
-      <span class="step-label">étape 2 — gradient</span>
-      <div class="panel">
+    <div class="stage" id="stage-gradient">
+      <!-- <span class="step-label">étape 2 — gradient</span> -->
+      <div id="panel-gradient">
         <canvas id="gradient-canvas"></canvas>
       </div>
     </div>
 
-    <!-- ÉTAPE 3 — dot clone SVG output -->
-    <div class="stage">
-      <span class="step-label">étape 3 — dots</span>
-      <div class="panel">
-        <svg id="output" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <!--
-              Base clone shape — geometry from clone/circle.svg
-              Circle at origin (r=1), scaled per instance via <use> transform.
-              Dashed stroke mimics the spray-paint dissolution from Inkscape.
-            -->
-            <circle
-              id="base-dot"
-              cx="0" cy="0" r="1"
-              fill="#000000"
-              stroke="#000000"
-              stroke-width="0.4"
-              stroke-dasharray="1 1.8" />
-          </defs>
-        </svg>
+    <!-- FORME — shape selector -->
+    <div id="shape-selector">
+      <span class="step-label">forme</span>
+      <div class="shape-btns">
+
+        <!-- Circle — clone/circle.svg -->
+        <button class="shape-btn active" data-shape="circle" title="Cercle">
+          <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="1" cy="1" r="1" fill="#000000" />
+          </svg>
+        </button>
+
+        <!-- Square — clone/pink_square.svg -->
+        <button class="shape-btn" data-shape="square" title="Carré">
+          <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="2" height="2" fill="#ff00ff" />
+          </svg>
+        </button>
+
+        <!-- Star — clone/stars.svg -->
+        <button class="shape-btn" data-shape="star" title="Étoile">
+          <svg viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
+            <g transform="translate(-11.617356,-28.396201)">
+              <path
+                transform="matrix(0.05547957,0,0,0.05547957,10.97283,26.820792)"
+                d="M 63.932803,100.12756 43.315212,85.252922 19.373414,93.80454 27.148851,69.599529 11.617356,49.472121 l 25.423076,-0.08488 14.342806,-20.99104 7.936888,24.152552 24.395836,7.154231 -20.517809,15.011979 z"
+                fill="#ffff00" />
+            </g>
+          </svg>
+        </button>
+
+        <!-- Dark blue circle — clone/darkblue_circle.svg -->
+        <button class="shape-btn" data-shape="darkblue_circle" title="Cercle bleu">
+          <svg viewBox="0 0 0.957 0.957" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="0.4785" cy="0.4785" r="0.4785" fill="#000080" />
+          </svg>
+        </button>
+
       </div>
-      <button id="export-btn">Télécharger SVG</button>
     </div>
 
+    <!-- TAILLE — dot radius only -->
+    <div class="slider-row">
+      <label for="size-slider">taille</label>
+      <input type="range" id="size-slider" min="0.25" max="3" step="0.05" value="1" />
+      <span id="size-value">1.00</span>
+    </div>
+
+    <!-- TAILLE-GENERATION — dot radius + spacing -->
+    <div class="slider-row">
+      <label for="taille-generation-slider">taille-generation</label>
+      <input type="range" id="taille-generation-slider" min="0.25" max="3" step="0.05" value="1" />
+      <span id="taille-generation-value">1.00</span>
+    </div>
+
+    <!-- PRÉSENCE — probabilistic dot filter -->
+    <div class="slider-row">
+      <label for="presence-slider">présence</label>
+      <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
+      <span id="presence-value">0.5</span>
+    </div>
+
+    <!-- EXPORT -->
+    <button id="export-btn">Télécharger SVG</button>
+
+  </div>
+
+  <!-- ===================== RIGHT PANEL — dot output ===================== -->
+  <div id="stage-output">
+    <svg id="output" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!--
+          Base clone shape — defined as a <symbol> so width/height on <use>
+          controls sizing. Updated dynamically when the user selects a shape.
+        -->
+        <symbol id="base-dot" viewBox="0 0 2 2" preserveAspectRatio="xMidYMid meet">
+          <circle cx="1" cy="1" r="1" fill="#000000" />
+        </symbol>
+      </defs>
+    </svg>
   </div>
 
   <!--
@@ -161,254 +116,7 @@
   -->
   <canvas id="hidden-canvas" style="display:none;"></canvas>
 
-  <script>
-    // ============================================================
-    // DottFont Generator
-    //
-    // Pipeline:
-    //   étape 1 — user types in contenteditable div (DINish Bold)
-    //   étape 2 — text shape is filled with a bilinear mesh gradient
-    //             (4×4 grid, alternating black/grey from mesh.svg)
-    //             rendered to a visible canvas
-    //   étape 3 — gradient canvas pixels are sampled on a regular grid;
-    //             each in-text pixel spawns a <use> clone of #base-dot
-    //             scaled by pixel darkness (black = large, grey = small)
-    // ============================================================
-
-    const textInput      = document.getElementById('text-input');
-    const gradientCanvas = document.getElementById('gradient-canvas');
-    const gCtx           = gradientCanvas.getContext('2d');
-    const outputSvg      = document.getElementById('output');
-    const hiddenCanvas   = document.getElementById('hidden-canvas');
-    const exportBtn      = document.getElementById('export-btn');
-    const ctx            = hiddenCanvas.getContext('2d');
-
-    // --- Rendering constants ---
-    const FONT_SIZE   = 150;  // px — text render size
-    const DOT_SPACING = 6;    // px — grid step between dot centers
-    const MAX_RADIUS  = 3.0;  // px — dot radius at full black
-    const MIN_RADIUS  = 0.5;  // px — dot radius at lightest grey
-    const THRESHOLD   = 240;  // brightness cutoff for text mask (0=black, 255=white)
-    const PADDING     = 30;   // px — margin around text on canvas
-
-    // --- Mesh gradient definition (from mesh.svg) ---
-    // 5×5 control points for a 4×4 patch grid.
-    // Values alternate between black (0) and grey (204 = #cccccc).
-    // This matches the Inkscape mesh gradient: rows 4, columns 4,
-    // 100% black and 20% grey at alternating corners.
-    const MESH_COLS = 4;
-    const MESH_ROWS = 4;
-    const MESH_GRID = [];
-
-    for (let r = 0; r <= MESH_ROWS; r++) {
-      MESH_GRID[r] = [];
-      for (let c = 0; c <= MESH_COLS; c++) {
-        // Checkerboard: even sum → grey (#cccccc = 204), odd sum → black (0)
-        MESH_GRID[r][c] = (r + c) % 2 === 0 ? 204 : 0;
-      }
-    }
-
-    // Renders the text to the hidden canvas as a solid black mask on white.
-    // Returns the canvas dimensions.
-    function renderTextMask(text) {
-      const fontSpec = `700 ${FONT_SIZE}px DINish, sans-serif`;
-
-      ctx.font = fontSpec;
-      const metrics = ctx.measureText(text);
-      const canvasW = Math.ceil(metrics.width) + PADDING * 2;
-      const canvasH = FONT_SIZE + PADDING * 2;
-
-      hiddenCanvas.width  = canvasW;
-      hiddenCanvas.height = canvasH;
-
-      // White background — outside-text pixels stay white
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvasW, canvasH);
-
-      // Solid black text — used as shape mask
-      ctx.fillStyle    = '#000000';
-      ctx.font         = fontSpec;
-      ctx.textBaseline = 'top';
-      ctx.fillText(text, PADDING, PADDING);
-
-      return { canvasW, canvasH };
-    }
-
-    // Draws the bilinear mesh gradient onto the visible gradient canvas,
-    // clipped to the text shape from the hidden canvas mask.
-    // Each pixel inside the text is assigned a greyscale value via
-    // bilinear interpolation of the MESH_GRID control points.
-    function drawMeshGradientPreview(canvasW, canvasH) {
-      gradientCanvas.width  = canvasW;
-      gradientCanvas.height = canvasH;
-
-      // Read text mask pixel data
-      const maskData = ctx.getImageData(0, 0, canvasW, canvasH);
-      const imgData  = gCtx.createImageData(canvasW, canvasH);
-
-      for (let py = 0; py < canvasH; py++) {
-        for (let px = 0; px < canvasW; px++) {
-          const i = (py * canvasW + px) * 4;
-
-          // Determine if pixel is inside the text shape
-          const maskBrightness = (maskData.data[i] + maskData.data[i+1] + maskData.data[i+2]) / 3;
-
-          if (maskBrightness >= THRESHOLD) {
-            // Outside text — fill with page background colour
-            imgData.data[i]   = 249; // #f9f9f9
-            imgData.data[i+1] = 249;
-            imgData.data[i+2] = 249;
-            imgData.data[i+3] = 255;
-            continue;
-          }
-
-          // Inside text — bilinear interpolation of the mesh gradient grid
-          // Map pixel position to grid coordinates
-          const gx = (px / canvasW) * MESH_COLS;
-          const gy = (py / canvasH) * MESH_ROWS;
-
-          const c0 = Math.min(Math.floor(gx), MESH_COLS - 1);
-          const r0 = Math.min(Math.floor(gy), MESH_ROWS - 1);
-          const c1 = c0 + 1;
-          const r1 = r0 + 1;
-
-          // Fractional position within the current cell
-          const tx = gx - c0;
-          const ty = gy - r0;
-
-          // Bilinear interpolation between the four surrounding control points
-          const value = Math.round(
-            MESH_GRID[r0][c0] * (1 - tx) * (1 - ty) +
-            MESH_GRID[r0][c1] * tx       * (1 - ty) +
-            MESH_GRID[r1][c0] * (1 - tx) * ty       +
-            MESH_GRID[r1][c1] * tx       * ty
-          );
-
-          imgData.data[i]   = value;
-          imgData.data[i+1] = value;
-          imgData.data[i+2] = value;
-          imgData.data[i+3] = 255;
-        }
-      }
-
-      gCtx.putImageData(imgData, 0, 0);
-    }
-
-    // Samples the gradient canvas pixel grid and returns SVG <use> clone elements.
-    // Pixel brightness drives dot radius: black (0) → MAX_RADIUS, grey (204) → MIN_RADIUS.
-    function samplePixelsToClones(canvasW, canvasH) {
-      const imageData = gCtx.getImageData(0, 0, canvasW, canvasH);
-      const pixels    = imageData.data;
-      const ns        = 'http://www.w3.org/2000/svg';
-      const clones    = [];
-
-      // Background pixels are [249,249,249] — skip anything close to that
-      const BG_THRESHOLD = 245;
-
-      for (let y = DOT_SPACING / 2; y < canvasH; y += DOT_SPACING) {
-        for (let x = DOT_SPACING / 2; x < canvasW; x += DOT_SPACING) {
-          const i = (Math.floor(y) * canvasW + Math.floor(x)) * 4;
-          const brightness = (pixels[i] + pixels[i+1] + pixels[i+2]) / 3;
-
-          // Skip background pixels
-          if (brightness >= BG_THRESHOLD) continue;
-
-          // Map brightness (0–204) to darkness (1→0)
-          // Black (0)   → darkness 1 → MAX_RADIUS
-          // Grey  (204) → darkness 0 → MIN_RADIUS
-          const darkness = Math.max(0, 1 - brightness / 204);
-          const radius   = MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS);
-
-          // <use> clone: scale around origin then translate to grid position
-          const use = document.createElementNS(ns, 'use');
-          use.setAttribute('href', '#base-dot');
-          use.setAttribute('transform',
-            `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${radius.toFixed(2)})`
-          );
-          clones.push(use);
-        }
-      }
-
-      return clones;
-    }
-
-    // Main generation function — called on every text change.
-    function generate() {
-      const text = textInput.innerText.trim();
-
-      if (!text) {
-        clearOutputs();
-        return;
-      }
-
-      // Étape 2a — render solid text mask to hidden canvas
-      const { canvasW, canvasH } = renderTextMask(text);
-
-      // Étape 2b — draw bilinear mesh gradient clipped to text shape
-      drawMeshGradientPreview(canvasW, canvasH);
-
-      // Étape 3 — resize output SVG to match
-      outputSvg.setAttribute('width',   canvasW);
-      outputSvg.setAttribute('height',  canvasH);
-      outputSvg.setAttribute('viewBox', `0 0 ${canvasW} ${canvasH}`);
-
-      // Remove previous dots, keep <defs> (always first child)
-      while (outputSvg.children.length > 1) {
-        outputSvg.removeChild(outputSvg.lastChild);
-      }
-
-      // Background rect preserved in SVG export
-      const ns = 'http://www.w3.org/2000/svg';
-      const bg = document.createElementNS(ns, 'rect');
-      bg.setAttribute('width',  canvasW);
-      bg.setAttribute('height', canvasH);
-      bg.setAttribute('fill',   '#f9f9f9');
-      outputSvg.appendChild(bg);
-
-      // Sample gradient canvas and append dot clones to SVG
-      const clones = samplePixelsToClones(canvasW, canvasH);
-      clones.forEach(use => outputSvg.appendChild(use));
-    }
-
-    // Resets all outputs to empty state
-    function clearOutputs() {
-      gradientCanvas.width  = 0;
-      gradientCanvas.height = 0;
-      outputSvg.setAttribute('width',  0);
-      outputSvg.setAttribute('height', 0);
-      while (outputSvg.children.length > 1) {
-        outputSvg.removeChild(outputSvg.lastChild);
-      }
-    }
-
-    // Serializes étape 3 dot SVG and triggers a .svg file download
-    function exportSVG() {
-      const serializer = new XMLSerializer();
-      const svgStr = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        + serializer.serializeToString(outputSvg);
-
-      const blob = new Blob([svgStr], { type: 'image/svg+xml' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = 'dottfont.svg';
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    // --- Event bindings ---
-
-    // Debounced regeneration on text input
-    textInput.addEventListener('input', () => {
-      clearTimeout(textInput._debounce);
-      textInput._debounce = setTimeout(generate, 180);
-    });
-
-    exportBtn.addEventListener('click', exportSVG);
-
-    // Initial render once DINish font is loaded
-    document.fonts.ready.then(() => generate());
-  </script>
+  <script src="js/script-generator_DottFont.js"></script>
 
 </body>
 </html>

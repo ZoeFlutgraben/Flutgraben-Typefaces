@@ -1,0 +1,16 @@
+----------------------------------------------------------------------------
+<div id="top-panel"> | <div id="stage-output">
+etape 1 - texte            |
+etape 2 - Gradient      |
+Forme                           |
+Taille                             |
+Taille-Generation       |
+Presence                      |
+                                       |
+Exporter svg                |
+                                       |
+                                       |
+-------------------------------------------------------------------------------
+
+->style                              ->style  width :80 %
+width : 20%
