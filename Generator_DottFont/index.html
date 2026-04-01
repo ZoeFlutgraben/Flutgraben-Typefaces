@@ -30,7 +30,7 @@
 
     <!-- FORME — shape selector -->
     <div id="shape-selector">
-      <span class="step-label">forme</span>
+      <!-- <span class="step-label">forme</span> -->
       <div class="shape-btns">
 
         <!-- Circle — clone/circle.svg -->
@@ -69,30 +69,30 @@
       </div>
     </div>
 
-    <!-- TAILLE — dot radius only -->
-    <div class="slider-row">
-      <label for="size-slider">taille</label>
-      <input type="range" id="size-slider" min="0.25" max="3" step="0.05" value="1" />
-      <span id="size-value">1.00</span>
-    </div>
-
     <!-- TAILLE-GENERATION — dot radius + spacing -->
     <div class="slider-row">
-      <label for="taille-generation-slider">taille-generation</label>
+      <label for="taille-generation-slider">Size pregeneration</label>
       <input type="range" id="taille-generation-slider" min="0.25" max="3" step="0.05" value="1" />
       <span id="taille-generation-value">1.00</span>
     </div>
 
+    <!-- TAILLE — dot radius only -->
+    <div class="slider-row">
+      <label for="size-slider">Size postgeneration</label>
+      <input type="range" id="size-slider" min="0.25" max="3" step="0.05" value="1" />
+      <span id="size-value">1.00</span>
+    </div>
+
     <!-- PRÉSENCE — probabilistic dot filter -->
     <div class="slider-row">
-      <label for="presence-slider">présence</label>
+      <label for="presence-slider">Hazard</label>
       <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
       <span id="presence-value">0.5</span>
     </div>
 
     <!-- EXPORT -->
     <button id="export-btn">Télécharger SVG</button>
-    <button id="export-otf-btn">Exporter OTF</button>
+    <button id="export-otf-btn">Exporter OTF (in progress)</button>
 
   </div>
 
@@ -119,6 +119,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
   <script src="js/script-generator_DottFont.js"></script>
+  <script src="js/export-otf.js"></script>
 
 </body>
 </html>

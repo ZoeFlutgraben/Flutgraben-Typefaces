@@ -1,0 +1,5 @@
+const c = document.getElementById('hidden-canvas');
+  const x = c.getContext('2d');
+  x.font = '700 150px DINish, sans-serif';
+  console.log(x.measureText('H').fontBoundingBoxAscent);
+32.421052631578945
