@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DottFont Generator</title>
-
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -12,43 +11,48 @@
   <!-- ===================== LEFT PANEL — controls sidebar ===================== -->
   <div id="top-panel">
 
-    <!-- ÉTAPE 1 — contenteditable div with DINish -->
+    <!-- STEP 1 — contenteditable div with DINish -->
     <div class="stage">
-      <!-- <span class="step-label">étape 1 — texte</span> -->
+      <!-- <span class="step-label">step 1 — text</span> -->
       <div class="panel">
         <div id="text-input" contenteditable="true" spellcheck="false">Text</div>
       </div>
     </div>
 
-    <!-- ÉTAPE 2 — bilinear mesh gradient clipped to text shape -->
+    <!-- STEP 2 — bilinear mesh gradient clipped to text shape -->
     <div class="stage" id="stage-gradient">
-      <!-- <span class="step-label">étape 2 — gradient</span> -->
+      <!-- <span class="step-label">step 2 — gradient</span> -->
       <div id="panel-gradient">
         <canvas id="gradient-canvas"></canvas>
       </div>
     </div>
 
-    <!-- FORME — shape selector -->
+    <!-- STEP 3 — gray expanded contour behind the dots -->
+    <div class="stage" id="stage-contour">
+      <!-- <span class="step-label">step 3 — contour</span> -->
+      <div id="panel-contour">
+        <canvas id="contour-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- SHAPE — selector -->
     <div id="shape-selector">
-      <!-- <span class="step-label">forme</span> -->
+      <!-- <span class="step-label">shape</span> -->
       <div class="shape-btns">
 
-        <!-- Circle — clone/circle.svg -->
-        <button class="shape-btn active" data-shape="circle" title="Cercle">
+        <button class="shape-btn active" data-shape="circle" title="Circle">
           <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
             <circle cx="1" cy="1" r="1" fill="#000000" />
           </svg>
         </button>
 
-        <!-- Square — clone/pink_square.svg -->
-        <button class="shape-btn" data-shape="square" title="Carré">
+        <button class="shape-btn" data-shape="square" title="Square">
           <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
             <rect x="0" y="0" width="2" height="2" fill="#ff00ff" />
           </svg>
         </button>
 
-        <!-- Star — clone/stars.svg -->
-        <button class="shape-btn" data-shape="star" title="Étoile">
+        <button class="shape-btn" data-shape="star" title="Star">
           <svg viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
             <g transform="translate(-11.617356,-28.396201)">
               <path
@@ -59,31 +63,45 @@
           </svg>
         </button>
 
-        <!-- Dark blue circle — clone/darkblue_circle.svg -->
-        <button class="shape-btn" data-shape="darkblue_circle" title="Cercle bleu">
+        <button class="shape-btn" data-shape="darkblue_circle" title="Dark blue circle">
           <svg viewBox="0 0 0.957 0.957" xmlns="http://www.w3.org/2000/svg">
             <circle cx="0.4785" cy="0.4785" r="0.4785" fill="#000080" />
+          </svg>
+        </button>
+
+        <button class="shape-btn" data-shape="heart" title="Heart">
+          <svg viewBox="0 0 645.279 594.865" xmlns="http://www.w3.org/2000/svg">
+            <g transform="translate(-84.87675,-120.82183)">
+              <path fill-rule="evenodd" d="m 408,223.824 c 68.78,-122.491 204.625,-121.543 272.12,-59.585 67.493,61.957 66.635,184.922 -2.147,307.413 C 629.783,563.545 506.877,654.916 404.565,715.687 303.111,653.493 181.493,560.415 134.591,467.859 67.5267,344.42 68.3853,221.453 136.737,160.445 205.089,99.4373 340.935,100.385 408,223.824 Z" fill="#000000"/>
+            </g>
           </svg>
         </button>
 
       </div>
     </div>
 
-    <!-- TAILLE-GENERATION — dot radius + spacing -->
+    <!-- SIZE PREGENERATION — scales dot radius and grid spacing together -->
     <div class="slider-row">
       <label for="taille-generation-slider">Size pregeneration</label>
       <input type="range" id="taille-generation-slider" min="0.25" max="3" step="0.05" value="1" />
       <span id="taille-generation-value">1.00</span>
     </div>
 
-    <!-- TAILLE — dot radius only -->
+    <!-- SIZE POSTGENERATION — scales dot radius only -->
     <div class="slider-row">
       <label for="size-slider">Size postgeneration</label>
       <input type="range" id="size-slider" min="0.25" max="3" step="0.05" value="1" />
       <span id="size-value">1.00</span>
     </div>
 
-    <!-- PRÉSENCE — probabilistic dot filter -->
+    <!-- CONTOUR — outset amount for the gray expanded silhouette -->
+    <div class="slider-row">
+      <label for="outset-slider">Contour</label>
+      <input type="range" id="outset-slider" min="0" max="30" step="1" value="8" />
+      <span id="outset-value">8</span>
+    </div>
+
+    <!-- PRESENCE — probabilistic dot filter -->
     <div class="slider-row">
       <label for="presence-slider">Hazard</label>
       <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />

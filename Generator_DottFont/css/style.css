@@ -76,6 +76,7 @@ body {
 /* === Shared small-caps label typography (DINish 700 10px uppercase) === */
 .step-label,
 .slider-row label,
+#outset-value,
 #presence-value,
 #size-value,
 #taille-generation-value,
@@ -108,6 +109,18 @@ body {
 
 /* Canvas scales to panel height, width follows aspect ratio */
 #gradient-canvas {
+  display: block;
+  height: 100%;
+  width: auto;
+}
+
+/* Contour panel height matches étape 1 and étape 2 via shared token */
+#panel-contour {
+  height: var(--panel-height);
+}
+
+/* Canvas scales to panel height, width follows aspect ratio */
+#contour-canvas {
   display: block;
   height: 100%;
   width: auto;
@@ -191,6 +204,7 @@ body {
   min-width: 80px;
 }
 
+#outset-slider,
 #presence-slider,
 #size-slider,
 #taille-generation-slider {
@@ -203,6 +217,7 @@ body {
   cursor: pointer;
 }
 
+#outset-slider::-webkit-slider-thumb,
 #presence-slider::-webkit-slider-thumb,
 #size-slider::-webkit-slider-thumb,
 #taille-generation-slider::-webkit-slider-thumb {
@@ -215,6 +230,7 @@ body {
   cursor: pointer;
 }
 
+#outset-slider::-moz-range-thumb,
 #presence-slider::-moz-range-thumb,
 #size-slider::-moz-range-thumb,
 #taille-generation-slider::-moz-range-thumb {
@@ -226,6 +242,7 @@ body {
   cursor: pointer;
 }
 
+#outset-value,
 #presence-value,
 #size-value,
 #taille-generation-value {

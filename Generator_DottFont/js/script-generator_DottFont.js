@@ -14,9 +14,12 @@
 const textInput              = document.getElementById('text-input');
 const gradientCanvas         = document.getElementById('gradient-canvas');
 const gCtx                   = gradientCanvas.getContext('2d');
+const contourCanvas          = document.getElementById('contour-canvas');
 const outputSvg              = document.getElementById('output');
 const hiddenCanvas           = document.getElementById('hidden-canvas');
 const exportBtn              = document.getElementById('export-btn');
+const outsetSlider           = document.getElementById('outset-slider');
+const outsetValue            = document.getElementById('outset-value');
 const presenceSlider         = document.getElementById('presence-slider');
 const presenceValue          = document.getElementById('presence-value');
 const sizeSlider             = document.getElementById('size-slider');
@@ -24,6 +27,12 @@ const sizeValue              = document.getElementById('size-value');
 const tailleGenerationSlider = document.getElementById('taille-generation-slider');
 const tailleGenerationValue  = document.getElementById('taille-generation-value');
 const ctx                    = hiddenCanvas.getContext('2d');
+
+// Outset radius — controls how far the gray contour expands beyond the text shape
+let outsetRadius = parseInt(outsetSlider.value, 10);
+
+// Current text — stored so generateDots can insert the gray contour element
+let currentText = '';
 
 // Presence strength — controls dot disappearance (0 = all present, 1 = dark zones only)
 let presenceStrength = parseFloat(presenceSlider.value);
@@ -112,6 +121,8 @@ function updateBaseShape(shapeKey) {
 }
 
 // Renders the text to the hidden canvas as a solid black mask on white.
+// Also computes a Gaussian-blurred version of the mask for outset zone sampling:
+// the blur naturally creates a gray gradient around the text that drives small dots.
 // Canvas dimensions adapt to the measured text width.
 function renderTextMask(text) {
   const fontSpec = `700 ${FONT_SIZE}px DINish, sans-serif`;
@@ -132,12 +143,58 @@ function renderTextMask(text) {
   ctx.textBaseline = 'top';
   ctx.fillText(text, PADDING, PADDING);
 
-  return { canvasW, canvasH };
+  // Compute blurred version for outset zone: blur(r px) creates a gray halo
+  // around the text — dark near the edge, fading to white at outsetRadius distance
+  let blurData = null;
+  if (outsetRadius > 0) {
+    const blurCanvas = document.createElement('canvas');
+    blurCanvas.width  = canvasW;
+    blurCanvas.height = canvasH;
+    const blurCtx = blurCanvas.getContext('2d');
+    blurCtx.filter = `blur(${outsetRadius}px)`;
+    blurCtx.drawImage(hiddenCanvas, 0, 0);
+    blurData = blurCtx.getImageData(0, 0, canvasW, canvasH);
+  }
+
+  return { canvasW, canvasH, blurData };
+}
+
+// Draws the step 3 contour preview canvas.
+// Shows the Gaussian-blurred mask directly as a grayscale image:
+// dark = text interior (large dots), gray gradient = outset halo (small dots), white = background.
+// Parameters: canvasW/H — dimensions; blurData — blurred mask ImageData (null if outsetRadius = 0).
+function drawContourPreview(canvasW, canvasH, blurData) {
+  contourCanvas.width  = canvasW;
+  contourCanvas.height = canvasH;
+  const cCtx = contourCanvas.getContext('2d');
+
+  if (!blurData) {
+    // No outset — show plain background
+    cCtx.fillStyle = '#f9f9f9';
+    cCtx.fillRect(0, 0, canvasW, canvasH);
+    return;
+  }
+
+  // Render blurred mask as grayscale: the gradient from black to white around the
+  // text edges directly represents the sampling zone for outset dots
+  const preview = cCtx.createImageData(canvasW, canvasH);
+  for (let i = 0; i < blurData.data.length; i += 4) {
+    const gray = blurData.data[i]; // source is already grayscale (black text on white)
+    preview.data[i]   = gray;
+    preview.data[i+1] = gray;
+    preview.data[i+2] = gray;
+    preview.data[i+3] = 255;
+  }
+  cCtx.putImageData(preview, 0, 0);
 }
 
 // Draws the bilinear mesh gradient onto the visible gradient canvas,
 // clipped to the text shape from the hidden canvas mask.
-function drawMeshGradientPreview(canvasW, canvasH) {
+// If blurData is provided, also fills the outset zone (pixels outside the text but
+// inside the blurred halo) with a gray value proportional to blur darkness —
+// darker near the text edge, lighter at the outset boundary.
+// This extends the sampling zone so dots appear at the edges but get smaller/sparser.
+function drawMeshGradientPreview(canvasW, canvasH, blurData) {
   gradientCanvas.width  = canvasW;
   gradientCanvas.height = canvasH;
 
@@ -150,6 +207,22 @@ function drawMeshGradientPreview(canvasW, canvasH) {
       const maskBrightness = (maskData.data[i] + maskData.data[i+1] + maskData.data[i+2]) / 3;
 
       if (maskBrightness >= THRESHOLD) {
+        // Background pixel — check blurred mask for outset zone
+        if (blurData) {
+          const blurBrightness = (blurData.data[i] + blurData.data[i+1] + blurData.data[i+2]) / 3;
+          if (blurBrightness < THRESHOLD) {
+            // Outset zone: map blur brightness (0=near edge, ~240=far edge)
+            // to dot-driving gray range 120–200 (inner edge = smaller but present dots,
+            // outer edge = very small sparse dots)
+            const outsetGray = Math.round(120 + (blurBrightness / THRESHOLD) * 80);
+            imgData.data[i]   = outsetGray;
+            imgData.data[i+1] = outsetGray;
+            imgData.data[i+2] = outsetGray;
+            imgData.data[i+3] = 255;
+            continue;
+          }
+        }
+        // True background
         imgData.data[i]   = 249;
         imgData.data[i+1] = 249;
         imgData.data[i+2] = 249;
@@ -234,6 +307,9 @@ function samplePixelsToClones(canvasW, canvasH) {
 function generate() {
   const text = textInput.innerText.trim();
 
+  // Store for use by generateDots when called from sliders
+  currentText = text;
+
   if (!text) {
     clearOutputs();
     return;
@@ -242,22 +318,26 @@ function generate() {
   // Update the base clone shape in SVG defs
   updateBaseShape(currentShape);
 
-  // Étape 2a — render solid text mask to hidden canvas
-  const { canvasW, canvasH } = renderTextMask(text);
+  // Étape 2a — render solid text mask + blurred halo for outset zone
+  const { canvasW, canvasH, blurData } = renderTextMask(text);
 
-  // Étape 2b — draw bilinear mesh gradient clipped to text shape
-  drawMeshGradientPreview(canvasW, canvasH);
+  // Étape 2b — draw mesh gradient (extended into outset zone if blurData present)
+  drawMeshGradientPreview(canvasW, canvasH, blurData);
 
-  // Store dimensions so the presence slider can regenerate dots without re-running the pipeline
+  // Étape 3 — show blurred mask as preview (visualises the outset sampling zone)
+  drawContourPreview(canvasW, canvasH, blurData);
+
+  // Store dimensions so sliders can regenerate without re-running the full pipeline
   lastCanvasW = canvasW;
   lastCanvasH = canvasH;
 
-  // Étape 3 — sample gradient canvas and place dot clones into output SVG
+  // Sample gradient canvas and place dot clones into output SVG
   generateDots(canvasW, canvasH);
 }
 
-// Regenerates dot clones only — called by the presence slider to avoid re-running
+// Regenerates dot clones — called by presence/size sliders to avoid re-running
 // the full text mask and gradient pipeline.
+// The outset zone is already baked into the gradient canvas by drawMeshGradientPreview.
 function generateDots(canvasW, canvasH) {
   const ns = 'http://www.w3.org/2000/svg';
 
@@ -285,6 +365,8 @@ function generateDots(canvasW, canvasH) {
 function clearOutputs() {
   gradientCanvas.width  = 0;
   gradientCanvas.height = 0;
+  contourCanvas.width   = 0;
+  contourCanvas.height  = 0;
   outputSvg.setAttribute('width',  0);
   outputSvg.setAttribute('height', 0);
   while (outputSvg.children.length > 1) {
@@ -308,6 +390,13 @@ document.querySelectorAll('.shape-btn').forEach(btn => {
 textInput.addEventListener('input', () => {
   clearTimeout(textInput._debounce);
   textInput._debounce = setTimeout(generate, 180);
+});
+
+// Outset slider — re-runs the full pipeline since the blur radius changes the mask and gradient
+outsetSlider.addEventListener('input', () => {
+  outsetRadius = parseInt(outsetSlider.value, 10);
+  outsetValue.textContent = outsetRadius;
+  generate();
 });
 
 // Presence slider — regenerates dots only, no full pipeline re-run
