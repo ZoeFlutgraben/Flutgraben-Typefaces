@@ -1,0 +1,136 @@
+============================================================
+EXPORT OTF — HISTORIQUE DES TRAVAUX
+Session du 03/04/2026
+============================================================
+
+------------------------------------------------------------
+CONTEXTE DE DÉPART
+------------------------------------------------------------
+Projet : DottFont Generator (HTML + CSS + vanilla JS)
+Outil  : Generator_DottFont/index.html
+Script : Generator_DottFont/js/export-otf.js
+Données: Generator_DottFont/source_export_otf/dinish-bold-metrics.json
+
+L'export-otf.js existait déjà avec :
+- Charset hardcodé : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.:?,;!'
+- ADVANCE_WIDTHS hardcodés (ex. A:620, B:612, etc.)
+- ASCENDER/DESCENDER calculés depuis le canvas (fontBoundingBoxAscent)
+- UPM = 1024 (hardcodé)
+
+Le fichier dinish-bold-metrics.json était vide au départ,
+puis rempli avec les métriques DINish Bold extraites du UFO :
+- fontMetrics : ascender=1050, descender=-248, capHeight=707, xHeight=539
+- units.upm = 1024
+- glyphs : pour l'instant seulement "A" et "a" (avec advanceWidth, lsb, rsb, bbox)
+
+
+------------------------------------------------------------
+ÉTAPE 1 — PASSAGE AU JSON + FETCH
+------------------------------------------------------------
+Problème : ADVANCE_WIDTHS et métriques hardcodés, pas de lien avec le JSON.
+
+Solution appliquée :
+- exportOTF() rendue async
+- Ajout d'un fetch('source_export_otf/dinish-bold-metrics.json') au début
+- CHARSET construit dynamiquement depuis Object.keys(metrics.glyphs)
+  → seuls les caractères présents dans le JSON sont exportés
+  → pour l'instant : ["A", "a"]
+- UPM, ASCENDER, DESCENDER lus depuis le JSON
+- advanceWidth par glyphe lu depuis metrics.glyphs[char].advanceWidth
+- Gestion d'erreur si le JSON ne charge pas
+- BASELINE_Y conservé en mesure canvas (pas encore corrigé)
+
+Note : fetch() nécessite un serveur HTTP. Fonctionne avec :
+  python -m http.server (local)
+  Mise en ligne (GitHub Pages, Vercel, etc.)
+  Ne fonctionne PAS en ouvrant le fichier directement (file://)
+
+
+------------------------------------------------------------
+ÉTAPE 2 — DIAGNOSTIC DES PROBLÈMES D'ALIGNEMENT (test03)
+------------------------------------------------------------
+Fichiers de référence : correction-otf/04-03_test03/
+
+Problèmes identifiés par comparaison rendu navigateur vs OTF dans FontLab :
+
+1. GLYPHES FLOTTANT +211 UNITÉS AU-DESSUS DU BASELINE
+   - 'A' : attendu [0, 707], obtenu [~211, ~918]
+   - 'a' : attendu [0, 539], obtenu [~211, ~750]
+   - BBox bottom = 211 au lieu de 0
+   - BBox top = 933 au lieu de ~707
+   Cause : BASELINE_Y mal calculé (voir étape 3)
+
+2. CONTOURS SUPERPOSÉS
+   - Chaque cercle = 1 contour fermé indépendant
+   - Ils se chevauchent tous dans le fichier OTF
+   - Visuellement correct dans la plupart des renderers
+   - Peut poser problème avec certains fill rules (PDF, imposition)
+   - Non corrigé pour l'instant (problème cosmétique/technique secondaire)
+
+Ce qui fonctionnait :
+   - Forme des glyphes correcte (a et A reconnaissables)
+   - Advance widths corrects (A=620, a=513)
+   - Métriques OTF correctes (UPM=1024, Ascender=1050, Descender=-248)
+   - Fichier OTF valide et lisible par FontLab
+
+
+------------------------------------------------------------
+ÉTAPE 3 — TENTATIVES DE CORRECTION DE BASELINE_Y
+------------------------------------------------------------
+
+Le problème central : trouver la position Y (en pixels canvas) du baseline
+alphabétique quand le texte est rendu avec textBaseline='top' à y=PADDING.
+
+renderTextMask() dessine ainsi :
+  ctx.textBaseline = 'top';
+  ctx.fillText(text, PADDING, PADDING);  // PADDING = 30px, FONT_SIZE = 150px
+
+TENTATIVE A — fontBoundingBoxAscent avec textBaseline='alphabetic' (code initial)
+  BASELINE_Y = PADDING + fontBoundingBoxAscent('H', textBaseline='alphabetic')
+  Résultat : glyphes +211 unités au-dessus du baseline (BBox bottom = 211)
+  Raison de l'échec : fontBoundingBoxAscent retourne l'ascender du font entier
+  (~1050/1024 * 150 ≈ 153px), pas la distance entre le point 'top' et le baseline réel.
+
+TENTATIVE B — alphabeticBaseline avec textBaseline='top'
+  BASELINE_Y = PADDING + alphabeticBaseline('H', textBaseline='top')
+  Résultat : glyphes décalés dans les valeurs négatives (en dessous du baseline)
+  Testé sur Chrome ET Firefox avec le même résultat.
+  Raison de l'échec : la spec Canvas utilise la convention "positif = vers le haut".
+  Avec textBaseline='top', le baseline est EN DESSOUS du point de référence,
+  donc alphabeticBaseline retourne une valeur NÉGATIVE dans Chrome/Firefox.
+  → BASELINE_Y = PADDING + (valeur négative) = trop petit → glyphes trop bas.
+
+TENTATIVE C — actualBoundingBoxDescent de 'A' avec textBaseline='top' (en cours)
+  BASELINE_Y = PADDING + actualBoundingBoxDescent('A', textBaseline='top')
+  Principe : 'A' a yMin=0 (touche exactement le baseline alphabétique).
+  Sa descente depuis le point 'top' = distance de 'top' au baseline.
+  actualBoundingBoxDescent est toujours positif (convention CSS, downward positive).
+  → Valeur cross-browser stable.
+  Résultat : À TESTER (état actuel du code)
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (export-otf.js)
+------------------------------------------------------------
+
+Charset    : dynamique depuis JSON (actuellement "A" et "a")
+Métriques  : UPM, ascender, descender depuis JSON
+Advance W  : depuis JSON par glyphe
+BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top')
+SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+Coord map  : fontX = (canvasX - PADDING) * SCALE
+             fontY = (BASELINE_Y - canvasY) * SCALE
+
+------------------------------------------------------------
+PROCHAINES ÉTAPES
+------------------------------------------------------------
+
+[ ] Valider la tentative C (actualBoundingBoxDescent) — BBox bottom ≈ 0 ?
+[ ] Si OK : compléter le JSON avec tous les glyphes du charset
+    (A-Z uppercase, 0-9, . ? : , ; !)
+    → lire les fichiers .glif du UFO DINish-Bold.ufo/glyphs/
+    → extraire advanceWidth, lsb, rsb, bbox pour chaque caractère
+[ ] Ajouter les minuscules au charset si souhaité
+[ ] Traiter le problème des contours superposés (si nécessaire)
+
+============================================================

@@ -1,0 +1,71 @@
+{
+  "font": {
+    "family": "DINish",
+    "style": "Bold",
+    "source": "DINish-Bold.ufo"
+  },
+  "units": {
+    "upm": 1024,
+    "note": "Toutes les valeurs brutes sont en font units (÷ UPM pour normaliser en em)"
+  },
+  "fontMetrics": {
+    "ascender": 1050,
+    "descender": -248,
+    "lineGap": 0,
+    "capHeight": 707,
+    "xHeight": 539,
+    "bboxTop": 875,
+    "bboxBottom": -227,
+    "normalized": {
+      "ascender": 1.0254,
+      "descender": -0.2422,
+      "lineGap": 0,
+      "capHeight": 0.6904,
+      "xHeight": 0.5264
+    }
+  },
+  "otfTables": {
+    "OS2": {
+      "sTypoAscender": 1050,
+      "sTypoDescender": -248,
+      "sTypoLineGap": 0,
+      "usWinAscent": 1050,
+      "usWinDescent": 248,
+      "sxHeight": 539,
+      "sCapHeight": 707
+    },
+    "hhea": {
+      "ascender": 1050,
+      "descender": -248,
+      "lineGap": 0
+    },
+    "head": {
+      "unitsPerEm": 1024,
+      "yMin": -227,
+      "yMax": 875
+    }
+  },
+  "cssFontFace": {
+    "ascentOverride": "102.54%",
+    "descentOverride": "24.22%",
+    "lineGapOverride": "0%"
+  },
+  "glyphs": {
+    "A": {
+      "unicode": "U+0041",
+      "advanceWidth": 620,
+      "lsb": 4,
+      "rsb": 4,
+      "inkWidth": 612,
+      "bbox": { "xMin": 4, "xMax": 616, "yMin": 0, "yMax": 707 }
+    },
+    "a": {
+      "unicode": "U+0061",
+      "advanceWidth": 513,
+      "lsb": 37,
+      "rsb": 55,
+      "inkWidth": 421,
+      "bbox": { "xMin": 37, "xMax": 458, "yMin": 0, "yMax": 539 }
+    }
+  }
+}

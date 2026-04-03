@@ -26,6 +26,9 @@
   src: url('../DINish/DINish-Bold.woff') format('woff');
   font-weight: 700;
   font-style: normal;
+  ascent-override:   102.54%;   /* 1050 / 1024 */
+  descent-override:  24.22%;    /* 248  / 1024 */
+  line-gap-override: 0%;
 }
 
 /* === Reset === */
