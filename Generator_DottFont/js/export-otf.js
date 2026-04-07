@@ -48,6 +48,56 @@ function addSquareToPath(path, cx, cy, halfSize) {
   path.close();
 }
 
+// Appends an ellipse to an opentype.js Path.
+// Same logic as addCircleToPath but with independent rx and ry.
+// From ellipse.svg viewBox (2 × 2.75): the square <use> bounding box constrains
+// the taller axis, so ry = fr and rx = fr × (2 / 2.75).
+function addEllipseToPath(path, cx, cy, rx, ry) {
+  const kx = 0.5523 * rx;
+  const ky = 0.5523 * ry;
+  path.moveTo(cx,       cy + ry);
+  path.curveTo(cx + kx, cy + ry,  cx + rx, cy + ky,  cx + rx, cy);
+  path.curveTo(cx + rx, cy - ky,  cx + kx, cy - ry,  cx,      cy - ry);
+  path.curveTo(cx - kx, cy - ry,  cx - rx, cy - ky,  cx - rx, cy);
+  path.curveTo(cx - rx, cy + ky,  cx - kx, cy + ry,  cx,      cy + ry);
+  path.close();
+}
+
+// Appends a horizontal pill (stadium) shape to an opentype.js Path.
+// From trait.svg viewBox (3.614 × 1.7): halfW = fr, halfH = fr × (1.7 / 3.614).
+// Corner radius equals halfH, making perfect semicircles at each end.
+function addTraitToPath(path, cx, cy, halfW, halfH) {
+  const kh = 0.5523 * halfH;
+  const rx = halfW - halfH;
+  path.moveTo(cx - rx,       cy + halfH);
+  path.lineTo(cx + rx,       cy + halfH);
+  path.curveTo(cx + rx + kh, cy + halfH,  cx + halfW, cy + kh,  cx + halfW, cy);
+  path.curveTo(cx + halfW,   cy - kh,     cx + rx + kh, cy - halfH, cx + rx, cy - halfH);
+  path.lineTo(cx - rx,       cy - halfH);
+  path.curveTo(cx - rx - kh, cy - halfH,  cx - halfW, cy - kh,  cx - halfW, cy);
+  path.curveTo(cx - halfW,   cy + kh,     cx - rx - kh, cy + halfH, cx - rx, cy + halfH);
+  path.close();
+}
+
+// Appends a ring (donut) to an opentype.js Path.
+// Outer circle CW + inner circle CCW → hole via non-zero winding rule (CFF/OTF).
+// From circle_outline.svg viewBox (2.314 × 2.314): outerR = fr, innerR = fr × (0.758 / 1.157).
+function addCircleOutlineToPath(path, cx, cy, outerR, innerR) {
+  const k = 0.5523;
+  path.moveTo(cx,             cy + outerR);
+  path.curveTo(cx + k*outerR, cy + outerR,  cx + outerR, cy + k*outerR,  cx + outerR, cy);
+  path.curveTo(cx + outerR,   cy - k*outerR, cx + k*outerR, cy - outerR, cx,          cy - outerR);
+  path.curveTo(cx - k*outerR, cy - outerR,  cx - outerR, cy - k*outerR,  cx - outerR, cy);
+  path.curveTo(cx - outerR,   cy + k*outerR, cx - k*outerR, cy + outerR, cx,          cy + outerR);
+  path.close();
+  path.moveTo(cx,             cy + innerR);
+  path.curveTo(cx - k*innerR, cy + innerR,  cx - innerR, cy + k*innerR,  cx - innerR, cy);
+  path.curveTo(cx - innerR,   cy - k*innerR, cx - k*innerR, cy - innerR, cx,          cy - innerR);
+  path.curveTo(cx + k*innerR, cy - innerR,  cx + innerR, cy - k*innerR,  cx + innerR, cy);
+  path.curveTo(cx + innerR,   cy + k*innerR, cx + k*innerR, cy + innerR, cx,          cy + innerR);
+  path.close();
+}
+
 // Builds and downloads an OTF font for all characters defined in
 // dinish-bold-metrics.json. Font metrics and advance widths come from
 // the JSON; BASELINE_Y is measured from the canvas at runtime.
@@ -117,7 +167,9 @@ async function exportOTF() {
   for (const char of CHARSET) {
     // Run the full render pipeline for this single character
     const { canvasW, canvasH } = renderTextMask(char);
-    drawMeshGradientPreview(canvasW, canvasH);
+    // Pass canvasH as refWidth so the gradient x-axis uses a fixed reference (FONT_SIZE + 2*PADDING)
+    // identical for every character, eliminating per-character gradient remapping and the resulting trembling.
+    drawMeshGradientPreview(canvasW, canvasH, undefined, canvasH);
 
     const step      = DOT_SPACING * tailleGenerationMultiplier;
     const imageData = gCtx.getImageData(0, 0, canvasW, canvasH);
@@ -137,15 +189,23 @@ async function exportOTF() {
         const darkness = Math.max(0, 1 - brightness / 204);
         const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * sizeMultiplier * tailleGenerationMultiplier;
 
-        // Map canvas px → font units, flipping Y axis
-        const fx = (x - PADDING) * SCALE;
-        const fy = (BASELINE_Y - y) * SCALE;
+        // Map canvas px → font units, flipping Y axis.
+        // Round cx/cy to integers to avoid float-to-int rounding drift in opentype.js:
+        // a non-integer step (e.g. 4.8px → 32.77 font units) would otherwise cause
+        // alternating 32/33-unit gaps, producing visible trembling in the exported OTF.
+        const fx = Math.round((x - PADDING) * SCALE);
+        const fy = Math.round((BASELINE_Y - y) * SCALE);
         const fr = radius * SCALE;
 
         if (currentShape === 'square') {
           addSquareToPath(path, fx, fy, fr);
+        } else if (currentShape === 'ellipse') {
+          addEllipseToPath(path, fx, fy, fr * (2 / 2.75), fr);
+        } else if (currentShape === 'trait') {
+          addTraitToPath(path, fx, fy, fr, fr * (1.7 / 3.614));
+        } else if (currentShape === 'circle_outline') {
+          addCircleOutlineToPath(path, fx, fy, fr, fr * (0.758 / 1.157));
         } else {
-          // circle, darkblue_circle, star → circle approximation
           addCircleToPath(path, fx, fy, fr);
         }
       }
@@ -161,11 +221,18 @@ async function exportOTF() {
   }
 
   const font = new opentype.Font({
-    familyName:  'DottFont',
-    styleName:   'Regular',
-    unitsPerEm:  UPM,
-    ascender:    ASCENDER,
-    descender:   DESCENDER,
+    familyName:     'DottFont',                                                          
+    styleName:      'Regular',                                                          
+    unitsPerEm:     UPM,
+    ascender:       ASCENDER,
+    descender:      DESCENDER,
+    copyright:      '© 2026 Zoé Berthelot',                                           
+    manufacturer:   'Flutgraben e.V.',                                                  
+    designer:       'Zoé Berthelot @Neutronzoo',                                                          
+    version:        'Version 1.000',                                                     
+    description:    'Generated with DottFont Generator',                                 
+    license:        'This Font Software is licensed under the SIL Open Font License, Version 1.1.', 
+    licenseURL:     'https://scripts.sil.org/OFL',                                       
     glyphs
   });
 
@@ -175,7 +242,7 @@ async function exportOTF() {
 
   // Restore the display to the current text input after processing
   generate();
-  exportOtfBtn.textContent = 'Exporter OTF';
+  exportOtfBtn.textContent = 'OTF';
   exportOtfBtn.disabled = false;
 }
 

@@ -1,0 +1,14 @@
+a faire:
+ajouter glyph
+verifier text metrics
+
+
+vf:
+modifier metadonnees export (  const font = new opentype.Font) 
+trouver nom
+
+fait:
+metadonnees export
+tremblement export
+non prise en charge de certaines formes lors de l'export
+ux design

@@ -4,13 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DottFont Generator</title>
+  <meta name="description" content="Dynamic Type Generator">
+  <meta name="keywords" content="HTML, CSS, JavaScript-opentype.js">
+  <meta name="author" content="Zoé Berthelot @Neutronzoo">
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-  <!-- ===================== LEFT PANEL — controls sidebar ===================== -->
-  <div id="top-panel">
-
+  <!-- ===================== LEFT PANEL — controls sidebar ===================== -->  
+    <div id="top-panel">
+      
     <!-- STEP 1 — contenteditable div with DINish -->
     <div class="stage">
       <!-- <span class="step-label">step 1 — text</span> -->
@@ -20,21 +23,22 @@
     </div>
 
     <!-- STEP 2 — bilinear mesh gradient clipped to text shape -->
-    <div class="stage" id="stage-gradient">
-      <!-- <span class="step-label">step 2 — gradient</span> -->
-      <div id="panel-gradient">
-        <canvas id="gradient-canvas"></canvas>
+    <div class="flex">
+      <div class="stage" id="stage-gradient">
+        <!-- <span class="step-label">step 2 — gradient</span> -->
+        <div id="panel-gradient">
+          <canvas id="gradient-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- STEP 3 — gray expanded contour behind the dots -->
+      <div class="stage" id="stage-contour">
+        <!-- <span class="step-label">step 3 — contour</span> -->
+        <div id="panel-contour">
+          <canvas id="contour-canvas"></canvas>
+        </div>
       </div>
     </div>
-
-    <!-- STEP 3 — gray expanded contour behind the dots -->
-    <div class="stage" id="stage-contour">
-      <!-- <span class="step-label">step 3 — contour</span> -->
-      <div id="panel-contour">
-        <canvas id="contour-canvas"></canvas>
-      </div>
-    </div>
-
     <!-- SHAPE — selector -->
     <div id="shape-selector">
       <!-- <span class="step-label">shape</span> -->
@@ -52,28 +56,21 @@
           </svg>
         </button>
 
-        <button class="shape-btn" data-shape="star" title="Star">
-          <svg viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
-            <g transform="translate(-11.617356,-28.396201)">
-              <path
-                transform="matrix(0.05547957,0,0,0.05547957,10.97283,26.820792)"
-                d="M 63.932803,100.12756 43.315212,85.252922 19.373414,93.80454 27.148851,69.599529 11.617356,49.472121 l 25.423076,-0.08488 14.342806,-20.99104 7.936888,24.152552 24.395836,7.154231 -20.517809,15.011979 z"
-                fill="#ffff00" />
-            </g>
+        <button class="shape-btn" data-shape="ellipse" title="Ellipse">
+          <svg viewBox="0 0 2 2.75" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="1" cy="1.375" rx="1" ry="1.375" fill="#000000" />
           </svg>
         </button>
 
-        <button class="shape-btn" data-shape="darkblue_circle" title="Dark blue circle">
-          <svg viewBox="0 0 0.957 0.957" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="0.4785" cy="0.4785" r="0.4785" fill="#000080" />
+        <button class="shape-btn" data-shape="trait" title="Trait">
+          <svg viewBox="0 0 3.614 1.7" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="3.614" height="1.7" rx="0.85" fill="#000000" />
           </svg>
         </button>
 
-        <button class="shape-btn" data-shape="heart" title="Heart">
-          <svg viewBox="0 0 645.279 594.865" xmlns="http://www.w3.org/2000/svg">
-            <g transform="translate(-84.87675,-120.82183)">
-              <path fill-rule="evenodd" d="m 408,223.824 c 68.78,-122.491 204.625,-121.543 272.12,-59.585 67.493,61.957 66.635,184.922 -2.147,307.413 C 629.783,563.545 506.877,654.916 404.565,715.687 303.111,653.493 181.493,560.415 134.591,467.859 67.5267,344.42 68.3853,221.453 136.737,160.445 205.089,99.4373 340.935,100.385 408,223.824 Z" fill="#000000"/>
-            </g>
+        <button class="shape-btn" data-shape="circle_outline" title="Circle outline">
+          <svg viewBox="0 0 2.314 2.314" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" fill="#000000" d="M 1.157,0 C 1.796,0 2.314,0.518 2.314,1.157 C 2.314,1.796 1.796,2.314 1.157,2.314 C 0.518,2.314 0,1.796 0,1.157 C 0,0.518 0.518,0 1.157,0 Z M 1.157,0.399 C 1.576,0.399 1.915,0.738 1.915,1.157 C 1.915,1.576 1.576,1.915 1.157,1.915 C 0.738,1.915 0.399,1.576 0.399,1.157 C 0.399,0.738 0.738,0.399 1.157,0.399 Z" />
           </svg>
         </button>
 
@@ -109,10 +106,18 @@
     </div>
 
     <!-- EXPORT -->
-    <button id="export-btn">Export to SVG ⬇</button>
-    <button id="export-otf-btn">Export to OTF (in progress) ⬇</button>
+    <div class="flex">
+      <span class="step-label">Export</span>
+      <button id="export-btn">SVG</button>
+      <button id="export-png-btn">PNG</button>
+      <button id="export-otf-btn">OTF</button>
+    </div>
 
   </div>
+
+  
+  
+
 
   <!-- ===================== RIGHT PANEL — dot output ===================== -->
   <div id="stage-output">

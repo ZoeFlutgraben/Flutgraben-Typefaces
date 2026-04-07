@@ -18,6 +18,7 @@ const contourCanvas          = document.getElementById('contour-canvas');
 const outputSvg              = document.getElementById('output');
 const hiddenCanvas           = document.getElementById('hidden-canvas');
 const exportBtn              = document.getElementById('export-btn');
+const exportPngBtn           = document.getElementById('export-png-btn');
 const outsetSlider           = document.getElementById('outset-slider');
 const outsetValue            = document.getElementById('outset-value');
 const presenceSlider         = document.getElementById('presence-slider');
@@ -74,26 +75,34 @@ for (let r = 0; r <= MESH_ROWS; r++) {
 // --- Shape definitions ---
 // Each shape maps to a <symbol> definition injected into the SVG defs.
 // viewBox normalises the coordinate space; content is the SVG markup inside.
+// Source files are in clone/ (active) and clone/archives/ (retired).
 const SHAPES = {
+  // Filled black circle — clone/circle.svg
   circle: {
     viewBox: '0 0 2 2',
     content: '<circle cx="1" cy="1" r="1" fill="#000000"/>'
   },
+  // Filled pink square — clone/pink_square.svg
   square: {
     viewBox: '0 0 2 2',
     content: '<rect x="0" y="0" width="2" height="2" fill="#ff00ff"/>'
   },
-  star: {
-    viewBox: '0 0 3.9999998 3.979625',
-    content: '<g transform="translate(-11.617356,-28.396201)"><path transform="matrix(0.05547957,0,0,0.05547957,10.97283,26.820792)" d="M 63.932803,100.12756 43.315212,85.252922 19.373414,93.80454 27.148851,69.599529 11.617356,49.472121 l 25.423076,-0.08488 14.342806,-20.99104 7.936888,24.152552 24.395836,7.154231 -20.517809,15.011979 z" fill="#ffff00"/></g>'
+  // Filled black ellipse (portrait, rx:ry ≈ 1:1.375) — clone/ellipse.svg
+  ellipse: {
+    viewBox: '0 0 2 2.75',
+    content: '<ellipse cx="1" cy="1.375" rx="1" ry="1.375" fill="#000000"/>'
   },
-  darkblue_circle: {
-    viewBox: '0 0 0.957 0.957',
-    content: '<circle cx="0.4785" cy="0.4785" r="0.4785" fill="#000080"/>'
+  // Horizontal pill / rounded stroke — clone/trait.svg
+  // width:height ≈ 3.614:1.7, corner radius = 0.85 (= height/2 → perfect stadium shape)
+  trait: {
+    viewBox: '0 0 3.614 1.7',
+    content: '<rect x="0" y="0" width="3.614" height="1.7" rx="0.85" fill="#000000"/>'
   },
-  heart: {
-    viewBox: '0 0 645.279 594.865',
-    content: '<g transform="translate(-84.87675,-120.82183)"><path fill-rule="evenodd" d="m 408,223.824 c 68.78,-122.491 204.625,-121.543 272.12,-59.585 67.493,61.957 66.635,184.922 -2.147,307.413 C 629.783,563.545 506.877,654.916 404.565,715.687 303.111,653.493 181.493,560.415 134.591,467.859 67.5267,344.42 68.3853,221.453 136.737,160.445 205.089,99.4373 340.935,100.385 408,223.824 Z" fill="#000000"/></g>'
+  // Ring / donut — clone/circle_outline.svg
+  // Outer r=1.157, inner r=0.758; fill-rule=evenodd punches the inner hole
+  circle_outline: {
+    viewBox: '0 0 2.314 2.314',
+    content: '<path fill-rule="evenodd" fill="#000000" d="M 1.157,0 C 1.796,0 2.314,0.518 2.314,1.157 C 2.314,1.796 1.796,2.314 1.157,2.314 C 0.518,2.314 0,1.796 0,1.157 C 0,0.518 0.518,0 1.157,0 Z M 1.157,0.399 C 1.576,0.399 1.915,0.738 1.915,1.157 C 1.915,1.576 1.576,1.915 1.157,1.915 C 0.738,1.915 0.399,1.576 0.399,1.157 C 0.399,0.738 0.738,0.399 1.157,0.399 Z"/>'
   }
 };
 
@@ -194,9 +203,18 @@ function drawContourPreview(canvasW, canvasH, blurData) {
 // inside the blurred halo) with a gray value proportional to blur darkness —
 // darker near the text edge, lighter at the outset boundary.
 // This extends the sampling zone so dots appear at the edges but get smaller/sparser.
-function drawMeshGradientPreview(canvasW, canvasH, blurData) {
+//
+// refWidth — optional fixed reference width for the gradient x-axis.
+// When omitted, canvasW is used (normal web render behaviour).
+// Pass a constant value during OTF export so all characters share the same
+// gradient scale on x, preventing the per-character gradient remapping that
+// causes irregular dot sizes and the resulting trembling in the OTF.
+function drawMeshGradientPreview(canvasW, canvasH, blurData, refWidth) {
   gradientCanvas.width  = canvasW;
   gradientCanvas.height = canvasH;
+
+  // Use the provided reference width for x-axis gradient mapping, or fall back to canvasW
+  const gradRefW = refWidth || canvasW;
 
   const maskData = ctx.getImageData(0, 0, canvasW, canvasH);
   const imgData  = gCtx.createImageData(canvasW, canvasH);
@@ -230,8 +248,9 @@ function drawMeshGradientPreview(canvasW, canvasH, blurData) {
         continue;
       }
 
-      // Inside text — bilinear interpolation of mesh gradient grid
-      const gx = (px / canvasW) * MESH_COLS;
+      // Inside text — bilinear interpolation of mesh gradient grid.
+      // gradRefW on x ensures consistent gradient scale across all characters.
+      const gx = (px / gradRefW) * MESH_COLS;
       const gy = (py / canvasH) * MESH_ROWS;
       const c0 = Math.min(Math.floor(gx), MESH_COLS - 1);
       const r0 = Math.min(Math.floor(gy), MESH_ROWS - 1);
@@ -354,7 +373,7 @@ function generateDots(canvasW, canvasH) {
   const bg = document.createElementNS(ns, 'rect');
   bg.setAttribute('width',  canvasW);
   bg.setAttribute('height', canvasH);
-  bg.setAttribute('fill',   '#f9f9f9');
+  bg.setAttribute('fill',   '#f9f9f900');
   outputSvg.appendChild(bg);
 
   const clones = samplePixelsToClones(canvasW, canvasH);
@@ -429,9 +448,35 @@ exportBtn.addEventListener('click', () => {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = 'dottfont.svg';
+  a.download =  `${currentShape}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
   a.click();
   URL.revokeObjectURL(url);
+});
+
+// Export output SVG as a PNG file download.
+// Serializes the SVG, draws it onto a canvas via an Image, then triggers a PNG download.
+exportPngBtn.addEventListener('click', () => {
+  const w = parseInt(outputSvg.getAttribute('width'),  10);
+  const h = parseInt(outputSvg.getAttribute('height'), 10);
+  if (!w || !h) return;
+
+  const svgStr = new XMLSerializer().serializeToString(outputSvg);
+  const url    = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
+  const img    = new Image();
+
+  img.onload = () => {
+    const canvas  = document.createElement('canvas');
+    canvas.width  = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    const a    = document.createElement('a');
+    a.href     = canvas.toDataURL('image/png');
+    a.download = `${currentShape}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.png`;
+    a.click();
+  };
+
+  img.src = url;
 });
 
 // Initial render once DINish font is loaded
