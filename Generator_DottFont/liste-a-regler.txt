@@ -1,6 +1,4 @@
 a faire:
-ajouter glyph
-verifier text metrics
 
 
 vf:
@@ -12,3 +10,5 @@ metadonnees export
 tremblement export
 non prise en charge de certaines formes lors de l'export
 ux design
+ajouter glyph
+verifier text metrics
