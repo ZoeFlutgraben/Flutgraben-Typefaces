@@ -1,6 +1,6 @@
 ============================================================
 EXPORT OTF — HISTORIQUE DES TRAVAUX
-Session du 03/04/2026
+Session du 03/04/2026 + 07/04/2026
 ============================================================
 
 ------------------------------------------------------------
@@ -100,37 +100,159 @@ TENTATIVE B — alphabeticBaseline avec textBaseline='top'
   donc alphabeticBaseline retourne une valeur NÉGATIVE dans Chrome/Firefox.
   → BASELINE_Y = PADDING + (valeur négative) = trop petit → glyphes trop bas.
 
-TENTATIVE C — actualBoundingBoxDescent de 'A' avec textBaseline='top' (en cours)
+TENTATIVE C — actualBoundingBoxDescent de 'A' avec textBaseline='top' (VALIDÉE)
   BASELINE_Y = PADDING + actualBoundingBoxDescent('A', textBaseline='top')
   Principe : 'A' a yMin=0 (touche exactement le baseline alphabétique).
   Sa descente depuis le point 'top' = distance de 'top' au baseline.
   actualBoundingBoxDescent est toujours positif (convention CSS, downward positive).
   → Valeur cross-browser stable.
-  Résultat : À TESTER (état actuel du code)
+  Résultat : CORRECT — alignement baseline validé
 
 
 ------------------------------------------------------------
-ÉTAT ACTUEL DU CODE (export-otf.js)
+ÉTAPE 4 — TREMBLING (tremblement dans l'OTF exporté)
+------------------------------------------------------------
+Constaté : comparaison 04-07_test06 vs rendu navigateur → points perdent leur
+alignement dans l'OTF, comme un tremblement colonne par colonne.
+
+HYPOTHÈSE A — rounding flottant sur fx/fy (Math.round)
+  Ajout de Math.round() sur fx et fy dans export-otf.js.
+  Test07 : tremblement toujours présent → hypothèse incorrecte.
+
+HYPOTHÈSE B — gradient normalisé à la largeur de chaque caractère (VALIDÉE)
+  Cause racine : drawMeshGradientPreview() normalisait l'axe X du gradient
+  sur canvasW (largeur variable par caractère). Chaque caractère avait donc
+  une couleur de dot différente selon sa propre largeur → taille de dot variable
+  colonne par colonne → apparence de "tremblement".
+
+  Fix : ajout d'un paramètre refWidth à drawMeshGradientPreview().
+  Lors de l'export OTF, on passe canvasH (constante = FONT_SIZE + 2*PADDING)
+  comme référence fixe pour tous les caractères :
+    drawMeshGradientPreview(canvasW, canvasH, undefined, canvasH)
+  → le gradient est identique pour tous les caractères → dots cohérents.
+
+
+------------------------------------------------------------
+ÉTAPE 5 — MÉTADONNÉES OTF
+------------------------------------------------------------
+Ajout des champs de métadonnées dans opentype.Font() :
+  familyName  : 'DottFont'                    → à modifier selon usage
+  styleName   : 'Regular'
+  copyright   : '© 2026 Zoé Berthelot'       → ligne ~229 export-otf.js
+  manufacturer: 'Flutgraben e.V.'             → ligne ~230
+  designer    : 'Zoé Berthelot @Neutronzoo'   → ligne ~231
+  version     : 'Version 1.000'               → ligne ~232
+  description : 'Generated with DottFont Generator'
+  license     : 'SIL Open Font License 1.1'
+  licenseURL  : 'https://scripts.sil.org/OFL'
+
+
+------------------------------------------------------------
+ÉTAPE 6 — NOUVELLES FORMES (ellipse, trait, circle_outline)
+------------------------------------------------------------
+Shapes supprimées : star, darkblue_circle, heart (trop complexes pour OTF)
+Shapes ajoutées depuis dossier clone/ :
+  - ellipse        (viewBox 0 0 2 2.75)
+  - trait          (viewBox 0 0 3.614 1.7, pill horizontale)
+  - circle_outline (viewBox 0 0 2.314 2.314, donut)
+
+Fichiers modifiés :
+  index.html             → boutons shape-btn mis à jour
+  script-generator_DottFont.js → objet SHAPES mis à jour
+  export-otf.js          → 3 nouvelles fonctions de path OTF :
+
+  addEllipseToPath(path, cx, cy, rx, ry)
+    rx = fr * (2 / 2.75), ry = fr
+    Même logique que addCircleToPath mais avec rx/ry indépendants.
+
+  addTraitToPath(path, cx, cy, halfW, halfH)
+    halfW = fr, halfH = fr * (1.7 / 3.614)
+    Pill horizontale : lignes droites + demi-cercles aux extrémités via curveTo.
+
+  addCircleOutlineToPath(path, cx, cy, outerR, innerR)
+    outerR = fr, innerR = fr * (0.758 / 1.157)
+    Cercle extérieur CW + cercle intérieur CCW → trou via non-zero winding (CFF/OTF).
+
+  Ratios extraits des viewBox SVG en tenant compte de preserveAspectRatio="xMidYMid meet"
+  sur un <use> carré → l'axe le plus court est contraint.
+
+
+------------------------------------------------------------
+ÉTAPE 7 — EXPORT PNG
+------------------------------------------------------------
+Ajout d'un bouton PNG dans index.html + export-png-btn stylisé comme export-otf-btn.
+
+Fonctionnement dans script-generator_DottFont.js :
+  - Sérialise le SVG #output via XMLSerializer
+  - Crée un Blob URL → charge dans un <img>
+  - Dessine sur un <canvas> à résolution 4× (scale fixe)
+  - Télécharge via canvas.toDataURL('image/png')
+  Filename : {shape}_{tailleGen}_{size}_{presence}.png
+
+Pourquoi SVG → canvas → PNG (et pas canvas direct) :
+  L'output est un SVG (pas un canvas). SVG = vecteur → export SVG d'abord,
+  puis rendu dans un canvas off-screen pour obtenir un bitmap haute résolution.
+  Le facteur 4× est fixe pour garantir une qualité constante.
+
+
+------------------------------------------------------------
+ÉTAPE 8 — CHARSET COMPLET (A–Z + a–z)
+------------------------------------------------------------
+Objectif : exporter les 52 lettres dans l'OTF.
+
+dinish-bold-metrics.json mis à jour avec toutes les lettres A–Z et a–z.
+Données extraites depuis DINish-Bold.ufo/glyphs/ :
+  Uppercase : A_.glif → Z_.glif  (naming UFO : lettre + underscore)
+  Lowercase : a.glif  → z.glif   (naming UFO : lettre seule)
+
+Pour chaque glyphe : advanceWidth, lsb, rsb, inkWidth, bbox (xMin/xMax/yMin/yMax)
+calculés depuis les coordonnées <point x y> dans les contours .glif.
+
+export-otf.js : aucune modification nécessaire.
+  CHARSET = Object.keys(metrics.glyphs) → dynamique, lit tout le JSON.
+  GLYPH_NAMES[char] || char → lettres utilisent leur propre caractère comme nom PS.
+
+RÉSOLU — redémarrage PC (07/04/2026)
+  - Cause : cache navigateur persistant servant l'ancien JSON (2 glyphes)
+    malgré le "disable cache" de DevTools.
+  - Fix : redémarrage complet du PC → cache purgé → JSON à 52 glyphes
+    correctement chargé → export OTF produit bien 52 glyphes.
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE
 ------------------------------------------------------------
 
-Charset    : dynamique depuis JSON (actuellement "A" et "a")
-Métriques  : UPM, ascender, descender depuis JSON
-Advance W  : depuis JSON par glyphe
-BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top')
-SCALE      : UPM / FONT_SIZE (= 1024 / 150)
-Coord map  : fontX = (canvasX - PADDING) * SCALE
-             fontY = (BASELINE_Y - canvasY) * SCALE
+export-otf.js
+  Charset    : dynamique depuis JSON (52 lettres A–Z + a–z)
+  Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
+  Advance W  : depuis JSON par glyphe
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Coord map  : fontX = round((canvasX - PADDING) * SCALE)
+               fontY = round((BASELINE_Y - canvasY) * SCALE)
+  refWidth   : canvasH passé comme référence fixe → gradient stable ✓
+  Shapes     : circle, square, ellipse, trait, circle_outline ✓
+  Métadonnées: familyName, styleName, copyright, designer... ✓
+
+dinish-bold-metrics.json
+  52 glyphes : A–Z (advW, lsb, rsb, inkWidth, bbox depuis UFO .glif)
+               a–z (idem)
+
+script-generator_DottFont.js
+  SHAPES     : circle, square, ellipse, trait, circle_outline ✓
+  refWidth   : paramètre ajouté à drawMeshGradientPreview() ✓
+  PNG export : XMLSerializer → Blob → Image → canvas 4× → download ✓
+
+index.html
+  Shape btns : circle, square, ellipse, trait, circle_outline ✓
+  Boutons    : SVG, PNG, OTF ✓
+
 
 ------------------------------------------------------------
 PROCHAINES ÉTAPES
 ------------------------------------------------------------
 
-[ ] Valider la tentative C (actualBoundingBoxDescent) — BBox bottom ≈ 0 ?
-[ ] Si OK : compléter le JSON avec tous les glyphes du charset
-    (A-Z uppercase, 0-9, . ? : , ; !)
-    → lire les fichiers .glif du UFO DINish-Bold.ufo/glyphs/
-    → extraire advanceWidth, lsb, rsb, bbox pour chaque caractère
-[ ] Ajouter les minuscules au charset si souhaité
-[ ] Traiter le problème des contours superposés (si nécessaire)
+[x] Export OTF 52 glyphes — résolu (cache navigateur, redémarrage PC)
 
 ============================================================

@@ -2,10 +2,10 @@
 // DottFont Generator
 //
 // Pipeline:
-//   étape 1 — user types in contenteditable div (DINish Bold)
-//   étape 2 — text shape filled with bilinear mesh gradient
+//   step 1 — user types in contenteditable div (DINish Bold)
+//   step 2 — text shape filled with bilinear mesh gradient
 //             (4×4 grid, alternating black/grey from mesh.svg)
-//   étape 3 — gradient canvas pixels sampled on a regular grid;
+//   step 3 — gradient canvas pixels sampled on a regular grid;
 //             each in-text pixel spawns a <use> clone of #base-dot
 //             (a <symbol>) sized by pixel darkness, with probabilistic
 //             presence filter driven by the presence slider
@@ -49,6 +49,9 @@ let tailleGenerationMultiplier = parseFloat(tailleGenerationSlider.value);
 // without re-running the full text mask + gradient pipeline
 let lastCanvasW = 0;
 let lastCanvasH = 0;
+
+// Debounce timer for text input — avoids re-rendering on every keystroke
+let debounceTimer;
 
 // --- Rendering constants ---
 const FONT_SIZE   = 150;  // px — text render size
@@ -337,13 +340,13 @@ function generate() {
   // Update the base clone shape in SVG defs
   updateBaseShape(currentShape);
 
-  // Étape 2a — render solid text mask + blurred halo for outset zone
+  // Step 2a — render solid text mask + blurred halo for outset zone
   const { canvasW, canvasH, blurData } = renderTextMask(text);
 
-  // Étape 2b — draw mesh gradient (extended into outset zone if blurData present)
+  // Step 2b — draw mesh gradient (extended into outset zone if blurData present)
   drawMeshGradientPreview(canvasW, canvasH, blurData);
 
-  // Étape 3 — show blurred mask as preview (visualises the outset sampling zone)
+  // Step 3 — show blurred mask as preview (visualises the outset sampling zone)
   drawContourPreview(canvasW, canvasH, blurData);
 
   // Store dimensions so sliders can regenerate without re-running the full pipeline
@@ -407,8 +410,8 @@ document.querySelectorAll('.shape-btn').forEach(btn => {
 
 // Debounced regeneration on text input
 textInput.addEventListener('input', () => {
-  clearTimeout(textInput._debounce);
-  textInput._debounce = setTimeout(generate, 180);
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(generate, 180);
 });
 
 // Outset slider — re-runs the full pipeline since the blur radius changes the mask and gradient
@@ -453,22 +456,26 @@ exportBtn.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-// Export output SVG as a PNG file download.
-// Serializes the SVG, draws it onto a canvas via an Image, then triggers a PNG download.
+// Export output SVG as a PNG file download at 4× resolution.
+// Serializes the SVG, draws it onto an upscaled canvas via an Image, then triggers a PNG download.
+// The 4× scale is fixed to guarantee consistent output quality regardless of screen DPI.
 exportPngBtn.addEventListener('click', () => {
   const w = parseInt(outputSvg.getAttribute('width'),  10);
   const h = parseInt(outputSvg.getAttribute('height'), 10);
   if (!w || !h) return;
 
+  const scale  = 4;
   const svgStr = new XMLSerializer().serializeToString(outputSvg);
   const url    = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
   const img    = new Image();
 
   img.onload = () => {
     const canvas  = document.createElement('canvas');
-    canvas.width  = w;
-    canvas.height = h;
-    canvas.getContext('2d').drawImage(img, 0, 0);
+    canvas.width  = w * scale;
+    canvas.height = h * scale;
+    const pngCtx  = canvas.getContext('2d');
+    pngCtx.scale(scale, scale);
+    pngCtx.drawImage(img, 0, 0);
     URL.revokeObjectURL(url);
     const a    = document.createElement('a');
     a.href     = canvas.toDataURL('image/png');

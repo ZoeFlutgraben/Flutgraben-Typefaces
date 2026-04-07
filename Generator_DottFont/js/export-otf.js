@@ -133,22 +133,27 @@ async function exportOTF() {
   // Why not alphabeticBaseline? The Canvas spec uses upward-positive convention, so
   // alphabeticBaseline with textBaseline='top' returns a negative number in Chrome/FF
   // → BASELINE_Y = PADDING + negative = too small → glyphs shift into negative y.
-  const measureCtx = hiddenCanvas.getContext('2d');
-  measureCtx.font         = `700 ${FONT_SIZE}px DINish, sans-serif`;
-  measureCtx.textBaseline = 'top';
-  const measured   = measureCtx.measureText('A');
+  // ctx is the global hidden-canvas context defined in script-generator_DottFont.js
+  ctx.font         = `700 ${FONT_SIZE}px DINish, sans-serif`;
+  ctx.textBaseline = 'top';
+  const measured   = ctx.measureText('A');
   const BASELINE_Y = PADDING + measured.actualBoundingBoxDescent;
   const SCALE      = UPM / FONT_SIZE;  // canvas px → font units
 
   // Charset is driven by the JSON — only characters with defined metrics are exported.
   const CHARSET = Object.keys(metrics.glyphs);
 
-  // PostScript glyph names for digits and punctuation.
-  // Letters use the character itself as the PostScript name.
+  // PostScript glyph names for non-letter characters.
+  // Letters and accented letters use the character itself as the PostScript name.
+  // Special characters must be mapped to valid PS identifiers (no raw symbols allowed).
   const GLYPH_NAMES = {
-    '0':'zero',  '1':'one',   '2':'two',   '3':'three', '4':'four',
-    '5':'five',  '6':'six',   '7':'seven', '8':'eight', '9':'nine',
-    '.':'period', '?':'question', ':':'colon', ',':'comma', ';':'semicolon', '!':'exclam'
+    '0':'zero',        '1':'one',         '2':'two',        '3':'three',     '4':'four',
+    '5':'five',        '6':'six',         '7':'seven',      '8':'eight',     '9':'nine',
+    '.':'period',      '?':'question',    ':':'colon',      ',':'comma',      ';':'semicolon',
+    '!':'exclam',      '#':'numbersign',  '$':'dollar',     '%':'percent',   '&':'ampersand',
+    "'": 'quotesingle','(':'parenleft',   ')':'parenright', '+':'plus',      '*':'asterisk',
+    '-':'hyphen',      '_':'underscore',  '/':'slash',      '\\':'backslash','ß':'germandbls',
+    '@':'at',          '<':'less',        '>':'greater',    '"':'quotedbl'
   };
 
   const glyphs = [];
