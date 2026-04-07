@@ -4,96 +4,120 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DottFont Generator</title>
-
+  <meta name="description" content="Dynamic Type Generator">
+  <meta name="keywords" content="HTML, CSS, JavaScript-opentype.js">
+  <meta name="author" content="Zoé Berthelot @Neutronzoo">
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-  <!-- ===================== LEFT PANEL — controls sidebar ===================== -->
-  <div id="top-panel">
-
-    <!-- ÉTAPE 1 — contenteditable div with DINish -->
+  <!-- ===================== LEFT PANEL — controls sidebar ===================== -->  
+    <div id="top-panel">
+      
+    <!-- STEP 1 — contenteditable div with DINish -->
     <div class="stage">
-      <!-- <span class="step-label">étape 1 — texte</span> -->
+      <!-- <span class="step-label">step 1 — text</span> -->
       <div class="panel">
         <div id="text-input" contenteditable="true" spellcheck="false">Text</div>
       </div>
     </div>
 
-    <!-- ÉTAPE 2 — bilinear mesh gradient clipped to text shape -->
-    <div class="stage" id="stage-gradient">
-      <!-- <span class="step-label">étape 2 — gradient</span> -->
-      <div id="panel-gradient">
-        <canvas id="gradient-canvas"></canvas>
+    <!-- STEP 2 — bilinear mesh gradient clipped to text shape -->
+    <div class="flex">
+      <div class="stage" id="stage-gradient">
+        <!-- <span class="step-label">step 2 — gradient</span> -->
+        <div id="panel-gradient">
+          <canvas id="gradient-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- STEP 3 — gray expanded contour behind the dots -->
+      <div class="stage" id="stage-contour">
+        <!-- <span class="step-label">step 3 — contour</span> -->
+        <div id="panel-contour">
+          <canvas id="contour-canvas"></canvas>
+        </div>
       </div>
     </div>
-
-    <!-- FORME — shape selector -->
+    <!-- SHAPE — selector -->
     <div id="shape-selector">
-      <span class="step-label">forme</span>
+      <!-- <span class="step-label">shape</span> -->
       <div class="shape-btns">
 
-        <!-- Circle — clone/circle.svg -->
-        <button class="shape-btn active" data-shape="circle" title="Cercle">
+        <button class="shape-btn active" data-shape="circle" title="Circle">
           <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
             <circle cx="1" cy="1" r="1" fill="#000000" />
           </svg>
         </button>
 
-        <!-- Square — clone/pink_square.svg -->
-        <button class="shape-btn" data-shape="square" title="Carré">
+        <button class="shape-btn" data-shape="square" title="Square">
           <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
             <rect x="0" y="0" width="2" height="2" fill="#ff00ff" />
           </svg>
         </button>
 
-        <!-- Star — clone/stars.svg -->
-        <button class="shape-btn" data-shape="star" title="Étoile">
-          <svg viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
-            <g transform="translate(-11.617356,-28.396201)">
-              <path
-                transform="matrix(0.05547957,0,0,0.05547957,10.97283,26.820792)"
-                d="M 63.932803,100.12756 43.315212,85.252922 19.373414,93.80454 27.148851,69.599529 11.617356,49.472121 l 25.423076,-0.08488 14.342806,-20.99104 7.936888,24.152552 24.395836,7.154231 -20.517809,15.011979 z"
-                fill="#ffff00" />
-            </g>
+        <button class="shape-btn" data-shape="ellipse" title="Ellipse">
+          <svg viewBox="0 0 2 2.75" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="1" cy="1.375" rx="1" ry="1.375" fill="#000000" />
           </svg>
         </button>
 
-        <!-- Dark blue circle — clone/darkblue_circle.svg -->
-        <button class="shape-btn" data-shape="darkblue_circle" title="Cercle bleu">
-          <svg viewBox="0 0 0.957 0.957" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="0.4785" cy="0.4785" r="0.4785" fill="#000080" />
+        <button class="shape-btn" data-shape="trait" title="Trait">
+          <svg viewBox="0 0 3.614 1.7" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="3.614" height="1.7" rx="0.85" fill="#000000" />
+          </svg>
+        </button>
+
+        <button class="shape-btn" data-shape="circle_outline" title="Circle outline">
+          <svg viewBox="0 0 2.314 2.314" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" fill="#000000" d="M 1.157,0 C 1.796,0 2.314,0.518 2.314,1.157 C 2.314,1.796 1.796,2.314 1.157,2.314 C 0.518,2.314 0,1.796 0,1.157 C 0,0.518 0.518,0 1.157,0 Z M 1.157,0.399 C 1.576,0.399 1.915,0.738 1.915,1.157 C 1.915,1.576 1.576,1.915 1.157,1.915 C 0.738,1.915 0.399,1.576 0.399,1.157 C 0.399,0.738 0.738,0.399 1.157,0.399 Z" />
           </svg>
         </button>
 
       </div>
     </div>
 
-    <!-- TAILLE — dot radius only -->
+    <!-- SIZE PREGENERATION — scales dot radius and grid spacing together -->
     <div class="slider-row">
-      <label for="size-slider">taille</label>
-      <input type="range" id="size-slider" min="0.25" max="3" step="0.05" value="1" />
-      <span id="size-value">1.00</span>
-    </div>
-
-    <!-- TAILLE-GENERATION — dot radius + spacing -->
-    <div class="slider-row">
-      <label for="taille-generation-slider">taille-generation</label>
+      <label for="taille-generation-slider">Size pregeneration</label>
       <input type="range" id="taille-generation-slider" min="0.25" max="3" step="0.05" value="1" />
       <span id="taille-generation-value">1.00</span>
     </div>
 
-    <!-- PRÉSENCE — probabilistic dot filter -->
+    <!-- SIZE POSTGENERATION — scales dot radius only -->
     <div class="slider-row">
-      <label for="presence-slider">présence</label>
+      <label for="size-slider">Size postgeneration</label>
+      <input type="range" id="size-slider" min="0.25" max="3" step="0.05" value="1" />
+      <span id="size-value">1.00</span>
+    </div>
+
+    <!-- CONTOUR — outset amount for the gray expanded silhouette -->
+    <div class="slider-row">
+      <label for="outset-slider">Contour</label>
+      <input type="range" id="outset-slider" min="0" max="30" step="1" value="8" />
+      <span id="outset-value">8</span>
+    </div>
+
+    <!-- PRESENCE — probabilistic dot filter -->
+    <div class="slider-row">
+      <label for="presence-slider">Hazard</label>
       <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
       <span id="presence-value">0.5</span>
     </div>
 
     <!-- EXPORT -->
-    <button id="export-btn">Télécharger SVG</button>
+    <div class="flex">
+      <span class="step-label">Export</span>
+      <button id="export-btn">SVG</button>
+      <button id="export-png-btn">PNG</button>
+      <button id="export-otf-btn">OTF</button>
+    </div>
 
   </div>
+
+  
+  
+
 
   <!-- ===================== RIGHT PANEL — dot output ===================== -->
   <div id="stage-output">
@@ -117,6 +141,7 @@
   <canvas id="hidden-canvas" style="display:none;"></canvas>
 
   <script src="js/script-generator_DottFont.js"></script>
+  <script src="js/export-otf.js"></script>
 
 </body>
 </html>

@@ -26,6 +26,9 @@
   src: url('../DINish/DINish-Bold.woff') format('woff');
   font-weight: 700;
   font-style: normal;
+  ascent-override:   102.54%;   /* 1050 / 1024 */
+  descent-override:  24.22%;    /* 248  / 1024 */
+  line-gap-override: 0%;
 }
 
 /* === Reset === */
@@ -73,10 +76,13 @@ body {
 /* === Shared small-caps label typography (DINish 700 10px uppercase) === */
 .step-label,
 .slider-row label,
+#outset-value,
 #presence-value,
 #size-value,
 #taille-generation-value,
-#export-btn {
+#export-btn,
+#export-otf-btn,
+#export-png-btn {
   font-family: 'DINish', sans-serif;
   font-weight: 700;
   font-size: 10px;
@@ -109,6 +115,18 @@ body {
   width: auto;
 }
 
+/* Contour panel height matches étape 1 and étape 2 via shared token */
+#panel-contour {
+  height: var(--panel-height);
+}
+
+/* Canvas scales to panel height, width follows aspect ratio */
+#contour-canvas {
+  display: block;
+  height: 100%;
+  width: auto;
+}
+
 /* Shared white background for étape 1 and étape 2 panels */
 .panel {
  background-color: var(--bg-btn);
@@ -128,6 +146,13 @@ body {
   white-space: nowrap;
   cursor: text;
   min-width: 60px;
+}
+
+.flex{
+  display: flex;
+  flex-direction: row;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 /* === Shape selector === */
@@ -187,6 +212,7 @@ body {
   min-width: 80px;
 }
 
+#outset-slider,
 #presence-slider,
 #size-slider,
 #taille-generation-slider {
@@ -199,6 +225,7 @@ body {
   cursor: pointer;
 }
 
+#outset-slider::-webkit-slider-thumb,
 #presence-slider::-webkit-slider-thumb,
 #size-slider::-webkit-slider-thumb,
 #taille-generation-slider::-webkit-slider-thumb {
@@ -211,6 +238,7 @@ body {
   cursor: pointer;
 }
 
+#outset-slider::-moz-range-thumb,
 #presence-slider::-moz-range-thumb,
 #size-slider::-moz-range-thumb,
 #taille-generation-slider::-moz-range-thumb {
@@ -222,6 +250,7 @@ body {
   cursor: pointer;
 }
 
+#outset-value,
 #presence-value,
 #size-value,
 #taille-generation-value {
@@ -231,16 +260,22 @@ body {
 }
 
 /* === Export button === */
-#export-btn {
+
+#export-btn,
+#export-otf-btn,
+#export-png-btn {
   background-color: var(--bg-btn);
   padding: 5px 10px;
   border-radius: var(--radius);
   border: none;
   color: var(--color-label);
   cursor: pointer;
-  width: 100%;
+
 }
 
-#export-btn:hover {
+
+#export-btn:hover,
+#export-otf-btn:hover,
+#export-png-btn:hover {
   background-color: var(--bg-btn-hover);
 }

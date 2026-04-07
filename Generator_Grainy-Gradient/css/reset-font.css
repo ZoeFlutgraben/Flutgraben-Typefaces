@@ -33,3 +33,10 @@
       font-style: normal;
       font-weight: bold;
     }
+
+    @font-face {
+      font-family: Generate;
+      src: url(../DINishDot_test/circle_0.80_3.00_0.00.otf);
+      font-style: normal;
+      font-weight: bold;
+    }

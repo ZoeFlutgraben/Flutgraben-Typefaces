@@ -1,0 +1,11 @@
+character = A
+width = 620 px
+crenage left (inclut dans width) = 4 px
+crenage right (inclut dans width) = 4 px
+height = 707 px
+
+character = a
+width = 513 px
+crenage left (inclut dans width) = 37 px
+crenage right (inclut dans width) = 55 px
+height = 539 px
