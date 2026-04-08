@@ -71,6 +71,7 @@ body {
   color: var(--color-dark);
   max-height: calc(100vh - 20px);
   overflow-y: auto;
+  width: 23.5vw;
 }
 
 /* === Shared small-caps label typography (DINish 700 10px uppercase) === */
@@ -132,6 +133,7 @@ body {
  background-color: var(--bg-btn);
  border-radius: var(--radius);
   line-height: 0;
+  overflow: hidden;
 }
 
 /* === Étape 1 — editable text === */

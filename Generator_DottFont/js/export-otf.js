@@ -16,6 +16,13 @@
 //   fontX = (canvasX - PADDING) * SCALE
 //   fontY = (BASELINE_Y - canvasY) * SCALE
 //
+// Path union:
+//   All dot shapes within a glyph are first approximated as polygons,
+//   then merged into a single outline via Clipper.js boolean union.
+//   This eliminates overlapping contours, reducing file size and
+//   producing cleaner results in design tools (equivalent to
+//   Inkscape's Path > Union).
+//
 // Depends on globals from script-generator_DottFont.js:
 //   presenceStrength, sizeMultiplier, tailleGenerationMultiplier,
 //   currentShape, DOT_SPACING, PADDING, FONT_SIZE, MAX_RADIUS, MIN_RADIUS,
@@ -24,86 +31,165 @@
 
 const exportOtfBtn = document.getElementById('export-otf-btn');
 
-// Appends a cubic-bezier circle approximation to an opentype.js Path.
-// Uses the standard constant k≈0.5523 for a 4-arc circle.
-// Font coordinate space: Y-axis points up.
-function addCircleToPath(path, cx, cy, r) {
-  const k = 0.5523;
-  path.moveTo(cx,         cy + r);
-  path.curveTo(cx + k*r, cy + r,  cx + r, cy + k*r,  cx + r, cy);
-  path.curveTo(cx + r,   cy - k*r, cx + k*r, cy - r,  cx,     cy - r);
-  path.curveTo(cx - k*r, cy - r,  cx - r, cy - k*r,  cx - r, cy);
-  path.curveTo(cx - r,   cy + k*r, cx - k*r, cy + r,  cx,     cy + r);
-  path.close();
+// Scaling factor for Clipper integer coordinates.
+// Clipper requires integer inputs; multiplying by this factor preserves
+// sub-unit precision before rounding, then we divide back when building the Path.
+const CLIPPER_SCALE = 100;
+
+// Returns a CCW polygon (array of Clipper {X,Y} points) approximating a circle.
+// n=32 gives sub-pixel error at all normal font sizes.
+// CCW winding in Y-up font coordinates = positive area = included by NonZero fill rule.
+function getCirclePolygon(cx, cy, r, n = 32) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (2 * Math.PI * i) / n;
+    pts.push({
+      X: Math.round((cx + Math.cos(a) * r) * CLIPPER_SCALE),
+      Y: Math.round((cy + Math.sin(a) * r) * CLIPPER_SCALE)
+    });
+  }
+  return pts;
 }
 
-// Appends a square (axis-aligned) to an opentype.js Path.
+// Returns a CCW polygon for an axis-aligned square.
 // halfSize is half the side length.
-function addSquareToPath(path, cx, cy, halfSize) {
+// Vertex order TL → BL → BR → TR gives CCW winding in Y-up font coordinates.
+function getSquarePolygon(cx, cy, halfSize) {
   const s = halfSize;
-  path.moveTo(cx - s, cy + s);
-  path.lineTo(cx + s, cy + s);
-  path.lineTo(cx + s, cy - s);
-  path.lineTo(cx - s, cy - s);
-  path.close();
+  return [
+    { X: Math.round((cx - s) * CLIPPER_SCALE), Y: Math.round((cy + s) * CLIPPER_SCALE) },
+    { X: Math.round((cx - s) * CLIPPER_SCALE), Y: Math.round((cy - s) * CLIPPER_SCALE) },
+    { X: Math.round((cx + s) * CLIPPER_SCALE), Y: Math.round((cy - s) * CLIPPER_SCALE) },
+    { X: Math.round((cx + s) * CLIPPER_SCALE), Y: Math.round((cy + s) * CLIPPER_SCALE) },
+  ];
 }
 
-// Appends an ellipse to an opentype.js Path.
-// Same logic as addCircleToPath but with independent rx and ry.
-// From ellipse.svg viewBox (2 × 2.75): the square <use> bounding box constrains
-// the taller axis, so ry = fr and rx = fr × (2 / 2.75).
-function addEllipseToPath(path, cx, cy, rx, ry) {
-  const kx = 0.5523 * rx;
-  const ky = 0.5523 * ry;
-  path.moveTo(cx,       cy + ry);
-  path.curveTo(cx + kx, cy + ry,  cx + rx, cy + ky,  cx + rx, cy);
-  path.curveTo(cx + rx, cy - ky,  cx + kx, cy - ry,  cx,      cy - ry);
-  path.curveTo(cx - kx, cy - ry,  cx - rx, cy - ky,  cx - rx, cy);
-  path.curveTo(cx - rx, cy + ky,  cx - kx, cy + ry,  cx,      cy + ry);
-  path.close();
+// Returns a CCW polygon approximating an ellipse.
+// rx, ry: semi-axes. Same winding logic as getCirclePolygon.
+function getEllipsePolygon(cx, cy, rx, ry, n = 32) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (2 * Math.PI * i) / n;
+    pts.push({
+      X: Math.round((cx + Math.cos(a) * rx) * CLIPPER_SCALE),
+      Y: Math.round((cy + Math.sin(a) * ry) * CLIPPER_SCALE)
+    });
+  }
+  return pts;
 }
 
-// Appends a horizontal pill (stadium) shape to an opentype.js Path.
-// From trait.svg viewBox (3.614 × 1.7): halfW = fr, halfH = fr × (1.7 / 3.614).
-// Corner radius equals halfH, making perfect semicircles at each end.
-function addTraitToPath(path, cx, cy, halfW, halfH) {
-  const kh = 0.5523 * halfH;
-  const rx = halfW - halfH;
-  path.moveTo(cx - rx,       cy + halfH);
-  path.lineTo(cx + rx,       cy + halfH);
-  path.curveTo(cx + rx + kh, cy + halfH,  cx + halfW, cy + kh,  cx + halfW, cy);
-  path.curveTo(cx + halfW,   cy - kh,     cx + rx + kh, cy - halfH, cx + rx, cy - halfH);
-  path.lineTo(cx - rx,       cy - halfH);
-  path.curveTo(cx - rx - kh, cy - halfH,  cx - halfW, cy - kh,  cx - halfW, cy);
-  path.curveTo(cx - halfW,   cy + kh,     cx - rx - kh, cy + halfH, cx - rx, cy + halfH);
-  path.close();
+// Returns a CCW polygon approximating a horizontal pill (stadium) shape.
+// halfW: half total width, halfH: half height (= corner radius).
+// n: segments per semicircle. Traversal: right semicircle (-π/2 → +π/2)
+// then left semicircle (+π/2 → +3π/2), both CCW in Y-up.
+function getTraitPolygon(cx, cy, halfW, halfH, n = 16) {
+  const pts = [];
+  const rx = halfW - halfH; // distance from center to each semicircle center
+  // Right semicircle
+  for (let i = 0; i <= n; i++) {
+    const a = -Math.PI / 2 + (Math.PI * i) / n;
+    pts.push({
+      X: Math.round((cx + rx + Math.cos(a) * halfH) * CLIPPER_SCALE),
+      Y: Math.round((cy + Math.sin(a) * halfH) * CLIPPER_SCALE)
+    });
+  }
+  // Left semicircle
+  for (let i = 0; i <= n; i++) {
+    const a = Math.PI / 2 + (Math.PI * i) / n;
+    pts.push({
+      X: Math.round((cx - rx + Math.cos(a) * halfH) * CLIPPER_SCALE),
+      Y: Math.round((cy + Math.sin(a) * halfH) * CLIPPER_SCALE)
+    });
+  }
+  return pts;
 }
 
-// Appends a ring (donut) to an opentype.js Path.
-// Outer circle CW + inner circle CCW → hole via non-zero winding rule (CFF/OTF).
-// From circle_outline.svg viewBox (2.314 × 2.314): outerR = fr, innerR = fr × (0.758 / 1.157).
-function addCircleOutlineToPath(path, cx, cy, outerR, innerR) {
-  const k = 0.5523;
-  path.moveTo(cx,             cy + outerR);
-  path.curveTo(cx + k*outerR, cy + outerR,  cx + outerR, cy + k*outerR,  cx + outerR, cy);
-  path.curveTo(cx + outerR,   cy - k*outerR, cx + k*outerR, cy - outerR, cx,          cy - outerR);
-  path.curveTo(cx - k*outerR, cy - outerR,  cx - outerR, cy - k*outerR,  cx - outerR, cy);
-  path.curveTo(cx - outerR,   cy + k*outerR, cx - k*outerR, cy + outerR, cx,          cy + outerR);
-  path.close();
-  path.moveTo(cx,             cy + innerR);
-  path.curveTo(cx - k*innerR, cy + innerR,  cx - innerR, cy + k*innerR,  cx - innerR, cy);
-  path.curveTo(cx - innerR,   cy - k*innerR, cx - k*innerR, cy - innerR, cx,          cy - innerR);
-  path.curveTo(cx + k*innerR, cy - innerR,  cx + innerR, cy - k*innerR,  cx + innerR, cy);
-  path.curveTo(cx + innerR,   cy + k*innerR, cx + k*innerR, cy + innerR, cx,          cy + innerR);
-  path.close();
+// Returns [outerPolygon, innerPolygon] for a ring (donut) shape.
+// outer is CCW (solid area, winding +1), inner is CW (hole, winding -1).
+// With NonZero fill rule, overlapping outer+inner regions cancel to 0 → hole.
+// If another solid shape overlaps the hole, the hole is filled (correct union behavior).
+function getCircleOutlinePolygons(cx, cy, outerR, innerR, n = 32) {
+  const outer = [];
+  const inner = [];
+  for (let i = 0; i < n; i++) {
+    const aOuter = (2 * Math.PI * i) / n;       // CCW: increasing angle
+    const aInner = (2 * Math.PI * (n - i)) / n; // CW: decreasing angle (reversed)
+    outer.push({
+      X: Math.round((cx + Math.cos(aOuter) * outerR) * CLIPPER_SCALE),
+      Y: Math.round((cy + Math.sin(aOuter) * outerR) * CLIPPER_SCALE)
+    });
+    inner.push({
+      X: Math.round((cx + Math.cos(aInner) * innerR) * CLIPPER_SCALE),
+      Y: Math.round((cy + Math.sin(aInner) * innerR) * CLIPPER_SCALE)
+    });
+  }
+  return [outer, inner];
+}
+
+// Loads Clipper.js from CDN into the page if not already present.
+// Injected dynamically so index.html does not need to be modified.
+async function loadClipper() {
+  if (window.ClipperLib) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+// Merges an array of Clipper polygons into a single unified outline.
+// Uses NonZero fill rule: any region with non-zero winding is filled.
+// CCW shapes contribute +1, CW holes contribute -1 — overlaps cancel correctly.
+// Returns a ClipperLib.Paths array (array of {X,Y} point arrays).
+function unionPolygons(polygons) {
+  if (polygons.length === 0) return [];
+  const cpr = new ClipperLib.Clipper();
+  cpr.AddPaths(polygons, ClipperLib.PolyType.ptSubject, true);
+  const solution = new ClipperLib.Paths();
+  cpr.Execute(
+    ClipperLib.ClipType.ctUnion,
+    solution,
+    ClipperLib.PolyFillType.pftNonZero,
+    ClipperLib.PolyFillType.pftNonZero
+  );
+  return solution;
+}
+
+// Converts a Clipper Paths result to an opentype.js Path.
+// Each polygon in the Clipper result becomes a closed subpath.
+// Divides coordinates by CLIPPER_SCALE to recover font units.
+function clipperToOpentypePath(clipperPaths) {
+  const path = new opentype.Path();
+  for (const poly of clipperPaths) {
+    if (poly.length === 0) continue;
+    path.moveTo(poly[0].X / CLIPPER_SCALE, poly[0].Y / CLIPPER_SCALE);
+    for (let i = 1; i < poly.length; i++) {
+      path.lineTo(poly[i].X / CLIPPER_SCALE, poly[i].Y / CLIPPER_SCALE);
+    }
+    path.close();
+  }
+  return path;
 }
 
 // Builds and downloads an OTF font for all characters defined in
 // dinish-bold-metrics.json. Font metrics and advance widths come from
 // the JSON; BASELINE_Y is measured from the canvas at runtime.
+// All dot shapes within each glyph are merged via boolean union before export.
 async function exportOTF() {
   exportOtfBtn.textContent = 'En cours...';
   exportOtfBtn.disabled = true;
+
+  // Load Clipper.js for polygon boolean union (injected dynamically, no HTML change needed).
+  try {
+    await loadClipper();
+  } catch (e) {
+    console.error('Failed to load Clipper.js:', e);
+    exportOtfBtn.textContent = 'Erreur Clipper';
+    exportOtfBtn.disabled = false;
+    return;
+  }
 
   // Load font metrics and glyph data from JSON.
   // Provides UPM, ascender, descender, and per-glyph advance widths.
@@ -143,17 +229,35 @@ async function exportOTF() {
   // Charset is driven by the JSON — only characters with defined metrics are exported.
   const CHARSET = Object.keys(metrics.glyphs);
 
-  // PostScript glyph names for non-letter characters.
-  // Letters and accented letters use the character itself as the PostScript name.
-  // Special characters must be mapped to valid PS identifiers (no raw symbols allowed).
+  // PostScript glyph names must be ASCII-only identifiers (Adobe Glyph List).
+  // Using a Unicode character as a PS name (e.g. 'É' instead of 'Eacute') produces
+  // an invalid post table that Windows rejects — even though FontLab accepts it.
   const GLYPH_NAMES = {
+    // Digits
     '0':'zero',        '1':'one',         '2':'two',        '3':'three',     '4':'four',
     '5':'five',        '6':'six',         '7':'seven',      '8':'eight',     '9':'nine',
+    // Punctuation and symbols
     '.':'period',      '?':'question',    ':':'colon',      ',':'comma',      ';':'semicolon',
     '!':'exclam',      '#':'numbersign',  '$':'dollar',     '%':'percent',   '&':'ampersand',
     "'": 'quotesingle','(':'parenleft',   ')':'parenright', '+':'plus',      '*':'asterisk',
     '-':'hyphen',      '_':'underscore',  '/':'slash',      '\\':'backslash','ß':'germandbls',
-    '@':'at',          '<':'less',        '>':'greater',    '"':'quotedbl'
+    '@':'at',          '<':'less',        '>':'greater',    '"':'quotedbl',
+    // Accented uppercase — required for valid PS names (Windows rejects non-ASCII names)
+    'À':'Agrave',      'Á':'Aacute',      'Â':'Acircumflex','Ã':'Atilde',
+    'Ä':'Adieresis',   'Å':'Aring',       'Ç':'Ccedilla',   'È':'Egrave',
+    'É':'Eacute',      'Ê':'Ecircumflex', 'Ë':'Edieresis',  'Ì':'Igrave',
+    'Í':'Iacute',      'Î':'Icircumflex', 'Ï':'Idieresis',  'Ñ':'Ntilde',
+    'Ò':'Ograve',      'Ó':'Oacute',      'Ô':'Ocircumflex','Õ':'Otilde',
+    'Ö':'Odieresis',   'Ù':'Ugrave',      'Ú':'Uacute',     'Û':'Ucircumflex',
+    'Ü':'Udieresis',   'Ÿ':'Ydieresis',
+    // Accented lowercase
+    'à':'agrave',      'á':'aacute',      'â':'acircumflex','ã':'atilde',
+    'ä':'adieresis',   'å':'aring',       'ç':'ccedilla',   'è':'egrave',
+    'é':'eacute',      'ê':'ecircumflex', 'ë':'edieresis',  'ì':'igrave',
+    'í':'iacute',      'î':'icircumflex', 'ï':'idieresis',  'ñ':'ntilde',
+    'ò':'ograve',      'ó':'oacute',      'ô':'ocircumflex','õ':'otilde',
+    'ö':'odieresis',   'ù':'ugrave',      'ú':'uacute',     'û':'ucircumflex',
+    'ü':'udieresis',   'ÿ':'ydieresis',
   };
 
   const glyphs = [];
@@ -179,7 +283,9 @@ async function exportOTF() {
     const step      = DOT_SPACING * tailleGenerationMultiplier;
     const imageData = gCtx.getImageData(0, 0, canvasW, canvasH);
     const pixels    = imageData.data;
-    const path      = new opentype.Path();
+
+    // Collect all shape polygons for this glyph before performing union
+    const polygons = [];
 
     for (let y = step / 2; y < canvasH; y += step) {
       for (let x = step / 2; x < canvasW; x += step) {
@@ -203,18 +309,23 @@ async function exportOTF() {
         const fr = radius * SCALE;
 
         if (currentShape === 'square') {
-          addSquareToPath(path, fx, fy, fr);
+          polygons.push(getSquarePolygon(fx, fy, fr));
         } else if (currentShape === 'ellipse') {
-          addEllipseToPath(path, fx, fy, fr * (2 / 2.75), fr);
+          polygons.push(getEllipsePolygon(fx, fy, fr * (2 / 2.75), fr));
         } else if (currentShape === 'trait') {
-          addTraitToPath(path, fx, fy, fr, fr * (1.7 / 3.614));
+          polygons.push(getTraitPolygon(fx, fy, fr, fr * (1.7 / 3.614)));
         } else if (currentShape === 'circle_outline') {
-          addCircleOutlineToPath(path, fx, fy, fr, fr * (0.758 / 1.157));
+          const [outer, inner] = getCircleOutlinePolygons(fx, fy, fr, fr * (0.758 / 1.157));
+          polygons.push(outer, inner);
         } else {
-          addCircleToPath(path, fx, fy, fr);
+          polygons.push(getCirclePolygon(fx, fy, fr));
         }
       }
     }
+
+    // Merge all dot polygons into a single unified outline (boolean union)
+    const unifiedPaths = unionPolygons(polygons);
+    const path = clipperToOpentypePath(unifiedPaths);
 
     const name = GLYPH_NAMES[char] || char;
     glyphs.push(new opentype.Glyph({
@@ -226,18 +337,18 @@ async function exportOTF() {
   }
 
   const font = new opentype.Font({
-    familyName:     'DottFont',                                                          
-    styleName:      'Regular',                                                          
+    familyName:     'DottFont',
+    styleName:      'Regular',
     unitsPerEm:     UPM,
     ascender:       ASCENDER,
     descender:      DESCENDER,
-    copyright:      '© 2026 Zoé Berthelot',                                           
-    manufacturer:   'Flutgraben e.V.',                                                  
-    designer:       'Zoé Berthelot @Neutronzoo',                                                          
-    version:        'Version 1.000',                                                     
-    description:    'Generated with DottFont Generator',                                 
-    license:        'This Font Software is licensed under the SIL Open Font License, Version 1.1.', 
-    licenseURL:     'https://scripts.sil.org/OFL',                                       
+    copyright:      '© 2026 Zoé Berthelot',
+    manufacturer:   'Flutgraben e.V.',
+    designer:       'Zoé Berthelot @Neutronzoo',
+    version:        'Version 1.000',
+    description:    `Generated with DottFont Generator — ${currentShape} / taille:${tailleGenerationMultiplier.toFixed(2)} / size:${sizeMultiplier.toFixed(2)} / presence:${presenceStrength.toFixed(2)}`,
+    license:        'This Font Software is licensed under the SIL Open Font License, Version 1.1.',
+    licenseURL:     'https://scripts.sil.org/OFL',
     glyphs
   });
 

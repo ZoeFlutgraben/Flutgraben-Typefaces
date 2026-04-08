@@ -376,7 +376,7 @@ function generateDots(canvasW, canvasH) {
   const bg = document.createElementNS(ns, 'rect');
   bg.setAttribute('width',  canvasW);
   bg.setAttribute('height', canvasH);
-  bg.setAttribute('fill',   '#f9f9f900');
+  bg.setAttribute('fill',   '#f9f9f9');
   outputSvg.appendChild(bg);
 
   const clones = samplePixelsToClones(canvasW, canvasH);

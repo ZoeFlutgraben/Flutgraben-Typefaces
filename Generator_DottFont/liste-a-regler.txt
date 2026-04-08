@@ -1,9 +1,18 @@
 a faire:
 
+export different 
+bouton qui qctive etape deux (solution export pdf, input qui gere le gradient)
+
+export svg propre
+
+contour (?)
+
 
 vf:
 modifier metadonnees export (  const font = new opentype.Font) 
 trouver nom
+souris (?)
+forme 
 
 fait:
 metadonnees export
@@ -12,3 +21,8 @@ non prise en charge de certaines formes lors de l'export
 ux design
 ajouter glyph
 verifier text metrics
+ajouter parametre dans metadonne
+flavicon
+optimisation export
+
+format type invalide -> quand ajout de caracteres dans le json bien modifier les metadonnes dans le js

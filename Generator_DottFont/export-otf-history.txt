@@ -1,6 +1,6 @@
 ============================================================
 EXPORT OTF — HISTORIQUE DES TRAVAUX
-Session du 03/04/2026 + 07/04/2026
+Session du 03/04/2026 + 07/04/2026 + 08/04/2026
 ============================================================
 
 ------------------------------------------------------------
@@ -250,9 +250,152 @@ index.html
 
 
 ------------------------------------------------------------
+ÉTAPE 9 — MÉTADONNÉES DYNAMIQUES (paramètres dans description)
+------------------------------------------------------------
+Le champ `description` dans opentype.Font() est rendu dynamique :
+il intègre les paramètres courants au moment de l'export.
+
+Avant :
+  description: 'Generated with DottFont Generator'
+
+Après :
+  description: `Generated with DottFont Generator — ${currentShape} / taille:${tailleGenerationMultiplier.toFixed(2)} / size:${sizeMultiplier.toFixed(2)} / presence:${presenceStrength.toFixed(2)}`
+
+Exemple de valeur : "Generated with DottFont Generator — circle / taille:1.00 / size:1.20 / presence:0.50"
+Ce string est identique au pattern utilisé pour le nom de fichier .otf.
+
+
+------------------------------------------------------------
+ÉTAPE 10 — UNION BOOLÉENNE DES CONTOURS (Path > Union)
+------------------------------------------------------------
+Problème : chaque dot = 1 contour indépendant dans l'OTF.
+Les contours se chevauchent, ce qui peut poser problème
+dans certains renderers (PDF, imposition, logiciels de signe).
+
+Objectif : fusionner tous les dots d'un glyphe en une seule
+silhouette unifiée — équivalent de Path > Union dans Inkscape.
+
+Solution : Clipper.js (port JS du moteur Clipper, union booléenne
+de polygones), chargé dynamiquement depuis CDN sans modifier index.html.
+
+Approche :
+  - Les fonctions addXxxToPath (Bézier) sont remplacées par des
+    fonctions getXxxPolygon retournant des tableaux de points {X, Y}
+    (format Clipper, coordonnées en entiers via CLIPPER_SCALE = 100).
+  - Les courbes sont approximées en polygones :
+      circle        → 32 points (sub-pixel à toutes tailles)
+      square        → 4 points (exact)
+      ellipse       → 32 points
+      trait         → 16 points par demi-cercle + segments droits
+      circle_outline→ 32 points outer (CCW) + 32 points inner (CW = trou)
+  - Après la boucle de génération, Clipper effectue l'union (ctUnion,
+    pftNonZero) sur tous les polygones du glyphe.
+  - Le résultat est converti en opentype.Path (moveTo / lineTo / close).
+
+Winding :
+  Toutes les formes solides sont générées en CCW (winding +1 en Y-up).
+  Le polygone inner de circle_outline est généré en CW (winding -1)
+  pour créer un trou. La règle NonZero inclut tout région ≠ 0 :
+    - Overlap solid+solid   : winding ≥ 2 → inclus (union correcte)
+    - Trou circle_outline   : winding  0  → exclu (trou préservé)
+    - Solid qui chevauche un trou : winding +1-1+1 = 1 → inclus (trou rempli, correct)
+
+Chargement Clipper :
+  loadClipper() injecte un <script> dans <head> au premier export.
+  Si window.ClipperLib existe déjà, l'injection est ignorée.
+  CDN : https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js
+
+Nouveaux composants dans export-otf.js :
+  getCirclePolygon(cx, cy, r, n=32)
+  getSquarePolygon(cx, cy, halfSize)
+  getEllipsePolygon(cx, cy, rx, ry, n=32)
+  getTraitPolygon(cx, cy, halfW, halfH, n=16)
+  getCircleOutlinePolygons(cx, cy, outerR, innerR, n=32) → [outer, inner]
+  loadClipper()
+  unionPolygons(polygons)     → ClipperLib.Paths
+  clipperToOpentypePath(paths) → opentype.Path
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE
+------------------------------------------------------------
+
+export-otf.js
+  Charset    : dynamique depuis JSON (52 lettres A–Z + a–z)
+  Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
+  Advance W  : depuis JSON par glyphe
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Coord map  : fontX = round((canvasX - PADDING) * SCALE)
+               fontY = round((BASELINE_Y - canvasY) * SCALE)
+  refWidth   : canvasH passé comme référence fixe → gradient stable ✓
+  Shapes     : circle, square, ellipse, trait, circle_outline ✓
+  Polygones  : approximation N-gon, CLIPPER_SCALE=100 ✓
+  Union      : Clipper.js ctUnion + pftNonZero → silhouette unifiée ✓
+  Métadonnées: description dynamique avec paramètres courants ✓
+
+dinish-bold-metrics.json
+  52 glyphes : A–Z (advW, lsb, rsb, inkWidth, bbox depuis UFO .glif)
+               a–z (idem)
+
+script-generator_DottFont.js
+  SHAPES     : circle, square, ellipse, trait, circle_outline ✓
+  refWidth   : paramètre ajouté à drawMeshGradientPreview() ✓
+  PNG export : XMLSerializer → Blob → Image → canvas 4× → download ✓
+
+index.html
+  Shape btns : circle, square, ellipse, trait, circle_outline ✓
+  Boutons    : SVG, PNG, OTF ✓
+
+
+------------------------------------------------------------
 PROCHAINES ÉTAPES
 ------------------------------------------------------------
 
 [x] Export OTF 52 glyphes — résolu (cache navigateur, redémarrage PC)
+[x] Métadonnées dynamiques (paramètres dans description) — 08/04/2026
+[x] Union booléenne des contours (Clipper.js) — 08/04/2026
+
+
+------------------------------------------------------------
+BUG — OTF REJETÉ PAR WINDOWS (08/04/2026)
+------------------------------------------------------------
+
+Symptôme :
+  Les exports OTF ne s'ouvrent plus sous Windows (message d'erreur).
+  Ils restent lisibles dans FontLab (plus permissif sur la structure).
+
+Identifié à partir du commit : 65bf0dc — "ajout glyph export" (07/04 14:26)
+
+Cause racine :
+  Le fichier dinish-bold-metrics.json a été étendu à 138 glyphes dans ce
+  commit (A–Z, a–z, chiffres, ponctuation + 84 caractères latins accentués :
+  À Á Â Ã Ä Å Ç È É Ê Ë Ì Í Î Ï Ñ Ò Ó Ô Õ Ö Ù Ú Û Ü Ÿ
+  et leurs équivalents minuscules : à á â ã ä å ç è é ê ë ì í î ï
+  ñ ò ó ô õ ö ù ú û ü ÿ).
+
+  Dans export-otf.js, le nom PostScript d'un glyphe est calculé par :
+    const name = GLYPH_NAMES[char] || char;
+
+  Or GLYPH_NAMES ne contenait aucun mapping pour les caractères accentués.
+  Pour É (U+00C9) par exemple, le fallback donnait le caractère lui-même ('É')
+  comme nom PostScript — un nom non-ASCII, invalide selon la spec PostScript.
+
+  Les noms PostScript doivent être composés exclusivement de caractères ASCII
+  (Adobe Glyph List). Un nom comme 'É' produit une table `post` malformée.
+  Windows valide cette table strictement et rejette le fichier.
+  FontLab tolère les noms non-conformes, d'où la divergence de comportement.
+
+Fix appliqué (08/04/2026) :
+  Ajout de 52 mappings dans GLYPH_NAMES (export-otf.js) selon l'Adobe Glyph
+  List standard — tous les caractères accentués du JSON ont désormais un nom
+  PostScript ASCII valide :
+    'À':'Agrave',    'Á':'Aacute',      'Â':'Acircumflex', ...
+    'à':'agrave',    'á':'aacute',      'â':'acircumflex', ...
+    (liste complète dans export-otf.js, section GLYPH_NAMES)
+
+  Note : le commentaire précédent "Letters and accented letters use the
+  character itself as the PostScript name" était incorrect — c'est exactement
+  ce comportement qui causait le bug.
 
 ============================================================
