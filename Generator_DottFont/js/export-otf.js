@@ -346,14 +346,14 @@ async function exportOTF() {
     manufacturer:   'Flutgraben e.V.',
     designer:       'Zoé Berthelot @Neutronzoo',
     version:        'Version 1.000',
-    description:    `Generated with DottFont Generator — ${currentShape} / taille:${tailleGenerationMultiplier.toFixed(2)} / size:${sizeMultiplier.toFixed(2)} / presence:${presenceStrength.toFixed(2)}`,
+    description:    `Generated with DottFont Generator — ${currentShape} / mesh:${meshSize} / taille:${tailleGenerationMultiplier.toFixed(2)} / size:${sizeMultiplier.toFixed(2)} / presence:${presenceStrength.toFixed(2)}`,
     license:        'This Font Software is licensed under the SIL Open Font License, Version 1.1.',
     licenseURL:     'https://scripts.sil.org/OFL',
     glyphs
   });
 
-  // Build filename from current settings: shape_tailleGeneration_size_presence
-  const filename = `${currentShape}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
+  // Build filename from current settings: shape_mesh_tailleGeneration_size_presence
+  const filename = `${currentShape}_mesh${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
   font.download(filename);
 
   // Restore the display to the current text input after processing

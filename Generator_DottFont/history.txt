@@ -398,4 +398,76 @@ Fix appliqué (08/04/2026) :
   character itself as the PostScript name" était incorrect — c'est exactement
   ce comportement qui causait le bug.
 
+
+------------------------------------------------------------
+ÉTAPE 11 — SLIDER MESH (taille de la grille bilinéaire)
+------------------------------------------------------------
+Date : 09/04/2026
+
+Objectif : pouvoir travailler avec une lettre noire pleine (sans mesh)
+ou graduer la densité du damier de 1 à 4 patches, depuis un seul slider.
+
+Slider ajouté dans index.html :
+  id=mesh-slider  min=0  max=4  step=1  value=0
+  Placé avant le slider "Size pregeneration".
+
+Changements dans script-generator_DottFont.js :
+
+  Supprimé :
+    const MESH_COLS = 4;
+    const MESH_ROWS = 4;
+    const MESH_GRID = [];
+    + boucle de construction du tableau 5×5
+
+  Remplacé par :
+    let meshSize = 0;
+
+  Dans drawMeshGradientPreview() :
+    - meshSize === 0 → tous les pixels texte reçoivent value=0 (noir pur, pas d'interpolation)
+    - meshSize > 0  → bilinear interpolation sur une grille meshSize×meshSize
+      Le tableau MESH_GRID pré-construit est supprimé ; la valeur par coin
+      est calculée inline : (r+c) % 2 === 0 ? 204 : 0
+      → moins de code, même résultat, aucun tableau à maintenir.
+
+  Optimisation : la fonction inline cv(r, c) remplace les lookups MESH_GRID[r][c]
+  directement dans le calcul bilinéaire.
+
+  Event listener ajouté :
+    meshSlider → met à jour meshSize, appelle generate().
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE
+------------------------------------------------------------
+
+export-otf.js
+  Charset    : dynamique depuis JSON (52 lettres A–Z + a–z)
+  Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
+  Advance W  : depuis JSON par glyphe
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Coord map  : fontX = round((canvasX - PADDING) * SCALE)
+               fontY = round((BASELINE_Y - canvasY) * SCALE)
+  refWidth   : canvasH passé comme référence fixe → gradient stable ✓
+  Shapes     : circle, square, ellipse, trait, circle_outline ✓
+  Polygones  : approximation N-gon, CLIPPER_SCALE=100 ✓
+  Union      : Clipper.js ctUnion + pftNonZero → silhouette unifiée ✓
+  Métadonnées: description dynamique avec paramètres courants ✓
+
+dinish-bold-metrics.json
+  52 glyphes : A–Z (advW, lsb, rsb, inkWidth, bbox depuis UFO .glif)
+               a–z (idem)
+
+script-generator_DottFont.js
+  SHAPES     : circle, square, ellipse, trait, circle_outline ✓
+  meshSize   : slider 0–4, 0=noir pur, 1–4=damier bilinéaire ✓
+  refWidth   : paramètre ajouté à drawMeshGradientPreview() ✓
+  PNG export : XMLSerializer → Blob → Image → canvas 4× → download ✓
+
+index.html
+  Shape btns : circle, square, ellipse, trait, circle_outline ✓
+  Sliders    : Mesh (0–4), Size pregeneration, Size postgeneration,
+               Contour, Hazard ✓
+  Boutons    : SVG, PNG, OTF ✓
+
 ============================================================

@@ -27,6 +27,8 @@ const sizeSlider             = document.getElementById('size-slider');
 const sizeValue              = document.getElementById('size-value');
 const tailleGenerationSlider = document.getElementById('taille-generation-slider');
 const tailleGenerationValue  = document.getElementById('taille-generation-value');
+const meshSlider             = document.getElementById('mesh-slider');
+const meshValue              = document.getElementById('mesh-value');
 const ctx                    = hiddenCanvas.getContext('2d');
 
 // Outset radius — controls how far the gray contour expands beyond the text shape
@@ -53,6 +55,9 @@ let lastCanvasH = 0;
 // Debounce timer for text input — avoids re-rendering on every keystroke
 let debounceTimer;
 
+// Debounce timer for sliders — avoids re-rendering on every drag pixel
+let sliderDebounceTimer;
+
 // --- Rendering constants ---
 const FONT_SIZE   = 150;  // px — text render size
 const DOT_SPACING = 6;    // px — grid step between dot centers
@@ -61,19 +66,10 @@ const MIN_RADIUS  = 0.5;  // px — half-size of dot at lightest grey
 const THRESHOLD   = 240;  // brightness cutoff for text mask (0=black, 255=white)
 const PADDING     = 30;   // px — margin around text on canvas
 
-// --- Mesh gradient definition (from mesh.svg) ---
-// 5×5 control points for a 4×4 patch grid.
-// Alternating black (0) and grey (204 = #cccccc).
-const MESH_COLS = 4;
-const MESH_ROWS = 4;
-const MESH_GRID = [];
-
-for (let r = 0; r <= MESH_ROWS; r++) {
-  MESH_GRID[r] = [];
-  for (let c = 0; c <= MESH_COLS; c++) {
-    MESH_GRID[r][c] = (r + c) % 2 === 0 ? 204 : 0;
-  }
-}
+// --- Mesh gradient size ---
+// Number of patches along each axis. 0 = solid black (no mesh).
+// Checkerboard pattern is computed inline: (r+c) even → grey (204), odd → black (0).
+let meshSize = 0;
 
 // --- Shape definitions ---
 // Each shape maps to a <symbol> definition injected into the SVG defs.
@@ -251,21 +247,29 @@ function drawMeshGradientPreview(canvasW, canvasH, blurData, refWidth) {
         continue;
       }
 
-      // Inside text — bilinear interpolation of mesh gradient grid.
+      // Inside text — meshSize 0 → solid black; otherwise bilinear interpolation
+      // of a checkerboard where (r+c) even → grey (204), odd → black (0).
       // gradRefW on x ensures consistent gradient scale across all characters.
-      const gx = (px / gradRefW) * MESH_COLS;
-      const gy = (py / canvasH) * MESH_ROWS;
-      const c0 = Math.min(Math.floor(gx), MESH_COLS - 1);
-      const r0 = Math.min(Math.floor(gy), MESH_ROWS - 1);
-      const tx = gx - c0;
-      const ty = gy - r0;
+      let value;
+      if (meshSize === 0) {
+        value = 0;
+      } else {
+        const gx = (px / gradRefW) * meshSize;
+        const gy = (py / canvasH) * meshSize;
+        const c0 = Math.min(Math.floor(gx), meshSize - 1);
+        const r0 = Math.min(Math.floor(gy), meshSize - 1);
+        const tx = gx - c0;
+        const ty = gy - r0;
 
-      const value = Math.round(
-        MESH_GRID[r0][c0]         * (1 - tx) * (1 - ty) +
-        MESH_GRID[r0][c0 + 1]     * tx       * (1 - ty) +
-        MESH_GRID[r0 + 1][c0]     * (1 - tx) * ty       +
-        MESH_GRID[r0 + 1][c0 + 1] * tx       * ty
-      );
+        // Inline checkerboard: (r+c) even → 204 (grey), odd → 0 (black)
+        const cv = (r, c) => (r + c) % 2 === 0 ? 204 : 0;
+        value = Math.round(
+          cv(r0,     c0)     * (1 - tx) * (1 - ty) +
+          cv(r0,     c0 + 1) * tx       * (1 - ty) +
+          cv(r0 + 1, c0)     * (1 - tx) * ty       +
+          cv(r0 + 1, c0 + 1) * tx       * ty
+        );
+      }
 
       imgData.data[i]   = value;
       imgData.data[i+1] = value;
@@ -277,17 +281,19 @@ function drawMeshGradientPreview(canvasW, canvasH, blurData, refWidth) {
   gCtx.putImageData(imgData, 0, 0);
 }
 
-// Samples the gradient canvas and returns SVG <use> clone elements.
-// Applies a probabilistic presence filter driven by presenceStrength:
-//   strength=0 → all dots present (probability always 1)
+// Samples the gradient canvas and returns an SVG markup string of <use> clone elements.
+// Building a string and inserting it once via insertAdjacentHTML is significantly faster
+// than creating N DOM elements individually (avoids per-element reflow cost).
+//
+// Presence filter:
+//   strength=0 → all dots present
 //   strength=0.5 → black zones full, grey zones ~0%
 //   strength=1 → only the darkest pixels survive
-// Formula: probability = max(0, 1 - (brightness / 204) * strength * 2)
-function samplePixelsToClones(canvasW, canvasH) {
+//   meshSize=0 → flat probability (1 - presenceStrength), brightness-independent
+function samplePixelsToSVGString(canvasW, canvasH) {
   const imageData = gCtx.getImageData(0, 0, canvasW, canvasH);
   const pixels    = imageData.data;
-  const ns        = 'http://www.w3.org/2000/svg';
-  const clones    = [];
+  let   svgStr    = '';
 
   // Grid step scales with taille-generation so spacing and dot size stay proportional
   const step = DOT_SPACING * tailleGenerationMultiplier;
@@ -300,8 +306,11 @@ function samplePixelsToClones(canvasW, canvasH) {
       // Skip background pixels (#f9f9f9 = 249)
       if (brightness >= 245) continue;
 
-      // Probabilistic presence filter
-      const probability = Math.max(0, 1 - (brightness / 204) * presenceStrength * 2);
+      // Probabilistic presence filter.
+      // meshSize 0 → solid black, brightness always 0 → use flat probability instead
+      const probability = meshSize === 0
+        ? 1 - presenceStrength
+        : Math.max(0, 1 - (brightness / 204) * presenceStrength * 2);
       if (Math.random() > probability) continue;
 
       // Map brightness (0–204) to half-size radius
@@ -310,19 +319,11 @@ function samplePixelsToClones(canvasW, canvasH) {
       const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * sizeMultiplier * tailleGenerationMultiplier;
       const size     = radius * 2;
 
-      // Place <use> referencing the base symbol
-      // x/y position the top-left corner, width/height scale the symbol
-      const use = document.createElementNS(ns, 'use');
-      use.setAttribute('href', '#base-dot');
-      use.setAttribute('x',      (x - radius).toFixed(2));
-      use.setAttribute('y',      (y - radius).toFixed(2));
-      use.setAttribute('width',  size.toFixed(2));
-      use.setAttribute('height', size.toFixed(2));
-      clones.push(use);
+      svgStr += `<use href="#base-dot" x="${(x - radius).toFixed(2)}" y="${(y - radius).toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}"/>`;
     }
   }
 
-  return clones;
+  return svgStr;
 }
 
 // Main generation function — called on text change, shape change, or size slider change.
@@ -360,9 +361,9 @@ function generate() {
 // Regenerates dot clones — called by presence/size sliders to avoid re-running
 // the full text mask and gradient pipeline.
 // The outset zone is already baked into the gradient canvas by drawMeshGradientPreview.
+// Background rect and all dot clones are inserted in one insertAdjacentHTML call
+// to avoid the per-element DOM cost of individual appendChild calls.
 function generateDots(canvasW, canvasH) {
-  const ns = 'http://www.w3.org/2000/svg';
-
   outputSvg.setAttribute('width',   canvasW);
   outputSvg.setAttribute('height',  canvasH);
   outputSvg.setAttribute('viewBox', `0 0 ${canvasW} ${canvasH}`);
@@ -372,15 +373,11 @@ function generateDots(canvasW, canvasH) {
     outputSvg.removeChild(outputSvg.lastChild);
   }
 
-  // Background rect preserved in SVG export
-  const bg = document.createElementNS(ns, 'rect');
-  bg.setAttribute('width',  canvasW);
-  bg.setAttribute('height', canvasH);
-  bg.setAttribute('fill',   '#f9f9f9');
-  outputSvg.appendChild(bg);
-
-  const clones = samplePixelsToClones(canvasW, canvasH);
-  clones.forEach(use => outputSvg.appendChild(use));
+  // Background rect + all dot clones in a single DOM insertion
+  outputSvg.insertAdjacentHTML('beforeend',
+    `<rect width="${canvasW}" height="${canvasH}" fill="#f9f9f9"/>` +
+    samplePixelsToSVGString(canvasW, canvasH)
+  );
 }
 
 // Resets all outputs to empty state
@@ -397,6 +394,12 @@ function clearOutputs() {
 }
 
 // --- Event bindings ---
+
+// Debounced generate for heavy sliders — ~80ms delay avoids re-rendering on every drag pixel
+function debouncedGenerate() {
+  clearTimeout(sliderDebounceTimer);
+  sliderDebounceTimer = setTimeout(generate, 80);
+}
 
 // Shape selector buttons
 document.querySelectorAll('.shape-btn').forEach(btn => {
@@ -418,7 +421,7 @@ textInput.addEventListener('input', () => {
 outsetSlider.addEventListener('input', () => {
   outsetRadius = parseInt(outsetSlider.value, 10);
   outsetValue.textContent = outsetRadius;
-  generate();
+  debouncedGenerate();
 });
 
 // Presence slider — regenerates dots only, no full pipeline re-run
@@ -432,14 +435,21 @@ presenceSlider.addEventListener('input', () => {
 sizeSlider.addEventListener('input', () => {
   sizeMultiplier = parseFloat(sizeSlider.value);
   sizeValue.textContent = sizeMultiplier.toFixed(2);
-  generate();
+  debouncedGenerate();
 });
 
 // Taille-generation slider — scales radius AND spacing together, triggers full regeneration
 tailleGenerationSlider.addEventListener('input', () => {
   tailleGenerationMultiplier = parseFloat(tailleGenerationSlider.value);
   tailleGenerationValue.textContent = tailleGenerationMultiplier.toFixed(2);
-  generate();
+  debouncedGenerate();
+});
+
+// Mesh slider — changes grid size, triggers full regeneration
+meshSlider.addEventListener('input', () => {
+  meshSize = parseInt(meshSlider.value, 10);
+  meshValue.textContent = meshSize;
+  debouncedGenerate();
 });
 
 // Export output SVG as a .svg file download
@@ -451,7 +461,7 @@ exportBtn.addEventListener('click', () => {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download =  `${currentShape}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
+  a.download =  `${currentShape}_mesh${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
   a.click();
   URL.revokeObjectURL(url);
 });
@@ -479,7 +489,7 @@ exportPngBtn.addEventListener('click', () => {
     URL.revokeObjectURL(url);
     const a    = document.createElement('a');
     a.href     = canvas.toDataURL('image/png');
-    a.download = `${currentShape}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.png`;
+    a.download = `${currentShape}_mesh${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.png`;
     a.click();
   };
 

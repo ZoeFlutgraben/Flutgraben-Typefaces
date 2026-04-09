@@ -81,6 +81,7 @@ body {
 #presence-value,
 #size-value,
 #taille-generation-value,
+#mesh-value,
 #export-btn,
 #export-otf-btn,
 #export-png-btn {
@@ -217,7 +218,8 @@ body {
 #outset-slider,
 #presence-slider,
 #size-slider,
-#taille-generation-slider {
+#taille-generation-slider,
+#mesh-slider {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
@@ -230,7 +232,8 @@ body {
 #outset-slider::-webkit-slider-thumb,
 #presence-slider::-webkit-slider-thumb,
 #size-slider::-webkit-slider-thumb,
-#taille-generation-slider::-webkit-slider-thumb {
+#taille-generation-slider::-webkit-slider-thumb,
+#mesh-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -243,7 +246,8 @@ body {
 #outset-slider::-moz-range-thumb,
 #presence-slider::-moz-range-thumb,
 #size-slider::-moz-range-thumb,
-#taille-generation-slider::-moz-range-thumb {
+#taille-generation-slider::-moz-range-thumb,
+#mesh-slider::-moz-range-thumb {
   width: 12px;
   height: 12px;
   background: var(--color-dark);
@@ -255,7 +259,8 @@ body {
 #outset-value,
 #presence-value,
 #size-value,
-#taille-generation-value {
+#taille-generation-value,
+#mesh-value {
   color: var(--color-label);
   min-width: 2.5ch;
   text-align: right;
