@@ -3,16 +3,16 @@ a faire:
 export different 
 bouton qui qctive etape deux (solution export pdf, input qui gere le gradient)
 
-export svg propre
-
 contour (?)
-
 
 vf:
 modifier metadonnees export (  const font = new opentype.Font) 
 trouver nom
 souris (?)
 forme 
+
+dont'know :
+export svg propre
 
 fait:
 metadonnees export
