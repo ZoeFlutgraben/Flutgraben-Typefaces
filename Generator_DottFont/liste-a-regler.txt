@@ -1,7 +1,6 @@
 a faire:
 
-export different 
-bouton qui qctive etape deux (solution export pdf, input qui gere le gradient)
+
 
 export svg propre
 
@@ -12,7 +11,8 @@ vf:
 modifier metadonnees export (  const font = new opentype.Font) 
 trouver nom
 souris (?)
-forme 
+forme final + optimisation export
+
 
 fait:
 metadonnees export
@@ -24,5 +24,7 @@ verifier text metrics
 ajouter parametre dans metadonne
 flavicon
 optimisation export
+export different 
+bouton qui qctive etape deux (solution export pdf, input qui gere le gradient)
 
 format type invalide -> quand ajout de caracteres dans le json bien modifier les metadonnes dans le js

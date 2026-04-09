@@ -462,7 +462,7 @@ exportPngBtn.addEventListener('click', () => {
     URL.revokeObjectURL(url);
     const a    = document.createElement('a');
     a.href     = canvas.toDataURL('image/png');
-    a.download = `${currentShape}_mesh${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.png`;
+    a.download = `${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.png`;
     a.click();
   };
 

@@ -39,7 +39,7 @@ const CLIPPER_SCALE = 100;
 // Returns a CCW polygon (array of Clipper {X,Y} points) approximating a circle.
 // n=32 gives sub-pixel error at all normal font sizes.
 // CCW winding in Y-up font coordinates = positive area = included by NonZero fill rule.
-function getCirclePolygon(cx, cy, r, n = 32) {
+function getCirclePolygon(cx, cy, r, n = 16) {
   const pts = [];
   for (let i = 0; i < n; i++) {
     const a = (2 * Math.PI * i) / n;
@@ -66,7 +66,7 @@ function getSquarePolygon(cx, cy, halfSize) {
 
 // Returns a CCW polygon approximating an ellipse.
 // rx, ry: semi-axes. Same winding logic as getCirclePolygon.
-function getEllipsePolygon(cx, cy, rx, ry, n = 32) {
+function getEllipsePolygon(cx, cy, rx, ry, n = 16) {
   const pts = [];
   for (let i = 0; i < n; i++) {
     const a = (2 * Math.PI * i) / n;
@@ -108,7 +108,7 @@ function getTraitPolygon(cx, cy, halfW, halfH, n = 16) {
 // outer is CCW (solid area, winding +1), inner is CW (hole, winding -1).
 // With NonZero fill rule, overlapping outer+inner regions cancel to 0 → hole.
 // If another solid shape overlaps the hole, the hole is filled (correct union behavior).
-function getCircleOutlinePolygons(cx, cy, outerR, innerR, n = 32) {
+function getCircleOutlinePolygons(cx, cy, outerR, innerR, n = 16) {
   const outer = [];
   const inner = [];
   for (let i = 0; i < n; i++) {
@@ -124,6 +124,86 @@ function getCircleOutlinePolygons(cx, cy, outerR, innerR, n = 32) {
     });
   }
   return [outer, inner];
+}
+
+// Cubic Bezier circle approximation constant: (4/3) × tan(π/8) ≈ 0.5523.
+// Each of 4 quadrant segments has < 0.03% radial error — indistinguishable from a true circle.
+const BEZIER_K = 0.5522847498;
+
+// Appends a circle to an opentype.Path using 4 cubic Bezier segments.
+// CCW winding (cw=false) = solid area; CW (cw=true) = hole (for circle_outline inner ring).
+function addCircleBezier(path, cx, cy, r, cw) {
+  const k = BEZIER_K * r;
+  if (!cw) {
+    // CCW: right → top → left → bottom → right
+    path.moveTo(cx + r, cy);
+    path.bezierCurveTo(cx + r, cy + k,   cx + k, cy + r,   cx,     cy + r);
+    path.bezierCurveTo(cx - k, cy + r,   cx - r, cy + k,   cx - r, cy    );
+    path.bezierCurveTo(cx - r, cy - k,   cx - k, cy - r,   cx,     cy - r);
+    path.bezierCurveTo(cx + k, cy - r,   cx + r, cy - k,   cx + r, cy    );
+  } else {
+    // CW: right → bottom → left → top → right (hole in NonZero fill)
+    path.moveTo(cx + r, cy);
+    path.bezierCurveTo(cx + r, cy - k,   cx + k, cy - r,   cx,     cy - r);
+    path.bezierCurveTo(cx - k, cy - r,   cx - r, cy - k,   cx - r, cy    );
+    path.bezierCurveTo(cx - r, cy + k,   cx - k, cy + r,   cx,     cy + r);
+    path.bezierCurveTo(cx + k, cy + r,   cx + r, cy + k,   cx + r, cy    );
+  }
+  path.close();
+}
+
+// Appends an ellipse (rx × ry semi-axes) to an opentype.Path, CCW.
+function addEllipseBezier(path, cx, cy, rx, ry) {
+  const kx = BEZIER_K * rx;
+  const ky = BEZIER_K * ry;
+  path.moveTo(cx + rx, cy);
+  path.bezierCurveTo(cx + rx, cy + ky,   cx + kx, cy + ry,   cx,      cy + ry);
+  path.bezierCurveTo(cx - kx, cy + ry,   cx - rx, cy + ky,   cx - rx, cy     );
+  path.bezierCurveTo(cx - rx, cy - ky,   cx - kx, cy - ry,   cx,      cy - ry);
+  path.bezierCurveTo(cx + kx, cy - ry,   cx + rx, cy - ky,   cx + rx, cy     );
+  path.close();
+}
+
+// Appends a horizontal pill (stadium) to an opentype.Path, CCW.
+// halfW: half total width, halfH: half height = corner radius.
+function addTraitBezier(path, cx, cy, halfW, halfH) {
+  const rx = halfW - halfH;  // distance from center to each semicircle center
+  const k  = BEZIER_K * halfH;
+  path.moveTo(cx + rx + halfH, cy);
+  // Right semicircle: rightmost → top
+  path.bezierCurveTo(cx + rx + halfH, cy + k,   cx + rx + k, cy + halfH,   cx + rx, cy + halfH);
+  // Top straight edge
+  path.lineTo(cx - rx, cy + halfH);
+  // Left semicircle: top → leftmost → bottom
+  path.bezierCurveTo(cx - rx - k, cy + halfH,   cx - rx - halfH, cy + k,   cx - rx - halfH, cy);
+  path.bezierCurveTo(cx - rx - halfH, cy - k,   cx - rx - k, cy - halfH,   cx - rx, cy - halfH);
+  // Bottom straight edge
+  path.lineTo(cx + rx, cy - halfH);
+  // Right semicircle: bottom → rightmost
+  path.bezierCurveTo(cx + rx + k, cy - halfH,   cx + rx + halfH, cy - k,   cx + rx + halfH, cy);
+  path.close();
+}
+
+// Dispatches to the correct Bezier function for the current shape.
+// Used when dots cannot overlap (no Clipper union needed).
+function addShapeBezierToPath(path, cx, cy, r) {
+  if (currentShape === 'square') {
+    // Square has straight edges — 4 lineTo segments, no Bezier needed
+    path.moveTo(cx - r, cy + r);
+    path.lineTo(cx - r, cy - r);
+    path.lineTo(cx + r, cy - r);
+    path.lineTo(cx + r, cy + r);
+    path.close();
+  } else if (currentShape === 'ellipse') {
+    addEllipseBezier(path, cx, cy, r * (2 / 2.75), r);
+  } else if (currentShape === 'trait') {
+    addTraitBezier(path, cx, cy, r, r * (1.7 / 3.614));
+  } else if (currentShape === 'circle_outline') {
+    addCircleBezier(path, cx, cy, r,                    false);  // outer CCW
+    addCircleBezier(path, cx, cy, r * (0.758 / 1.157),  true);   // inner CW = hole
+  } else {
+    addCircleBezier(path, cx, cy, r, false);
+  }
 }
 
 // Loads Clipper.js from CDN into the page if not already present.
@@ -272,20 +352,50 @@ async function exportOTF() {
     name: 'space', unicode: 32, advanceWidth: 222, path: new opentype.Path()
   }));
 
+  // Disable blur during export: renderTextMask creates a full blur canvas when
+  // outsetRadius > 0, but the contour zone is not exported in OTF — wasted work.
+  const savedOutsetRadius = outsetRadius;
+  outsetRadius = 0;
+
+  // Hoist constants that are identical for every glyph
+  const step       = DOT_SPACING * tailleGenerationMultiplier;
+  const canOverlap = 2 * MAX_RADIUS * sizeMultiplier > DOT_SPACING;
+
+  // Pre-compute radius formula parts: radius = radiusBase + darkness * radiusRange
+  // Avoids repeating the same multiplications for every dot of every glyph.
+  const radiusMul   = sizeMultiplier * tailleGenerationMultiplier;
+  const radiusBase  = MIN_RADIUS * radiusMul;
+  const radiusRange = (MAX_RADIUS - MIN_RADIUS) * radiusMul;
+
   // One glyph per character present in the JSON
-  for (const char of CHARSET) {
+  for (let gi = 0; gi < CHARSET.length; gi++) {
+    const char = CHARSET[gi];
+
+    // Yield to the browser every 10 glyphs: allows repaints and prevents
+    // the "page unresponsive" dialog on large charsets.
+    if (gi % 10 === 0) {
+      exportOtfBtn.textContent = `${gi} / ${CHARSET.length}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+
     // Run the full render pipeline for this single character
     const { canvasW, canvasH } = renderTextMask(char);
-    // Pass canvasH as refWidth so the gradient x-axis uses a fixed reference (FONT_SIZE + 2*PADDING)
-    // identical for every character, eliminating per-character gradient remapping and the resulting trembling.
-    drawMeshGradientPreview(canvasW, canvasH, canvasH);
 
-    const step      = DOT_SPACING * tailleGenerationMultiplier;
-    const imageData = gCtx.getImageData(0, 0, canvasW, canvasH);
-    const pixels    = imageData.data;
+    // When meshSize=0 the gradient is uniformly black on text — identical to the text
+    // mask itself. Read ctx directly and skip drawMeshGradientPreview entirely,
+    // saving per-pixel gradient computation + two canvas reads for every glyph.
+    let pixels;
+    if (meshSize === 0) {
+      pixels = ctx.getImageData(0, 0, canvasW, canvasH).data;
+    } else {
+      // Pass canvasH as refWidth so the gradient x-axis uses a fixed reference (FONT_SIZE + 2*PADDING)
+      // identical for every character, eliminating per-character gradient remapping and trembling.
+      drawMeshGradientPreview(canvasW, canvasH, canvasH);
+      pixels = gCtx.getImageData(0, 0, canvasW, canvasH).data;
+    }
 
-    // Collect all shape polygons for this glyph before performing union
-    const polygons = [];
+    const polygons   = canOverlap ? [] : null;
+    const directPath = canOverlap ? null : new opentype.Path();
 
     for (let y = step / 2; y < canvasH; y += step) {
       for (let x = step / 2; x < canvasW; x += step) {
@@ -293,12 +403,15 @@ async function exportOTF() {
         const brightness = (pixels[i] + pixels[i+1] + pixels[i+2]) / 3;
         if (brightness >= 245) continue;
 
-        // Apply the same probabilistic filter as the SVG output
-        const probability = Math.max(0, 1 - (brightness / 204) * presenceStrength * 2);
+        // Apply the same probabilistic filter as the SVG output.
+        // meshSize 0 → solid black, brightness always 0 → use flat probability instead
+        const probability = meshSize === 0
+          ? 1 - presenceStrength
+          : Math.max(0, 1 - (brightness / 204) * presenceStrength * 2);
         if (Math.random() > probability) continue;
 
         const darkness = Math.max(0, 1 - brightness / 204);
-        const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * sizeMultiplier * tailleGenerationMultiplier;
+        const radius   = radiusBase + darkness * radiusRange;
 
         // Map canvas px → font units, flipping Y axis.
         // Round cx/cy to integers to avoid float-to-int rounding drift in opentype.js:
@@ -308,24 +421,30 @@ async function exportOTF() {
         const fy = Math.round((BASELINE_Y - y) * SCALE);
         const fr = radius * SCALE;
 
-        if (currentShape === 'square') {
-          polygons.push(getSquarePolygon(fx, fy, fr));
-        } else if (currentShape === 'ellipse') {
-          polygons.push(getEllipsePolygon(fx, fy, fr * (2 / 2.75), fr));
-        } else if (currentShape === 'trait') {
-          polygons.push(getTraitPolygon(fx, fy, fr, fr * (1.7 / 3.614)));
-        } else if (currentShape === 'circle_outline') {
-          const [outer, inner] = getCircleOutlinePolygons(fx, fy, fr, fr * (0.758 / 1.157));
-          polygons.push(outer, inner);
+        if (canOverlap) {
+          // Polygon mode — will be merged by Clipper union below
+          if (currentShape === 'square') {
+            polygons.push(getSquarePolygon(fx, fy, fr));
+          } else if (currentShape === 'ellipse') {
+            polygons.push(getEllipsePolygon(fx, fy, fr * (2 / 2.75), fr));
+          } else if (currentShape === 'trait') {
+            polygons.push(getTraitPolygon(fx, fy, fr, fr * (1.7 / 3.614)));
+          } else if (currentShape === 'circle_outline') {
+            const [outer, inner] = getCircleOutlinePolygons(fx, fy, fr, fr * (0.758 / 1.157));
+            polygons.push(outer, inner);
+          } else {
+            polygons.push(getCirclePolygon(fx, fy, fr));
+          }
         } else {
-          polygons.push(getCirclePolygon(fx, fy, fr));
+          // Direct Bezier mode — 4 cubic segments per shape, no Clipper
+          addShapeBezierToPath(directPath, fx, fy, fr);
         }
       }
     }
 
-    // Merge all dot polygons into a single unified outline (boolean union)
-    const unifiedPaths = unionPolygons(polygons);
-    const path = clipperToOpentypePath(unifiedPaths);
+    const path = canOverlap
+      ? clipperToOpentypePath(unionPolygons(polygons))
+      : directPath;
 
     const name = GLYPH_NAMES[char] || char;
     glyphs.push(new opentype.Glyph({
@@ -336,8 +455,11 @@ async function exportOTF() {
     }));
   }
 
+  // Restore blur radius now that all glyphs are processed
+  outsetRadius = savedOutsetRadius;
+
   const font = new opentype.Font({
-    familyName:     'DottFont',
+    familyName:     'FLUTGRABEN',
     styleName:      'Regular',
     unitsPerEm:     UPM,
     ascender:       ASCENDER,
@@ -353,7 +475,7 @@ async function exportOTF() {
   });
 
   // Build filename from current settings: shape_mesh_tailleGeneration_size_presence
-  const filename = `${currentShape}_mesh${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
+  const filename = `FLUTGRABEN_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
   font.download(filename);
 
   // Restore the display to the current text input after processing

@@ -1,6 +1,6 @@
 ============================================================
 EXPORT OTF — HISTORIQUE DES TRAVAUX
-Session du 03/04/2026 + 07/04/2026 + 08/04/2026
+Session du 03/04/2026 + 07/04/2026 + 08/04/2026 + 09/04/2026
 ============================================================
 
 ------------------------------------------------------------
@@ -437,11 +437,59 @@ Changements dans script-generator_DottFont.js :
 
 
 ------------------------------------------------------------
+------------------------------------------------------------
+SESSION 09/04/2026
+------------------------------------------------------------
+
+BUG — Paramètre Hazard ignoré à l'export OTF
+  Problème : depuis l'ajout du slider Mesh (commit a98eda5, 10h52),
+             script-generator_DottFont.js avait été mis à jour pour gérer
+             meshSize=0 (brightness=0 partout → probabilité plate),
+             mais export-otf.js utilisait toujours l'ancienne formule :
+               probability = max(0, 1 - (brightness/204) * presenceStrength * 2)
+             → quand meshSize=0, brightness=0 → probability=1 toujours
+             → Hazard sans effet à l'export.
+  Fix     : même logique que script-generator_DottFont.js :
+               meshSize=0  → probability = 1 - presenceStrength
+               meshSize>0  → max(0, 1 - (brightness/204) * presenceStrength * 2)
+
+OPTIMISATION — Export OTF
+  1. Courbes Bezier directes quand pas de chevauchement
+       Quand 2 × MAX_RADIUS × sizeMultiplier ≤ DOT_SPACING,
+       les dots ne se chevauchent pas → on bypass Clipper entièrement.
+       Chaque forme est ajoutée directement comme courbe cubique Bezier
+       (4 segments par cercle/ellipse, k=0.5523) dans l'opentype.Path.
+       → Cercles lisses et précis dans le fichier OTF, pas de polygones.
+       Quand chevauchement possible → Clipper union comme avant.
+
+  2. Segments polygones réduits pour Clipper (n=32 → n=16)
+       Moins de points pour Clipper union → ~2× plus rapide.
+       Erreur visuelle < 0.4 font units, imperceptible.
+
+  3. Skip du flou pendant l'export
+       renderTextMask() créait un canvas flou complet si outsetRadius > 0.
+       Le contour (offset) n'est pas exporté en OTF → travail inutile.
+       Fix : outsetRadius sauvegardé et mis à 0 pendant la boucle glyphs.
+
+  4. Indicateur de progression
+       Le bouton OTF affiche "X / 138" et yield toutes les 10 glyphs
+       (await setTimeout 0) → pas de freeze navigateur.
+
+  5. Constantes hoistées hors de la boucle glyphs
+       step, canOverlap, radiusMul, radiusBase, radiusRange calculés
+       une fois avant la boucle au lieu de 138 fois.
+
+  6. Fast path meshSize=0 pour le gradient
+       Quand meshSize=0 le gradient est uniformément noir sur le texte,
+       identique au masque texte. On lit ctx directement et on saute
+       drawMeshGradientPreview() → économie de canvasW×canvasH×138 ops.
+
+------------------------------------------------------------
 ÉTAT ACTUEL DU CODE
 ------------------------------------------------------------
 
 export-otf.js
-  Charset    : dynamique depuis JSON (52 lettres A–Z + a–z)
+  Charset    : dynamique depuis JSON (138 glyphes A–Z, a–z, accents, chiffres, ponctuation)
   Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
   Advance W  : depuis JSON par glyphe
   BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
@@ -450,24 +498,27 @@ export-otf.js
                fontY = round((BASELINE_Y - canvasY) * SCALE)
   refWidth   : canvasH passé comme référence fixe → gradient stable ✓
   Shapes     : circle, square, ellipse, trait, circle_outline ✓
-  Polygones  : approximation N-gon, CLIPPER_SCALE=100 ✓
-  Union      : Clipper.js ctUnion + pftNonZero → silhouette unifiée ✓
+  Mode no-overlap : Bezier direct (4 segments cubiques, k=0.5523) ✓
+  Mode overlap    : polygones N=16 + Clipper.js union pftNonZero ✓
+  Hazard     : formule adaptée meshSize=0 (probabilité plate) ✓
+  Optimisations : blur skippé, constantes hoistées, fast path mesh=0 ✓
   Métadonnées: description dynamique avec paramètres courants ✓
 
 dinish-bold-metrics.json
-  52 glyphes : A–Z (advW, lsb, rsb, inkWidth, bbox depuis UFO .glif)
-               a–z (idem)
+  138 glyphes : A–Z, a–z, accents, chiffres, ponctuation
+                (advW, lsb, rsb, inkWidth, bbox depuis UFO .glif)
 
 script-generator_DottFont.js
   SHAPES     : circle, square, ellipse, trait, circle_outline ✓
   meshSize   : slider 0–4, 0=noir pur, 1–4=damier bilinéaire ✓
   refWidth   : paramètre ajouté à drawMeshGradientPreview() ✓
   PNG export : XMLSerializer → Blob → Image → canvas 4× → download ✓
+  samplePixels → SVG string (insertAdjacentHTML, plus rapide que DOM) ✓
 
 index.html
   Shape btns : circle, square, ellipse, trait, circle_outline ✓
   Sliders    : Mesh (0–4), Size pregeneration, Size postgeneration,
-               Contour, Hazard ✓
+               Contour, Hazard (panel principal + panel offset) ✓
   Boutons    : SVG, PNG, OTF ✓
 
 ============================================================
