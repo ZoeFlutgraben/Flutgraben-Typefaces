@@ -1,17 +1,16 @@
 a faire:
 
+OFFset affinage
+optimisation export courbe de bezier
+arabic script
 
-
+dont know
 export svg propre
-
-contour (?)
-
+caractere
+souris (?)
 
 vf:
-modifier metadonnees export (  const font = new opentype.Font) 
-trouver nom
-souris (?)
-forme final + optimisation export
+forme final 
 
 
 fait:
@@ -26,5 +25,8 @@ flavicon
 optimisation export
 export different 
 bouton qui qctive etape deux (solution export pdf, input qui gere le gradient)
+
+modifier metadonnees export (  const font = new opentype.Font) 
+trouver nom
 
 format type invalide -> quand ajout de caracteres dans le json bien modifier les metadonnes dans le js

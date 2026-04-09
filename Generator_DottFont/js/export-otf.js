@@ -458,9 +458,36 @@ async function exportOTF() {
   // Restore blur radius now that all glyphs are processed
   outsetRadius = savedOutsetRadius;
 
+  // Human-readable shape name for style labels
+  const shapeLabel = {
+    circle:         'Circle',
+    square:         'Square',
+    ellipse:        'Ellipse',
+    trait:          'Trait',
+    circle_outline: 'Circle Outline'
+  }[currentShape] || currentShape;
+
+  // Abbreviated shape key for the legacy family name (nameID 1).
+  // Legacy apps only support 4 styles per family (Regular/Bold/Italic/Bold Italic),
+  // so each export needs a unique familyName to avoid conflicts when multiple
+  // variants are installed simultaneously.
+  const shapeAbbr = {
+    circle:         'Ci',
+    square:         'Sq',
+    ellipse:        'El',
+    trait:          'Tr',
+    circle_outline: 'Co'
+  }[currentShape] || currentShape;
+  const legacyFamily = `FLUTGRABEN ${shapeAbbr} M${meshSize} T${tailleGenerationMultiplier.toFixed(2)} S${sizeMultiplier.toFixed(2)} H${presenceStrength.toFixed(2)}`;
+
+  // Full readable style name used as Typographic Subfamily (nameID 17).
+  // Modern apps (Figma, Adobe CC) read nameID 16/17 and group all exports
+  // under the shared "FLUTGRABEN" family, showing this string as the style.
+  const typographicStyle = `${shapeLabel} · Mesh ${meshSize} · Taille ${tailleGenerationMultiplier.toFixed(2)} · Size ${sizeMultiplier.toFixed(2)} · Hazard ${presenceStrength.toFixed(2)}`;
+
   const font = new opentype.Font({
-    familyName:     'FLUTGRABEN',
-    styleName:      'Regular',
+    familyName:     legacyFamily,   // nameID 1 — unique per export, legacy compat
+    styleName:      'Regular',      // nameID 2 — always Regular for legacy compat
     unitsPerEm:     UPM,
     ascender:       ASCENDER,
     descender:      DESCENDER,
@@ -468,11 +495,17 @@ async function exportOTF() {
     manufacturer:   'Flutgraben e.V.',
     designer:       'Zoé Berthelot @Neutronzoo',
     version:        'Version 1.000',
-    description:    `Generated with DottFont Generator — ${currentShape} / mesh:${meshSize} / taille:${tailleGenerationMultiplier.toFixed(2)} / size:${sizeMultiplier.toFixed(2)} / presence:${presenceStrength.toFixed(2)}`,
+    description:    `Generated with DottFont Generator — ${shapeLabel} / mesh:${meshSize} / taille:${tailleGenerationMultiplier.toFixed(2)} / size:${sizeMultiplier.toFixed(2)} / hazard:${presenceStrength.toFixed(2)}`,
     license:        'This Font Software is licensed under the SIL Open Font License, Version 1.1.',
     licenseURL:     'https://scripts.sil.org/OFL',
     glyphs
   });
+
+  // Typographic names (nameID 16/17) — read by modern apps to group variants
+  // under a shared family. nameID 16 = "FLUTGRABEN" groups all exports together;
+  // nameID 17 = full readable style string appears in the style dropdown.
+  font.names.preferredFamily    = { en: 'FLUTGRABEN' };
+  font.names.preferredSubfamily = { en: typographicStyle };
 
   // Build filename from current settings: shape_mesh_tailleGeneration_size_presence
   const filename = `FLUTGRABEN_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
