@@ -19,8 +19,6 @@ const outputSvg              = document.getElementById('output');
 const hiddenCanvas           = document.getElementById('hidden-canvas');
 const exportBtn              = document.getElementById('export-btn');
 const exportPngBtn           = document.getElementById('export-png-btn');
-const outsetSlider           = document.getElementById('outset-slider');
-const outsetValue            = document.getElementById('outset-value');
 const presenceSlider         = document.getElementById('presence-slider');
 const presenceValue          = document.getElementById('presence-value');
 const sizeSlider             = document.getElementById('size-slider');
@@ -31,10 +29,7 @@ const meshSlider             = document.getElementById('mesh-slider');
 const meshValue              = document.getElementById('mesh-value');
 const ctx                    = hiddenCanvas.getContext('2d');
 
-// Outset radius — controls how far the gray contour expands beyond the text shape
-let outsetRadius = parseInt(outsetSlider.value, 10);
-
-// Current text — stored so generateDots can insert the gray contour element
+// Current text — stored so generateAllDots can be called from contour sliders
 let currentText = '';
 
 // Presence strength — controls dot disappearance (0 = all present, 1 = dark zones only)
@@ -47,10 +42,11 @@ let sizeMultiplier = parseFloat(sizeSlider.value);
 // 1.0 = default, preserves visual density across all sizes
 let tailleGenerationMultiplier = parseFloat(tailleGenerationSlider.value);
 
-// Last canvas dimensions — stored so the presence slider can regenerate dots
+// Last canvas dimensions and blur data — stored so sliders can regenerate dots
 // without re-running the full text mask + gradient pipeline
-let lastCanvasW = 0;
-let lastCanvasH = 0;
+let lastCanvasW  = 0;
+let lastCanvasH  = 0;
+let lastBlurData = null;
 
 // Debounce timer for text input — avoids re-rendering on every keystroke
 let debounceTimer;
@@ -198,17 +194,14 @@ function drawContourPreview(canvasW, canvasH, blurData) {
 
 // Draws the bilinear mesh gradient onto the visible gradient canvas,
 // clipped to the text shape from the hidden canvas mask.
-// If blurData is provided, also fills the outset zone (pixels outside the text but
-// inside the blurred halo) with a gray value proportional to blur darkness —
-// darker near the text edge, lighter at the outset boundary.
-// This extends the sampling zone so dots appear at the edges but get smaller/sparser.
+// The outset/halo zone is handled separately by generateContourSVGString() in offset.js.
 //
 // refWidth — optional fixed reference width for the gradient x-axis.
 // When omitted, canvasW is used (normal web render behaviour).
 // Pass a constant value during OTF export so all characters share the same
 // gradient scale on x, preventing the per-character gradient remapping that
 // causes irregular dot sizes and the resulting trembling in the OTF.
-function drawMeshGradientPreview(canvasW, canvasH, blurData, refWidth) {
+function drawMeshGradientPreview(canvasW, canvasH, refWidth) {
   gradientCanvas.width  = canvasW;
   gradientCanvas.height = canvasH;
 
@@ -224,22 +217,7 @@ function drawMeshGradientPreview(canvasW, canvasH, blurData, refWidth) {
       const maskBrightness = (maskData.data[i] + maskData.data[i+1] + maskData.data[i+2]) / 3;
 
       if (maskBrightness >= THRESHOLD) {
-        // Background pixel — check blurred mask for outset zone
-        if (blurData) {
-          const blurBrightness = (blurData.data[i] + blurData.data[i+1] + blurData.data[i+2]) / 3;
-          if (blurBrightness < THRESHOLD) {
-            // Outset zone: map blur brightness (0=near edge, ~240=far edge)
-            // to dot-driving gray range 120–200 (inner edge = smaller but present dots,
-            // outer edge = very small sparse dots)
-            const outsetGray = Math.round(120 + (blurBrightness / THRESHOLD) * 80);
-            imgData.data[i]   = outsetGray;
-            imgData.data[i+1] = outsetGray;
-            imgData.data[i+2] = outsetGray;
-            imgData.data[i+3] = 255;
-            continue;
-          }
-        }
-        // True background
+        // Background pixel
         imgData.data[i]   = 249;
         imgData.data[i+1] = 249;
         imgData.data[i+2] = 249;
@@ -341,41 +319,43 @@ function generate() {
   // Update the base clone shape in SVG defs
   updateBaseShape(currentShape);
 
-  // Step 2a — render solid text mask + blurred halo for outset zone
+  // Step 2a — render solid text mask + blurred halo for contour zone
   const { canvasW, canvasH, blurData } = renderTextMask(text);
 
-  // Step 2b — draw mesh gradient (extended into outset zone if blurData present)
-  drawMeshGradientPreview(canvasW, canvasH, blurData);
+  // Store blurData so contour sliders can regenerate without re-running the full pipeline
+  lastBlurData = blurData;
 
-  // Step 3 — show blurred mask as preview (visualises the outset sampling zone)
+  // Step 2b — draw mesh gradient (text interior only; contour handled by offset.js)
+  drawMeshGradientPreview(canvasW, canvasH);
+
+  // Step 3 — show blurred mask as contour preview in the outline panel
   drawContourPreview(canvasW, canvasH, blurData);
 
   // Store dimensions so sliders can regenerate without re-running the full pipeline
   lastCanvasW = canvasW;
   lastCanvasH = canvasH;
 
-  // Sample gradient canvas and place dot clones into output SVG
-  generateDots(canvasW, canvasH);
+  // Generate contour dots (behind) + main dots (in front)
+  generateAllDots(canvasW, canvasH);
 }
 
-// Regenerates dot clones — called by presence/size sliders to avoid re-running
-// the full text mask and gradient pipeline.
-// The outset zone is already baked into the gradient canvas by drawMeshGradientPreview.
-// Background rect and all dot clones are inserted in one insertAdjacentHTML call
-// to avoid the per-element DOM cost of individual appendChild calls.
-function generateDots(canvasW, canvasH) {
+// Regenerates all dot clones — contour dots (behind) then main dots (in front).
+// Called by any slider that does not require a full pipeline re-run.
+// All content inserted in one insertAdjacentHTML call to minimize DOM operations.
+function generateAllDots(canvasW, canvasH) {
   outputSvg.setAttribute('width',   canvasW);
   outputSvg.setAttribute('height',  canvasH);
   outputSvg.setAttribute('viewBox', `0 0 ${canvasW} ${canvasH}`);
 
-  // Remove previous dots, keep <defs> (always first child)
+  // Remove previous content, keep <defs> (always first child)
   while (outputSvg.children.length > 1) {
     outputSvg.removeChild(outputSvg.lastChild);
   }
 
-  // Background rect + all dot clones in a single DOM insertion
+  // Background + contour dots (behind) + main dots (in front) — single DOM insertion
   outputSvg.insertAdjacentHTML('beforeend',
     `<rect width="${canvasW}" height="${canvasH}" fill="#f9f9f9"/>` +
+    generateContourSVGString(canvasW, canvasH, lastBlurData) +
     samplePixelsToSVGString(canvasW, canvasH)
   );
 }
@@ -417,18 +397,11 @@ textInput.addEventListener('input', () => {
   debounceTimer = setTimeout(generate, 180);
 });
 
-// Outset slider — re-runs the full pipeline since the blur radius changes the mask and gradient
-outsetSlider.addEventListener('input', () => {
-  outsetRadius = parseInt(outsetSlider.value, 10);
-  outsetValue.textContent = outsetRadius;
-  debouncedGenerate();
-});
-
-// Presence slider — regenerates dots only, no full pipeline re-run
+// Presence slider — regenerates all dots only, no full pipeline re-run
 presenceSlider.addEventListener('input', () => {
   presenceStrength = parseFloat(presenceSlider.value);
   presenceValue.textContent = presenceStrength.toFixed(2);
-  if (lastCanvasW > 0) generateDots(lastCanvasW, lastCanvasH);
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
 });
 
 // Size slider — scales radius only, triggers full regeneration

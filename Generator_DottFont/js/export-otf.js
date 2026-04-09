@@ -278,7 +278,7 @@ async function exportOTF() {
     const { canvasW, canvasH } = renderTextMask(char);
     // Pass canvasH as refWidth so the gradient x-axis uses a fixed reference (FONT_SIZE + 2*PADDING)
     // identical for every character, eliminating per-character gradient remapping and the resulting trembling.
-    drawMeshGradientPreview(canvasW, canvasH, undefined, canvasH);
+    drawMeshGradientPreview(canvasW, canvasH, canvasH);
 
     const step      = DOT_SPACING * tailleGenerationMultiplier;
     const imageData = gCtx.getImageData(0, 0, canvasW, canvasH);

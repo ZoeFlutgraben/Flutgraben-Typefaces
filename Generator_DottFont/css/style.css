@@ -55,13 +55,23 @@ body {
   background: #f9f9f9;
 }
 
-/* === Floating controls panel — top-left overlay === */
-#top-panel {
+/* === Left panel stack — fixed container, stacks panels vertically === */
+#panels-left {
   position: fixed;
   top: 0;
   left: 0;
   z-index: 99;
   margin: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  width: 23.5vw;
+}
+
+/* === Main panel — controls sidebar === */
+#top-panel {
   padding: 15px;
   border-radius: 10px;
   background-color: rgba(255, 81, 228, 0.54);
@@ -69,9 +79,27 @@ body {
   flex-direction: column;
   gap: 14px;
   color: var(--color-dark);
-  max-height: calc(100vh - 20px);
-  overflow-y: auto;
-  width: 23.5vw;
+}
+
+/* === Offset panel — contour controls, stacked below main panel === */
+#top-panel-offset {
+  padding: 15px;
+  border-radius: 10px;
+  background-color: rgba(81, 190, 255, 0.54);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--color-dark);
+}
+
+#top-panel-export {
+  padding: 15px;
+  border-radius: 10px;
+  background-color: rgba(81, 255, 125, 0.54);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--color-dark);
 }
 
 /* === Shared small-caps label typography (DINish 700 10px uppercase) === */
@@ -82,6 +110,9 @@ body {
 #size-value,
 #taille-generation-value,
 #mesh-value,
+#contour-hazard-value,
+#contour-taille-generation-value,
+#contour-size-value,
 #export-btn,
 #export-otf-btn,
 #export-png-btn {
@@ -219,7 +250,10 @@ body {
 #presence-slider,
 #size-slider,
 #taille-generation-slider,
-#mesh-slider {
+#mesh-slider,
+#contour-hazard-slider,
+#contour-taille-generation-slider,
+#contour-size-slider {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
@@ -233,7 +267,10 @@ body {
 #presence-slider::-webkit-slider-thumb,
 #size-slider::-webkit-slider-thumb,
 #taille-generation-slider::-webkit-slider-thumb,
-#mesh-slider::-webkit-slider-thumb {
+#mesh-slider::-webkit-slider-thumb,
+#contour-hazard-slider::-webkit-slider-thumb,
+#contour-taille-generation-slider::-webkit-slider-thumb,
+#contour-size-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -247,7 +284,10 @@ body {
 #presence-slider::-moz-range-thumb,
 #size-slider::-moz-range-thumb,
 #taille-generation-slider::-moz-range-thumb,
-#mesh-slider::-moz-range-thumb {
+#mesh-slider::-moz-range-thumb,
+#contour-hazard-slider::-moz-range-thumb,
+#contour-taille-generation-slider::-moz-range-thumb,
+#contour-size-slider::-moz-range-thumb {
   width: 12px;
   height: 12px;
   background: var(--color-dark);
@@ -260,7 +300,10 @@ body {
 #presence-value,
 #size-value,
 #taille-generation-value,
-#mesh-value {
+#mesh-value,
+#contour-hazard-value,
+#contour-taille-generation-value,
+#contour-size-value {
   color: var(--color-label);
   min-width: 2.5ch;
   text-align: right;

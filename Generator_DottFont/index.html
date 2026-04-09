@@ -12,7 +12,10 @@
 </head>
 <body>
 
-  <!-- ===================== LEFT PANEL — controls sidebar ===================== -->  
+  <!-- ===================== LEFT PANELS — vertical stack ===================== -->
+  <div id="panels-left">
+
+  <!-- ===================== MAIN PANEL — controls sidebar ===================== -->
     <div id="top-panel">
       
     <!-- STEP 1 — contenteditable div with DINish -->
@@ -24,20 +27,10 @@
     </div>
 
     <!-- STEP 2 — bilinear mesh gradient clipped to text shape -->
-    <div class="flex">
-      <div class="stage" id="stage-gradient">
-        <!-- <span class="step-label">step 2 — gradient</span> -->
-        <div id="panel-gradient">
-          <canvas id="gradient-canvas"></canvas>
-        </div>
-      </div>
-
-      <!-- STEP 3 — gray expanded contour behind the dots -->
-      <div class="stage" id="stage-contour">
-        <!-- <span class="step-label">step 3 — contour</span> -->
-        <div id="panel-contour">
-          <canvas id="contour-canvas"></canvas>
-        </div>
+    <div class="stage" id="stage-gradient">
+      <!-- <span class="step-label">step 2 — gradient</span> -->
+      <div id="panel-gradient">
+        <canvas id="gradient-canvas"></canvas>
       </div>
     </div>
     <!-- SHAPE — selector -->
@@ -99,13 +92,6 @@
       <span id="size-value">1.00</span>
     </div>
 
-    <!-- CONTOUR — outset amount for the gray expanded silhouette -->
-    <div class="slider-row">
-      <label for="outset-slider">Contour</label>
-      <input type="range" id="outset-slider" min="0" max="30" step="1" value="8" />
-      <span id="outset-value">8</span>
-    </div>
-
     <!-- PRESENCE — probabilistic dot filter -->
     <div class="slider-row">
       <label for="presence-slider">Hazard</label>
@@ -113,7 +99,53 @@
       <span id="presence-value">0.5</span>
     </div>
 
-    <!-- EXPORT -->
+
+
+  </div>
+  
+  <!-- ===================== OFFSET PANEL — contour controls ===================== -->
+  <div id="top-panel-offset">
+
+    <!-- STEP 3 — contour preview canvas (blurred halo visualization) -->
+    <div class="stage" id="stage-contour">
+      <!-- <span class="step-label">step 3 — contour</span> -->
+      <div id="panel-contour">
+        <canvas id="contour-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- HALO — Gaussian blur radius defining the contour zone width -->
+    <div class="slider-row">
+      <label for="outset-slider">Halo</label>
+      <input type="range" id="outset-slider" min="0" max="30" step="1" value="8" />
+      <span id="outset-value">8</span>
+    </div>
+
+    <!-- CONTOUR HAZARD — probabilistic dot filter for the contour zone -->
+    <div class="slider-row">
+      <label for="contour-hazard-slider">Hazard</label>
+      <input type="range" id="contour-hazard-slider" min="0" max="1" step="0.01" value="0.5" />
+      <span id="contour-hazard-value">0.50</span>
+    </div>
+
+    <!-- CONTOUR SIZE PREGENERATION — scales dot radius and grid spacing together -->
+    <div class="slider-row">
+      <label for="contour-taille-generation-slider">Size pregeneration</label>
+      <input type="range" id="contour-taille-generation-slider" min="0.25" max="3" step="0.05" value="1" />
+      <span id="contour-taille-generation-value">1.00</span>
+    </div>
+
+    <!-- CONTOUR SIZE POSTGENERATION — scales dot radius only -->
+    <div class="slider-row">
+      <label for="contour-size-slider">Size postgeneration</label>
+      <input type="range" id="contour-size-slider" min="0.25" max="3" step="0.05" value="1" />
+      <span id="contour-size-value">1.00</span>
+    </div>
+
+  </div>
+
+  <div id="top-panel-export">
+        <!-- EXPORT -->
     <div class="flex">
       <span class="step-label">Export</span>
       <button id="export-btn">SVG</button>
@@ -123,8 +155,7 @@
 
   </div>
 
-  
-  
+  </div><!-- /panels-left -->
 
 
   <!-- ===================== RIGHT PANEL — dot output ===================== -->
@@ -150,6 +181,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
   <script src="js/script-generator_DottFont.js"></script>
+  <script src="js/offset.js"></script>
   <script src="js/export-otf.js"></script>
 
 </body>
