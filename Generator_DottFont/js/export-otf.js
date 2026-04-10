@@ -501,12 +501,6 @@ async function exportOTF() {
     glyphs
   });
 
-  // Typographic names (nameID 16/17) — read by modern apps to group variants
-  // under a shared family. nameID 16 = "FLUTGRABEN" groups all exports together;
-  // nameID 17 = full readable style string appears in the style dropdown.
-  font.names.preferredFamily    = { en: 'FLUTGRABEN' };
-  font.names.preferredSubfamily = { en: typographicStyle };
-
   // Build filename from current settings: shape_mesh_tailleGeneration_size_presence
   const filename = `FLUTGRABEN_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
   font.download(filename);

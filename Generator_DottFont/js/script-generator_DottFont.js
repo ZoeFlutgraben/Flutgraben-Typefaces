@@ -6,9 +6,9 @@
 //   step 2 — text shape filled with bilinear mesh gradient
 //             (4×4 grid, alternating black/grey from mesh.svg)
 //   step 3 — gradient canvas pixels sampled on a regular grid;
-//             each in-text pixel spawns a <use> clone of #base-dot
-//             (a <symbol>) sized by pixel darkness, with probabilistic
-//             presence filter driven by the presence slider
+//             each in-text pixel spawns a native SVG shape element
+//             (circle, rect, ellipse, etc.) sized by pixel darkness,
+//             with probabilistic presence filter driven by the presence slider
 // ============================================================
 
 const textInput              = document.getElementById('text-input');
@@ -259,7 +259,47 @@ function drawMeshGradientPreview(canvasW, canvasH, refWidth) {
   gCtx.putImageData(imgData, 0, 0);
 }
 
-// Samples the gradient canvas and returns an SVG markup string of <use> clone elements.
+// Returns an SVG element string for a single dot centered at (cx, cy) with half-size r.
+// Generates the appropriate native element type based on currentShape so the exported
+// SVG contains directly editable shapes (no <use> / <symbol> indirection).
+// Proportions are derived from each shape's viewBox and preserveAspectRatio="xMidYMid meet".
+function shapeDotSVG(cx, cy, r) {
+  const size = r * 2;
+  const x    = cx - r;
+  const y    = cy - r;
+
+  if (currentShape === 'square') {
+    return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" fill="#ff00ff"/>`;
+  }
+
+  if (currentShape === 'ellipse') {
+    // viewBox 0 0 2 2.75 — portrait, height-constrained by meet:
+    // scale = size/2.75 → rx = 1 × scale = size/2.75, ry = 1.375 × scale = size/2
+    return `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${(size / 2.75).toFixed(2)}" ry="${r.toFixed(2)}" fill="#000000"/>`;
+  }
+
+  if (currentShape === 'trait') {
+    // viewBox 0 0 3.614 1.7 — landscape, width-constrained by meet:
+    // scale = size/3.614 → rendered height = 1.7 × scale, rx = 0.85 × scale = h/2
+    const h  = size * 1.7 / 3.614;
+    const rx = h / 2;
+    const oy = (size - h) / 2;  // vertical centering offset
+    return `<rect x="${x.toFixed(2)}" y="${(y + oy).toFixed(2)}" width="${size.toFixed(2)}" height="${h.toFixed(2)}" rx="${rx.toFixed(2)}" fill="#000000"/>`;
+  }
+
+  if (currentShape === 'circle_outline') {
+    // viewBox 0 0 2.314 2.314 — outer r = size/2, inner r = r × 0.758/1.157
+    // Full-circle arc: two semicircles per ring (SVG arcs cannot start/end at same point)
+    const ri = r * (0.758 / 1.157);
+    const d  = `M ${cx.toFixed(2)},${(cy - r).toFixed(2)} A ${r.toFixed(2)},${r.toFixed(2)} 0 1,1 ${cx.toFixed(2)},${(cy + r).toFixed(2)} A ${r.toFixed(2)},${r.toFixed(2)} 0 1,1 ${cx.toFixed(2)},${(cy - r).toFixed(2)} Z M ${cx.toFixed(2)},${(cy - ri).toFixed(2)} A ${ri.toFixed(2)},${ri.toFixed(2)} 0 1,1 ${cx.toFixed(2)},${(cy + ri).toFixed(2)} A ${ri.toFixed(2)},${ri.toFixed(2)} 0 1,1 ${cx.toFixed(2)},${(cy - ri).toFixed(2)} Z`;
+    return `<path fill-rule="evenodd" fill="#000000" d="${d}"/>`;
+  }
+
+  // Default: circle
+  return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="#000000"/>`;
+}
+
+// Samples the gradient canvas and returns an SVG markup string of native shape elements.
 // Building a string and inserting it once via insertAdjacentHTML is significantly faster
 // than creating N DOM elements individually (avoids per-element reflow cost).
 //
@@ -295,9 +335,8 @@ function samplePixelsToSVGString(canvasW, canvasH) {
       // sizeMultiplier scales radius only; tailleGenerationMultiplier scales radius + spacing together
       const darkness = Math.max(0, 1 - brightness / 204);
       const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * sizeMultiplier * tailleGenerationMultiplier;
-      const size     = radius * 2;
 
-      svgStr += `<use href="#base-dot" x="${(x - radius).toFixed(2)}" y="${(y - radius).toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}"/>`;
+      svgStr += shapeDotSVG(x, y, radius);
     }
   }
 

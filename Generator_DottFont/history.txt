@@ -441,6 +441,23 @@ Changements dans script-generator_DottFont.js :
 SESSION 09/04/2026
 ------------------------------------------------------------
 
+NOMMAGE — Typographic Names (nameID 16/17)
+  Problème : styleName hardcodé à 'Regular', aucune info sur les paramètres
+             dans le nom de style. Les apps modernes ne pouvaient pas grouper
+             les exports sous une famille commune.
+  Solution :
+    nameID 1  (familyName)         → unique par export pour les vieux apps :
+                                     "FLUTGRABEN Ci M0 T1.00 S1.00 H0.50"
+    nameID 2  (styleName)          → toujours "Regular" (compatibilité legacy)
+    nameID 16 (preferredFamily)    → "FLUTGRABEN" (commun à tous les exports)
+    nameID 17 (preferredSubfamily) → style lisible complet :
+                                     "Circle · Mesh 0 · Taille 1.00 · Size 1.00 · Hazard 0.50"
+  Résultat : Figma/Adobe CC groupent tous les exports sous "FLUTGRABEN"
+             avec le style personnalisé dans le menu déroulant.
+             Les vieux apps voient chaque export comme famille indépendante.
+  Impl.    : font.names.preferredFamily / preferredSubfamily après construction
+             opentype.Font (opentype.js supporte nameID 16/17 via font.names).
+
 BUG — Paramètre Hazard ignoré à l'export OTF
   Problème : depuis l'ajout du slider Mesh (commit a98eda5, 10h52),
              script-generator_DottFont.js avait été mis à jour pour gérer
@@ -502,7 +519,11 @@ export-otf.js
   Mode overlap    : polygones N=16 + Clipper.js union pftNonZero ✓
   Hazard     : formule adaptée meshSize=0 (probabilité plate) ✓
   Optimisations : blur skippé, constantes hoistées, fast path mesh=0 ✓
-  Métadonnées: description dynamique avec paramètres courants ✓
+  nameID 1   : legacyFamily unique par export (shape abrégée + params) ✓
+  nameID 2   : "Regular" (toujours, compatibilité legacy) ✓
+  nameID 16  : preferredFamily = "FLUTGRABEN" (commun à tous les exports) ✓
+  nameID 17  : preferredSubfamily = style lisible complet ✓
+  description: dynamique avec paramètres courants ✓
 
 dinish-bold-metrics.json
   138 glyphes : A–Z, a–z, accents, chiffres, ponctuation
@@ -520,5 +541,45 @@ index.html
   Sliders    : Mesh (0–4), Size pregeneration, Size postgeneration,
                Contour, Hazard (panel principal + panel offset) ✓
   Boutons    : SVG, PNG, OTF ✓
+
+============================================================
+
+------------------------------------------------------------
+SESSION 10/04/2026
+------------------------------------------------------------
+
+BUG — EXPORTS OTF INVISIBLES / IDENTIQUES DANS INKSCAPE
+  Symptôme : plusieurs OTF installés sous Windows — visibles dans les
+             paramètres polices de Windows, mais dans Inkscape les lettres
+             ne changent pas visuellement selon la variante sélectionnée.
+
+  Cause racine :
+    nameID 16 (preferredFamily) était identique pour tous les exports :
+    "FLUTGRABEN". Sur Windows, Inkscape utilise DirectWrite pour
+    l'énumération des polices. DirectWrite groupe les fonts par nameID 16 :
+    toutes les variantes apparaissaient donc comme une seule famille
+    "FLUTGRABEN" dans le picker Inkscape. Windows font settings, lui,
+    affiche par nom de fichier / nameID 1 — d'où la divergence observée.
+    Inkscape prenait le premier (ou dernier) variant installé et ignorait
+    les autres.
+
+  Fix (10/04/2026) :
+    Suppression des deux lignes suivantes dans export-otf.js :
+      font.names.preferredFamily    = { en: 'FLUTGRABEN' };
+      font.names.preferredSubfamily = { en: typographicStyle };
+
+    Sans nameID 16/17, Inkscape retombe sur nameID 1 (legacyFamily),
+    qui est déjà unique par export :
+      ex. "FLUTGRABEN Ci M0 T1.00 S1.00 H0.50"
+    → chaque export apparaît comme une famille distincte dans Inkscape.
+
+  Trade-off :
+    Figma et Adobe CC ne groupent plus les exports sous "FLUTGRABEN".
+    Chaque export est une famille indépendante — comportement identique
+    à nameID 1 seul. Acceptable pour un usage Inkscape-first.
+
+  Note pratique :
+    Désinstaller les anciens OTF et redémarrer Inkscape avant de tester
+    (son cache font peut conserver les anciens noms).
 
 ============================================================

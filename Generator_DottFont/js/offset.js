@@ -34,7 +34,7 @@ let contourSizeMultiplier = parseFloat(contourSizeSlider.value);
 let contourSliderDebounceTimer;
 
 // Samples blurData for pixels in the halo zone (outside text, inside Gaussian blur)
-// and returns an SVG markup string of <use> clones.
+// and returns an SVG markup string of native shape elements.
 // Near the text edge: blur is dark → larger dots.
 // Far from edge: blur is light → smaller, sparser dots.
 // Parameters:
@@ -74,9 +74,8 @@ function generateContourSVGString(canvasW, canvasH, blurData) {
       // Map gray (120–200) to dot radius with contour-specific size multipliers
       const darkness = Math.max(0, 1 - gray / 204);
       const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * contourSizeMultiplier * contourTailleGenerationMultiplier;
-      const size     = radius * 2;
 
-      svgStr += `<use href="#base-dot" x="${(x - radius).toFixed(2)}" y="${(y - radius).toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}"/>`;
+      svgStr += shapeDotSVG(x, y, radius);
     }
   }
 
