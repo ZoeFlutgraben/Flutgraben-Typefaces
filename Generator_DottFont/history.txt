@@ -1,0 +1,822 @@
+============================================================
+EXPORT OTF — HISTORIQUE DES TRAVAUX
+Session du 03/04/2026 + 07/04/2026 + 08/04/2026 + 09/04/2026
+============================================================
+
+------------------------------------------------------------
+CONTEXTE DE DÉPART
+------------------------------------------------------------
+Projet : DottFont Generator (HTML + CSS + vanilla JS)
+Outil  : Generator_DottFont/index.html
+Script : Generator_DottFont/js/export-otf.js
+Données: Generator_DottFont/source_export_otf/dinish-bold-metrics.json
+
+L'export-otf.js existait déjà avec :
+- Charset hardcodé : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.:?,;!'
+- ADVANCE_WIDTHS hardcodés (ex. A:620, B:612, etc.)
+- ASCENDER/DESCENDER calculés depuis le canvas (fontBoundingBoxAscent)
+- UPM = 1024 (hardcodé)
+
+Le fichier dinish-bold-metrics.json était vide au départ,
+puis rempli avec les métriques DINish Bold extraites du UFO :
+- fontMetrics : ascender=1050, descender=-248, capHeight=707, xHeight=539
+- units.upm = 1024
+- glyphs : pour l'instant seulement "A" et "a" (avec advanceWidth, lsb, rsb, bbox)
+
+
+------------------------------------------------------------
+ÉTAPE 1 — PASSAGE AU JSON + FETCH
+------------------------------------------------------------
+Problème : ADVANCE_WIDTHS et métriques hardcodés, pas de lien avec le JSON.
+
+Solution appliquée :
+- exportOTF() rendue async
+- Ajout d'un fetch('source_export_otf/dinish-bold-metrics.json') au début
+- CHARSET construit dynamiquement depuis Object.keys(metrics.glyphs)
+  → seuls les caractères présents dans le JSON sont exportés
+  → pour l'instant : ["A", "a"]
+- UPM, ASCENDER, DESCENDER lus depuis le JSON
+- advanceWidth par glyphe lu depuis metrics.glyphs[char].advanceWidth
+- Gestion d'erreur si le JSON ne charge pas
+- BASELINE_Y conservé en mesure canvas (pas encore corrigé)
+
+Note : fetch() nécessite un serveur HTTP. Fonctionne avec :
+  python -m http.server (local)
+  Mise en ligne (GitHub Pages, Vercel, etc.)
+  Ne fonctionne PAS en ouvrant le fichier directement (file://)
+
+
+------------------------------------------------------------
+ÉTAPE 2 — DIAGNOSTIC DES PROBLÈMES D'ALIGNEMENT (test03)
+------------------------------------------------------------
+Fichiers de référence : correction-otf/04-03_test03/
+
+Problèmes identifiés par comparaison rendu navigateur vs OTF dans FontLab :
+
+1. GLYPHES FLOTTANT +211 UNITÉS AU-DESSUS DU BASELINE
+   - 'A' : attendu [0, 707], obtenu [~211, ~918]
+   - 'a' : attendu [0, 539], obtenu [~211, ~750]
+   - BBox bottom = 211 au lieu de 0
+   - BBox top = 933 au lieu de ~707
+   Cause : BASELINE_Y mal calculé (voir étape 3)
+
+2. CONTOURS SUPERPOSÉS
+   - Chaque cercle = 1 contour fermé indépendant
+   - Ils se chevauchent tous dans le fichier OTF
+   - Visuellement correct dans la plupart des renderers
+   - Peut poser problème avec certains fill rules (PDF, imposition)
+   - Non corrigé pour l'instant (problème cosmétique/technique secondaire)
+
+Ce qui fonctionnait :
+   - Forme des glyphes correcte (a et A reconnaissables)
+   - Advance widths corrects (A=620, a=513)
+   - Métriques OTF correctes (UPM=1024, Ascender=1050, Descender=-248)
+   - Fichier OTF valide et lisible par FontLab
+
+
+------------------------------------------------------------
+ÉTAPE 3 — TENTATIVES DE CORRECTION DE BASELINE_Y
+------------------------------------------------------------
+
+Le problème central : trouver la position Y (en pixels canvas) du baseline
+alphabétique quand le texte est rendu avec textBaseline='top' à y=PADDING.
+
+renderTextMask() dessine ainsi :
+  ctx.textBaseline = 'top';
+  ctx.fillText(text, PADDING, PADDING);  // PADDING = 30px, FONT_SIZE = 150px
+
+TENTATIVE A — fontBoundingBoxAscent avec textBaseline='alphabetic' (code initial)
+  BASELINE_Y = PADDING + fontBoundingBoxAscent('H', textBaseline='alphabetic')
+  Résultat : glyphes +211 unités au-dessus du baseline (BBox bottom = 211)
+  Raison de l'échec : fontBoundingBoxAscent retourne l'ascender du font entier
+  (~1050/1024 * 150 ≈ 153px), pas la distance entre le point 'top' et le baseline réel.
+
+TENTATIVE B — alphabeticBaseline avec textBaseline='top'
+  BASELINE_Y = PADDING + alphabeticBaseline('H', textBaseline='top')
+  Résultat : glyphes décalés dans les valeurs négatives (en dessous du baseline)
+  Testé sur Chrome ET Firefox avec le même résultat.
+  Raison de l'échec : la spec Canvas utilise la convention "positif = vers le haut".
+  Avec textBaseline='top', le baseline est EN DESSOUS du point de référence,
+  donc alphabeticBaseline retourne une valeur NÉGATIVE dans Chrome/Firefox.
+  → BASELINE_Y = PADDING + (valeur négative) = trop petit → glyphes trop bas.
+
+TENTATIVE C — actualBoundingBoxDescent de 'A' avec textBaseline='top' (VALIDÉE)
+  BASELINE_Y = PADDING + actualBoundingBoxDescent('A', textBaseline='top')
+  Principe : 'A' a yMin=0 (touche exactement le baseline alphabétique).
+  Sa descente depuis le point 'top' = distance de 'top' au baseline.
+  actualBoundingBoxDescent est toujours positif (convention CSS, downward positive).
+  → Valeur cross-browser stable.
+  Résultat : CORRECT — alignement baseline validé
+
+
+------------------------------------------------------------
+ÉTAPE 4 — TREMBLING (tremblement dans l'OTF exporté)
+------------------------------------------------------------
+Constaté : comparaison 04-07_test06 vs rendu navigateur → points perdent leur
+alignement dans l'OTF, comme un tremblement colonne par colonne.
+
+HYPOTHÈSE A — rounding flottant sur fx/fy (Math.round)
+  Ajout de Math.round() sur fx et fy dans export-otf.js.
+  Test07 : tremblement toujours présent → hypothèse incorrecte.
+
+HYPOTHÈSE B — gradient normalisé à la largeur de chaque caractère (VALIDÉE)
+  Cause racine : drawMeshGradientPreview() normalisait l'axe X du gradient
+  sur canvasW (largeur variable par caractère). Chaque caractère avait donc
+  une couleur de dot différente selon sa propre largeur → taille de dot variable
+  colonne par colonne → apparence de "tremblement".
+
+  Fix : ajout d'un paramètre refWidth à drawMeshGradientPreview().
+  Lors de l'export OTF, on passe canvasH (constante = FONT_SIZE + 2*PADDING)
+  comme référence fixe pour tous les caractères :
+    drawMeshGradientPreview(canvasW, canvasH, undefined, canvasH)
+  → le gradient est identique pour tous les caractères → dots cohérents.
+
+
+------------------------------------------------------------
+ÉTAPE 5 — MÉTADONNÉES OTF
+------------------------------------------------------------
+Ajout des champs de métadonnées dans opentype.Font() :
+  familyName  : 'DottFont'                    → à modifier selon usage
+  styleName   : 'Regular'
+  copyright   : '© 2026 Zoé Berthelot'       → ligne ~229 export-otf.js
+  manufacturer: 'Flutgraben e.V.'             → ligne ~230
+  designer    : 'Zoé Berthelot @Neutronzoo'   → ligne ~231
+  version     : 'Version 1.000'               → ligne ~232
+  description : 'Generated with DottFont Generator'
+  license     : 'SIL Open Font License 1.1'
+  licenseURL  : 'https://scripts.sil.org/OFL'
+
+
+------------------------------------------------------------
+ÉTAPE 6 — NOUVELLES FORMES (ellipse, trait, circle_outline)
+------------------------------------------------------------
+Shapes supprimées : star, darkblue_circle, heart (trop complexes pour OTF)
+Shapes ajoutées depuis dossier clone/ :
+  - ellipse        (viewBox 0 0 2 2.75)
+  - trait          (viewBox 0 0 3.614 1.7, pill horizontale)
+  - circle_outline (viewBox 0 0 2.314 2.314, donut)
+
+Fichiers modifiés :
+  index.html             → boutons shape-btn mis à jour
+  script-generator_DottFont.js → objet SHAPES mis à jour
+  export-otf.js          → 3 nouvelles fonctions de path OTF :
+
+  addEllipseToPath(path, cx, cy, rx, ry)
+    rx = fr * (2 / 2.75), ry = fr
+    Même logique que addCircleToPath mais avec rx/ry indépendants.
+
+  addTraitToPath(path, cx, cy, halfW, halfH)
+    halfW = fr, halfH = fr * (1.7 / 3.614)
+    Pill horizontale : lignes droites + demi-cercles aux extrémités via curveTo.
+
+  addCircleOutlineToPath(path, cx, cy, outerR, innerR)
+    outerR = fr, innerR = fr * (0.758 / 1.157)
+    Cercle extérieur CW + cercle intérieur CCW → trou via non-zero winding (CFF/OTF).
+
+  Ratios extraits des viewBox SVG en tenant compte de preserveAspectRatio="xMidYMid meet"
+  sur un <use> carré → l'axe le plus court est contraint.
+
+
+------------------------------------------------------------
+ÉTAPE 7 — EXPORT PNG
+------------------------------------------------------------
+Ajout d'un bouton PNG dans index.html + export-png-btn stylisé comme export-otf-btn.
+
+Fonctionnement dans script-generator_DottFont.js :
+  - Sérialise le SVG #output via XMLSerializer
+  - Crée un Blob URL → charge dans un <img>
+  - Dessine sur un <canvas> à résolution 4× (scale fixe)
+  - Télécharge via canvas.toDataURL('image/png')
+  Filename : {shape}_{tailleGen}_{size}_{presence}.png
+
+Pourquoi SVG → canvas → PNG (et pas canvas direct) :
+  L'output est un SVG (pas un canvas). SVG = vecteur → export SVG d'abord,
+  puis rendu dans un canvas off-screen pour obtenir un bitmap haute résolution.
+  Le facteur 4× est fixe pour garantir une qualité constante.
+
+
+------------------------------------------------------------
+ÉTAPE 8 — CHARSET COMPLET (A–Z + a–z)
+------------------------------------------------------------
+Objectif : exporter les 52 lettres dans l'OTF.
+
+dinish-bold-metrics.json mis à jour avec toutes les lettres A–Z et a–z.
+Données extraites depuis DINish-Bold.ufo/glyphs/ :
+  Uppercase : A_.glif → Z_.glif  (naming UFO : lettre + underscore)
+  Lowercase : a.glif  → z.glif   (naming UFO : lettre seule)
+
+Pour chaque glyphe : advanceWidth, lsb, rsb, inkWidth, bbox (xMin/xMax/yMin/yMax)
+calculés depuis les coordonnées <point x y> dans les contours .glif.
+
+export-otf.js : aucune modification nécessaire.
+  CHARSET = Object.keys(metrics.glyphs) → dynamique, lit tout le JSON.
+  GLYPH_NAMES[char] || char → lettres utilisent leur propre caractère comme nom PS.
+
+RÉSOLU — redémarrage PC (07/04/2026)
+  - Cause : cache navigateur persistant servant l'ancien JSON (2 glyphes)
+    malgré le "disable cache" de DevTools.
+  - Fix : redémarrage complet du PC → cache purgé → JSON à 52 glyphes
+    correctement chargé → export OTF produit bien 52 glyphes.
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE
+------------------------------------------------------------
+
+export-otf.js
+  Charset    : dynamique depuis JSON (52 lettres A–Z + a–z)
+  Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
+  Advance W  : depuis JSON par glyphe
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Coord map  : fontX = round((canvasX - PADDING) * SCALE)
+               fontY = round((BASELINE_Y - canvasY) * SCALE)
+  refWidth   : canvasH passé comme référence fixe → gradient stable ✓
+  Shapes     : circle, square, ellipse, trait, circle_outline ✓
+  Métadonnées: familyName, styleName, copyright, designer... ✓
+
+dinish-bold-metrics.json
+  52 glyphes : A–Z (advW, lsb, rsb, inkWidth, bbox depuis UFO .glif)
+               a–z (idem)
+
+script-generator_DottFont.js
+  SHAPES     : circle, square, ellipse, trait, circle_outline ✓
+  refWidth   : paramètre ajouté à drawMeshGradientPreview() ✓
+  PNG export : XMLSerializer → Blob → Image → canvas 4× → download ✓
+
+index.html
+  Shape btns : circle, square, ellipse, trait, circle_outline ✓
+  Boutons    : SVG, PNG, OTF ✓
+
+
+------------------------------------------------------------
+ÉTAPE 9 — MÉTADONNÉES DYNAMIQUES (paramètres dans description)
+------------------------------------------------------------
+Le champ `description` dans opentype.Font() est rendu dynamique :
+il intègre les paramètres courants au moment de l'export.
+
+Avant :
+  description: 'Generated with DottFont Generator'
+
+Après :
+  description: `Generated with DottFont Generator — ${currentShape} / taille:${tailleGenerationMultiplier.toFixed(2)} / size:${sizeMultiplier.toFixed(2)} / presence:${presenceStrength.toFixed(2)}`
+
+Exemple de valeur : "Generated with DottFont Generator — circle / taille:1.00 / size:1.20 / presence:0.50"
+Ce string est identique au pattern utilisé pour le nom de fichier .otf.
+
+
+------------------------------------------------------------
+ÉTAPE 10 — UNION BOOLÉENNE DES CONTOURS (Path > Union)
+------------------------------------------------------------
+Problème : chaque dot = 1 contour indépendant dans l'OTF.
+Les contours se chevauchent, ce qui peut poser problème
+dans certains renderers (PDF, imposition, logiciels de signe).
+
+Objectif : fusionner tous les dots d'un glyphe en une seule
+silhouette unifiée — équivalent de Path > Union dans Inkscape.
+
+Solution : Clipper.js (port JS du moteur Clipper, union booléenne
+de polygones), chargé dynamiquement depuis CDN sans modifier index.html.
+
+Approche :
+  - Les fonctions addXxxToPath (Bézier) sont remplacées par des
+    fonctions getXxxPolygon retournant des tableaux de points {X, Y}
+    (format Clipper, coordonnées en entiers via CLIPPER_SCALE = 100).
+  - Les courbes sont approximées en polygones :
+      circle        → 32 points (sub-pixel à toutes tailles)
+      square        → 4 points (exact)
+      ellipse       → 32 points
+      trait         → 16 points par demi-cercle + segments droits
+      circle_outline→ 32 points outer (CCW) + 32 points inner (CW = trou)
+  - Après la boucle de génération, Clipper effectue l'union (ctUnion,
+    pftNonZero) sur tous les polygones du glyphe.
+  - Le résultat est converti en opentype.Path (moveTo / lineTo / close).
+
+Winding :
+  Toutes les formes solides sont générées en CCW (winding +1 en Y-up).
+  Le polygone inner de circle_outline est généré en CW (winding -1)
+  pour créer un trou. La règle NonZero inclut tout région ≠ 0 :
+    - Overlap solid+solid   : winding ≥ 2 → inclus (union correcte)
+    - Trou circle_outline   : winding  0  → exclu (trou préservé)
+    - Solid qui chevauche un trou : winding +1-1+1 = 1 → inclus (trou rempli, correct)
+
+Chargement Clipper :
+  loadClipper() injecte un <script> dans <head> au premier export.
+  Si window.ClipperLib existe déjà, l'injection est ignorée.
+  CDN : https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js
+
+Nouveaux composants dans export-otf.js :
+  getCirclePolygon(cx, cy, r, n=32)
+  getSquarePolygon(cx, cy, halfSize)
+  getEllipsePolygon(cx, cy, rx, ry, n=32)
+  getTraitPolygon(cx, cy, halfW, halfH, n=16)
+  getCircleOutlinePolygons(cx, cy, outerR, innerR, n=32) → [outer, inner]
+  loadClipper()
+  unionPolygons(polygons)     → ClipperLib.Paths
+  clipperToOpentypePath(paths) → opentype.Path
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE
+------------------------------------------------------------
+
+export-otf.js
+  Charset    : dynamique depuis JSON (52 lettres A–Z + a–z)
+  Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
+  Advance W  : depuis JSON par glyphe
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Coord map  : fontX = round((canvasX - PADDING) * SCALE)
+               fontY = round((BASELINE_Y - canvasY) * SCALE)
+  refWidth   : canvasH passé comme référence fixe → gradient stable ✓
+  Shapes     : circle, square, ellipse, trait, circle_outline ✓
+  Polygones  : approximation N-gon, CLIPPER_SCALE=100 ✓
+  Union      : Clipper.js ctUnion + pftNonZero → silhouette unifiée ✓
+  Métadonnées: description dynamique avec paramètres courants ✓
+
+dinish-bold-metrics.json
+  52 glyphes : A–Z (advW, lsb, rsb, inkWidth, bbox depuis UFO .glif)
+               a–z (idem)
+
+script-generator_DottFont.js
+  SHAPES     : circle, square, ellipse, trait, circle_outline ✓
+  refWidth   : paramètre ajouté à drawMeshGradientPreview() ✓
+  PNG export : XMLSerializer → Blob → Image → canvas 4× → download ✓
+
+index.html
+  Shape btns : circle, square, ellipse, trait, circle_outline ✓
+  Boutons    : SVG, PNG, OTF ✓
+
+
+------------------------------------------------------------
+PROCHAINES ÉTAPES
+------------------------------------------------------------
+
+[x] Export OTF 52 glyphes — résolu (cache navigateur, redémarrage PC)
+[x] Métadonnées dynamiques (paramètres dans description) — 08/04/2026
+[x] Union booléenne des contours (Clipper.js) — 08/04/2026
+
+
+------------------------------------------------------------
+BUG — OTF REJETÉ PAR WINDOWS (08/04/2026)
+------------------------------------------------------------
+
+Symptôme :
+  Les exports OTF ne s'ouvrent plus sous Windows (message d'erreur).
+  Ils restent lisibles dans FontLab (plus permissif sur la structure).
+
+Identifié à partir du commit : 65bf0dc — "ajout glyph export" (07/04 14:26)
+
+Cause racine :
+  Le fichier dinish-bold-metrics.json a été étendu à 138 glyphes dans ce
+  commit (A–Z, a–z, chiffres, ponctuation + 84 caractères latins accentués :
+  À Á Â Ã Ä Å Ç È É Ê Ë Ì Í Î Ï Ñ Ò Ó Ô Õ Ö Ù Ú Û Ü Ÿ
+  et leurs équivalents minuscules : à á â ã ä å ç è é ê ë ì í î ï
+  ñ ò ó ô õ ö ù ú û ü ÿ).
+
+  Dans export-otf.js, le nom PostScript d'un glyphe est calculé par :
+    const name = GLYPH_NAMES[char] || char;
+
+  Or GLYPH_NAMES ne contenait aucun mapping pour les caractères accentués.
+  Pour É (U+00C9) par exemple, le fallback donnait le caractère lui-même ('É')
+  comme nom PostScript — un nom non-ASCII, invalide selon la spec PostScript.
+
+  Les noms PostScript doivent être composés exclusivement de caractères ASCII
+  (Adobe Glyph List). Un nom comme 'É' produit une table `post` malformée.
+  Windows valide cette table strictement et rejette le fichier.
+  FontLab tolère les noms non-conformes, d'où la divergence de comportement.
+
+Fix appliqué (08/04/2026) :
+  Ajout de 52 mappings dans GLYPH_NAMES (export-otf.js) selon l'Adobe Glyph
+  List standard — tous les caractères accentués du JSON ont désormais un nom
+  PostScript ASCII valide :
+    'À':'Agrave',    'Á':'Aacute',      'Â':'Acircumflex', ...
+    'à':'agrave',    'á':'aacute',      'â':'acircumflex', ...
+    (liste complète dans export-otf.js, section GLYPH_NAMES)
+
+  Note : le commentaire précédent "Letters and accented letters use the
+  character itself as the PostScript name" était incorrect — c'est exactement
+  ce comportement qui causait le bug.
+
+
+------------------------------------------------------------
+ÉTAPE 11 — SLIDER MESH (taille de la grille bilinéaire)
+------------------------------------------------------------
+Date : 09/04/2026
+
+Objectif : pouvoir travailler avec une lettre noire pleine (sans mesh)
+ou graduer la densité du damier de 1 à 4 patches, depuis un seul slider.
+
+Slider ajouté dans index.html :
+  id=mesh-slider  min=0  max=4  step=1  value=0
+  Placé avant le slider "Size pregeneration".
+
+Changements dans script-generator_DottFont.js :
+
+  Supprimé :
+    const MESH_COLS = 4;
+    const MESH_ROWS = 4;
+    const MESH_GRID = [];
+    + boucle de construction du tableau 5×5
+
+  Remplacé par :
+    let meshSize = 0;
+
+  Dans drawMeshGradientPreview() :
+    - meshSize === 0 → tous les pixels texte reçoivent value=0 (noir pur, pas d'interpolation)
+    - meshSize > 0  → bilinear interpolation sur une grille meshSize×meshSize
+      Le tableau MESH_GRID pré-construit est supprimé ; la valeur par coin
+      est calculée inline : (r+c) % 2 === 0 ? 204 : 0
+      → moins de code, même résultat, aucun tableau à maintenir.
+
+  Optimisation : la fonction inline cv(r, c) remplace les lookups MESH_GRID[r][c]
+  directement dans le calcul bilinéaire.
+
+  Event listener ajouté :
+    meshSlider → met à jour meshSize, appelle generate().
+
+
+------------------------------------------------------------
+------------------------------------------------------------
+SESSION 09/04/2026
+------------------------------------------------------------
+
+NOMMAGE — Typographic Names (nameID 16/17)
+  Problème : styleName hardcodé à 'Regular', aucune info sur les paramètres
+             dans le nom de style. Les apps modernes ne pouvaient pas grouper
+             les exports sous une famille commune.
+  Solution :
+    nameID 1  (familyName)         → unique par export pour les vieux apps :
+                                     "FLUTGRABEN Ci M0 T1.00 S1.00 H0.50"
+    nameID 2  (styleName)          → toujours "Regular" (compatibilité legacy)
+    nameID 16 (preferredFamily)    → "FLUTGRABEN" (commun à tous les exports)
+    nameID 17 (preferredSubfamily) → style lisible complet :
+                                     "Circle · Mesh 0 · Taille 1.00 · Size 1.00 · Hazard 0.50"
+  Résultat : Figma/Adobe CC groupent tous les exports sous "FLUTGRABEN"
+             avec le style personnalisé dans le menu déroulant.
+             Les vieux apps voient chaque export comme famille indépendante.
+  Impl.    : font.names.preferredFamily / preferredSubfamily après construction
+             opentype.Font (opentype.js supporte nameID 16/17 via font.names).
+
+BUG — Paramètre Hazard ignoré à l'export OTF
+  Problème : depuis l'ajout du slider Mesh (commit a98eda5, 10h52),
+             script-generator_DottFont.js avait été mis à jour pour gérer
+             meshSize=0 (brightness=0 partout → probabilité plate),
+             mais export-otf.js utilisait toujours l'ancienne formule :
+               probability = max(0, 1 - (brightness/204) * presenceStrength * 2)
+             → quand meshSize=0, brightness=0 → probability=1 toujours
+             → Hazard sans effet à l'export.
+  Fix     : même logique que script-generator_DottFont.js :
+               meshSize=0  → probability = 1 - presenceStrength
+               meshSize>0  → max(0, 1 - (brightness/204) * presenceStrength * 2)
+
+OPTIMISATION — Export OTF
+  1. Courbes Bezier directes quand pas de chevauchement
+       Quand 2 × MAX_RADIUS × sizeMultiplier ≤ DOT_SPACING,
+       les dots ne se chevauchent pas → on bypass Clipper entièrement.
+       Chaque forme est ajoutée directement comme courbe cubique Bezier
+       (4 segments par cercle/ellipse, k=0.5523) dans l'opentype.Path.
+       → Cercles lisses et précis dans le fichier OTF, pas de polygones.
+       Quand chevauchement possible → Clipper union comme avant.
+
+  2. Segments polygones réduits pour Clipper (n=32 → n=16)
+       Moins de points pour Clipper union → ~2× plus rapide.
+       Erreur visuelle < 0.4 font units, imperceptible.
+
+  3. Skip du flou pendant l'export
+       renderTextMask() créait un canvas flou complet si outsetRadius > 0.
+       Le contour (offset) n'est pas exporté en OTF → travail inutile.
+       Fix : outsetRadius sauvegardé et mis à 0 pendant la boucle glyphs.
+
+  4. Indicateur de progression
+       Le bouton OTF affiche "X / 138" et yield toutes les 10 glyphs
+       (await setTimeout 0) → pas de freeze navigateur.
+
+  5. Constantes hoistées hors de la boucle glyphs
+       step, canOverlap, radiusMul, radiusBase, radiusRange calculés
+       une fois avant la boucle au lieu de 138 fois.
+
+  6. Fast path meshSize=0 pour le gradient
+       Quand meshSize=0 le gradient est uniformément noir sur le texte,
+       identique au masque texte. On lit ctx directement et on saute
+       drawMeshGradientPreview() → économie de canvasW×canvasH×138 ops.
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE
+------------------------------------------------------------
+
+export-otf.js
+  Charset    : dynamique depuis JSON (138 glyphes A–Z, a–z, accents, chiffres, ponctuation)
+  Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
+  Advance W  : depuis JSON par glyphe
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Coord map  : fontX = round((canvasX - PADDING) * SCALE)
+               fontY = round((BASELINE_Y - canvasY) * SCALE)
+  refWidth   : canvasH passé comme référence fixe → gradient stable ✓
+  Shapes     : circle, square, ellipse, trait, circle_outline ✓
+  Mode no-overlap : Bezier direct (4 segments cubiques, k=0.5523) ✓
+  Mode overlap    : polygones N=16 + Clipper.js union pftNonZero ✓
+  Hazard     : formule adaptée meshSize=0 (probabilité plate) ✓
+  Optimisations : blur skippé, constantes hoistées, fast path mesh=0 ✓
+  nameID 1   : legacyFamily unique par export (shape abrégée + params) ✓
+  nameID 2   : "Regular" (toujours, compatibilité legacy) ✓
+  nameID 16  : preferredFamily = "FLUTGRABEN" (commun à tous les exports) ✓
+  nameID 17  : preferredSubfamily = style lisible complet ✓
+  description: dynamique avec paramètres courants ✓
+
+dinish-bold-metrics.json
+  138 glyphes : A–Z, a–z, accents, chiffres, ponctuation
+                (advW, lsb, rsb, inkWidth, bbox depuis UFO .glif)
+
+script-generator_DottFont.js
+  SHAPES     : circle, square, ellipse, trait, circle_outline ✓
+  meshSize   : slider 0–4, 0=noir pur, 1–4=damier bilinéaire ✓
+  refWidth   : paramètre ajouté à drawMeshGradientPreview() ✓
+  PNG export : XMLSerializer → Blob → Image → canvas 4× → download ✓
+  samplePixels → SVG string (insertAdjacentHTML, plus rapide que DOM) ✓
+
+index.html
+  Shape btns : circle, square, ellipse, trait, circle_outline ✓
+  Sliders    : Mesh (0–4), Size pregeneration, Size postgeneration,
+               Contour, Hazard (panel principal + panel offset) ✓
+  Boutons    : SVG, PNG, OTF ✓
+
+============================================================
+
+------------------------------------------------------------
+SESSION 13/04/2026
+------------------------------------------------------------
+
+NOUVELLES SHAPES — Remplacement des formes obsolètes
+  Supprimées : ellipse, trait, circle_outline
+  Ajoutées depuis dossier clone/ :
+    - trait_2        (viewBox 0 0 3.614 1.027 — rectangle plat sans arrondi)
+    - polygone       (viewBox 0 0 2.829 2.691 — pentagone, sommet en bas, plat en haut)
+    - polygone8      (viewBox 0 0 2.314 2.314 — octogone)
+
+  Fichiers modifiés :
+    index.html                    → 3 boutons remplacés dans .shape-btns
+    script-generator_DottFont.js  → objet SHAPES mis à jour + 3 cas shapeDotSVG remplacés
+    export-otf.js                 → fonctions polygon/bezier + dispatchers + shapeLabel/shapeAbbr
+
+  Détail des ratios (extraits des viewBox, preserveAspectRatio="xMidYMid meet") :
+    trait_2   : halfW = r, halfH = r × (1.027/3.614). Lignes droites, pas de Bezier.
+    polygone  : width-constrained. R_H=0.951, R_W=0.618, R_VM=0.224.
+                OTF CCW Y-up order : E(right) → D(top-right) → C(top-left) → B(left) → A(bottom).
+    polygone8 : square viewBox, ratios from transform normalization of polygone8.svg.
+                OTF CCW Y-up order : top → upper-right → right → … → upper-left.
+
+
+BUG — FORMES RÉDUITES + PETITS RONDS PARASITES À L'EXPORT OTF (13/04/2026)
+  Symptôme 1 : dans l'OTF, certains dots aux bords des glyphes étaient
+               beaucoup plus petits qu'attendu (ex. trait_2 très courts sur N).
+  Symptôme 2 : petits ronds isolés dépassant du bord gauche du "1" (et autres
+               caractères étroits) dans l'OTF, absents du rendu web.
+
+  Cause racine (unique) :
+    L'export OTF utilisait un fast path pour meshSize=0 : lecture directe du
+    canvas `ctx` brut (ctx.getImageData). Le rendu web, lui, lit toujours depuis
+    `gCtx` (sortie de drawMeshGradientPreview).
+
+    drawMeshGradientPreview applique THRESHOLD=240 : tout pixel avec
+    maskBrightness < 240 est écrit 0 dans gCtx, le fond est écrit 249.
+    → Tous les pixels "texte" (même anti-aliasés) reçoivent brightness=0
+      dans gCtx → darkness=1 → rayon MAXIMUM → formes à taille pleine.
+
+    En lisant ctx brut, les pixels anti-aliasés du bord (brightness 50–230)
+    conservent leur valeur intermédiaire → darkness réduit → rayon réduit →
+    petits dots isolés aux bords → bosses dans le contour Clipper (sympt. 2)
+    et formes plus petites que le rendu web (sympt. 1).
+
+  Fix :
+    Suppression du fast path. L'export OTF appelle désormais toujours
+    drawMeshGradientPreview(canvasW, canvasH, canvasH) et lit gCtx,
+    identiquement au rendu web.
+    Seuil de brightness conservé à 245 (gCtx background = 249 > 245).
+
+  Fichier modifié : export-otf.js (section lecture pixels, avant boucle glyphs).
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (13/04/2026)
+------------------------------------------------------------
+
+export-otf.js
+  Charset    : dynamique depuis JSON (138 glyphes A–Z, a–z, accents, chiffres, ponctuation)
+  Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
+  Advance W  : depuis JSON par glyphe
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Pixels     : toujours depuis gCtx (drawMeshGradientPreview) — identique au rendu web ✓
+  Threshold  : 245 (gCtx background=249 exclu, texte/gradient 0–204 inclus) ✓
+  Shapes     : circle, square, trait_2, polygone, polygone8 ✓
+  Mode no-overlap : Bezier direct (lignes droites pour tous les polygones) ✓
+  Mode overlap    : polygones N-gon + Clipper.js union pftNonZero ✓
+  Hazard     : formule adaptée meshSize=0 (probabilité plate) ✓
+  nameID 1   : legacyFamily unique par export (shape abrégée + params) ✓
+  nameID 2   : "Regular" (toujours, compatibilité legacy) ✓
+  description: dynamique avec paramètres courants ✓
+
+script-generator_DottFont.js
+  SHAPES     : circle, square, trait_2, polygone, polygone8 ✓
+  meshSize   : slider 0–4, 0=noir pur, 1–4=damier bilinéaire ✓
+  refWidth   : paramètre ajouté à drawMeshGradientPreview() ✓
+  PNG export : XMLSerializer → Blob → Image → canvas 4× → download ✓
+
+index.html
+  Shape btns : circle, square, polygone, polygone8, trait_2 ✓
+  Sliders    : Mesh (0–4), Size pregeneration, Size postgeneration,
+               Contour, Hazard ✓
+  Boutons    : SVG, PNG, OTF ✓
+
+============================================================
+
+------------------------------------------------------------
+SESSION 10/04/2026
+------------------------------------------------------------
+
+BUG — EXPORTS OTF INVISIBLES / IDENTIQUES DANS INKSCAPE
+  Symptôme : plusieurs OTF installés sous Windows — visibles dans les
+             paramètres polices de Windows, mais dans Inkscape les lettres
+             ne changent pas visuellement selon la variante sélectionnée.
+
+  Cause racine :
+    nameID 16 (preferredFamily) était identique pour tous les exports :
+    "FLUTGRABEN". Sur Windows, Inkscape utilise DirectWrite pour
+    l'énumération des polices. DirectWrite groupe les fonts par nameID 16 :
+    toutes les variantes apparaissaient donc comme une seule famille
+    "FLUTGRABEN" dans le picker Inkscape. Windows font settings, lui,
+    affiche par nom de fichier / nameID 1 — d'où la divergence observée.
+    Inkscape prenait le premier (ou dernier) variant installé et ignorait
+    les autres.
+
+  Fix (10/04/2026) :
+    Suppression des deux lignes suivantes dans export-otf.js :
+      font.names.preferredFamily    = { en: 'FLUTGRABEN' };
+      font.names.preferredSubfamily = { en: typographicStyle };
+
+    Sans nameID 16/17, Inkscape retombe sur nameID 1 (legacyFamily),
+    qui est déjà unique par export :
+      ex. "FLUTGRABEN Ci M0 T1.00 S1.00 H0.50"
+    → chaque export apparaît comme une famille distincte dans Inkscape.
+
+  Trade-off :
+    Figma et Adobe CC ne groupent plus les exports sous "FLUTGRABEN".
+    Chaque export est une famille indépendante — comportement identique
+    à nameID 1 seul. Acceptable pour un usage Inkscape-first.
+
+  Note pratique :
+    Désinstaller les anciens OTF et redémarrer Inkscape avant de tester
+    (son cache font peut conserver les anciens noms).
+
+
+------------------------------------------------------------
+ÉTAPE 12 — SVG NATIF (plus de <use> / <symbol>)
+------------------------------------------------------------
+Date : 10/04/2026
+
+Objectif : rendre le SVG exporté directement éditable dans Inkscape
+           (changement de couleur, Path > Union, sélection individuelle)
+           sans avoir à "dissocier" les clones au préalable.
+
+Avant :
+  Chaque dot était un élément <use href="#base-dot" x y width height/>,
+  référençant un <symbol id="base-dot"> dans les <defs>.
+  Inkscape devait d'abord "dissocier" (Object > Symbol > Extract)
+  avant toute édition de forme ou de couleur.
+
+Après :
+  Chaque dot est un élément SVG natif :
+    circle        → <circle cx cy r fill="#000000"/>
+    square        → <rect x y width height fill="#ff00ff"/>
+    ellipse       → <ellipse cx cy rx ry fill="#000000"/>
+                    rx = size/2.75, ry = size/2
+                    (viewBox 0 0 2 2.75, height-constrained by meet)
+    trait         → <rect x y width height rx fill="#000000"/>
+                    height = size×1.7/3.614, rx = height/2
+                    (viewBox 0 0 3.614 1.7, width-constrained by meet)
+    circle_outline→ <path fill-rule="evenodd" fill="#000000" d="..."/>
+                    deux arcs SVG par anneau (outer + inner), donut via evenodd
+
+Fichiers modifiés :
+  script-generator_DottFont.js
+    - Ajout de shapeDotSVG(cx, cy, r) → retourne la string SVG native
+      selon currentShape, proportions recalculées depuis chaque viewBox.
+    - samplePixelsToSVGString() : remplace <use> par shapeDotSVG().
+    - Variable size supprimée (inutile).
+
+  offset.js
+    - generateContourSVGString() : même remplacement.
+    - Variable size supprimée (inutile).
+
+Note : <defs>/<symbol> conservés dans le DOM (inoffensifs, non référencés).
+       shapeDotSVG() définie dans script-generator_DottFont.js est accessible
+       dans offset.js via le scope global partagé.
+
+============================================================
+
+------------------------------------------------------------
+SESSION 13/04/2026 — suite
+------------------------------------------------------------
+
+RESPONSIVE #panels-left
+  Objectif : sliders adaptatifs à la taille de l'écran.
+             En dessous de 1300px, les sliders disparaissent et les
+             valeurs sont éditées directement via les spans.
+
+  index.html :
+    Ajout de contenteditable="true" sur les 8 spans de valeur :
+      #mesh-value, #taille-generation-value, #size-value, #presence-value
+      #outset-value, #contour-hazard-value,
+      #contour-taille-generation-value, #contour-size-value
+
+  CSS/style.css :
+    Règle par défaut (large écran) :
+      pointer-events: none; outline: none sur les spans de valeur
+      → non interactifs tant que les sliders sont visibles.
+
+    @media (max-width: 1300px) :
+      #panels-left input[type="range"] → display: none
+      .slider-row label                → flex: 1 (remplace l'espace du slider)
+      spans de valeur                  → pointer-events: auto; cursor: text;
+                                         border-bottom: 1px solid var(--color-label)
+
+  script-generator_DottFont.js :
+    Ajout de bindSpanEdit(spanEl, sliderEl, isInt, onCommit) :
+      - focus  : sélectionne tout le texte (remplacement immédiat)
+      - keydown Enter    : blur() pour valider
+      - keydown ArrowUp/ArrowDown : ±1 step (snap + clamp),
+                           mise à jour live du slider + onCommit
+      - blur   : parse, clamp sur [min, max] du slider,
+                 sync span + slider, appel onCommit
+                 (ignoré si window.innerWidth > 1300)
+
+    4 appels bindSpanEdit pour :
+      meshValue, tailleGenerationValue, sizeValue, presenceValue
+
+  offset.js :
+    4 appels bindSpanEdit (bindSpanEdit est global depuis le script précédent) :
+      outsetValue, contourHazardValue, contourTailleGenValue, contourSizeValue
+
+
+BOUTON "TOUT MÉLANGEZ !" (#btn-aleatoire)
+  Objectif : randomiser tous les paramètres + la shape en un clic.
+
+  index.html (modifié par l'utilisateur) :
+    Ajout de <div id="top-panel-aleatoire">
+      <button id="btn-aleatoire">Tout melangez !</button>
+    </div>
+
+  offset.js (ajouté en fin de fichier, après les bindSpanEdit) :
+    randomSnap(sliderEl) :
+      Retourne une valeur aléatoire snappée au step du slider,
+      dans [min, max]. Lit min/max/step depuis l'élément DOM.
+
+    randomizeAll() :
+      Met à jour les 8 variables JS + les valeurs slider + les spans :
+        meshSize, tailleGenerationMultiplier, sizeMultiplier, presenceStrength
+        outsetRadius, contourPresenceStrength,
+        contourTailleGenerationMultiplier, contourSizeMultiplier
+      Tire aussi une shape aléatoire depuis les .shape-btn (data-shape),
+      met à jour la classe .active et currentShape.
+      Appelle generate() une seule fois à la fin (pipeline complet).
+
+    Listener : document.getElementById('btn-aleatoire') → randomizeAll
+
+
+OPTIMISATION CSS — panels (lignes 80–120)
+  Avant : 4 blocs #top-panel* répétant padding, border-radius, display,
+          flex-direction, gap, color (7 props × 4 = 28 déclarations).
+  Après : 1 règle partagée pour les 4 sélecteurs (7 props),
+          + 4 lignes une couleur chacune → 11 déclarations.
+  Aucun changement visuel.
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (13/04/2026 — suite)
+------------------------------------------------------------
+
+index.html
+  Shape btns  : circle, square, polygone, polygone8, trait_2 ✓
+  Value spans : contenteditable="true" sur les 8 spans ✓
+  Panels      : top-panel, top-panel-offset, top-panel-export,
+                top-panel-aleatoire ✓
+  Boutons     : SVG, PNG, OTF, Tout mélangez ✓
+
+CSS/style.css
+  Panels      : base partagée + couleur individuelle ✓
+  Responsive  : @media (max-width: 1300px) — sliders cachés,
+                spans éditables ✓
+  Spans wide  : pointer-events: none (non interactifs) ✓
+
+script-generator_DottFont.js
+  bindSpanEdit() : focus/keydown/blur + flèches clavier ✓
+  4 bindings spans panneau principal ✓
+
+offset.js
+  4 bindings spans panneau contour ✓
+  randomSnap() / randomizeAll() ✓
+  Listener #btn-aleatoire ✓
+
+============================================================

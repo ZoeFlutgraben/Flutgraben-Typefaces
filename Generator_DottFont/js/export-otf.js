@@ -39,7 +39,7 @@ const CLIPPER_SCALE = 100;
 // Returns a CCW polygon (array of Clipper {X,Y} points) approximating a circle.
 // n=32 gives sub-pixel error at all normal font sizes.
 // CCW winding in Y-up font coordinates = positive area = included by NonZero fill rule.
-function getCirclePolygon(cx, cy, r, n = 32) {
+function getCirclePolygon(cx, cy, r, n = 16) {
   const pts = [];
   for (let i = 0; i < n; i++) {
     const a = (2 * Math.PI * i) / n;
@@ -64,66 +64,134 @@ function getSquarePolygon(cx, cy, halfSize) {
   ];
 }
 
-// Returns a CCW polygon approximating an ellipse.
-// rx, ry: semi-axes. Same winding logic as getCirclePolygon.
-function getEllipsePolygon(cx, cy, rx, ry, n = 32) {
-  const pts = [];
-  for (let i = 0; i < n; i++) {
-    const a = (2 * Math.PI * i) / n;
-    pts.push({
-      X: Math.round((cx + Math.cos(a) * rx) * CLIPPER_SCALE),
-      Y: Math.round((cy + Math.sin(a) * ry) * CLIPPER_SCALE)
-    });
-  }
-  return pts;
+// Returns a CCW polygon for a flat rectangle (no rounded corners).
+// halfW = r (half total width), halfH = r × (1.027/3.614) from viewBox 0 0 3.614 1.027.
+// Vertex order TL→BL→BR→TR gives CCW winding in Y-up font coordinates.
+function getTrait2Polygon(cx, cy, r) {
+  const hw = r;
+  const hh = r * (1.027 / 3.614);
+  return [
+    { X: Math.round((cx - hw) * CLIPPER_SCALE), Y: Math.round((cy + hh) * CLIPPER_SCALE) },
+    { X: Math.round((cx - hw) * CLIPPER_SCALE), Y: Math.round((cy - hh) * CLIPPER_SCALE) },
+    { X: Math.round((cx + hw) * CLIPPER_SCALE), Y: Math.round((cy - hh) * CLIPPER_SCALE) },
+    { X: Math.round((cx + hw) * CLIPPER_SCALE), Y: Math.round((cy + hh) * CLIPPER_SCALE) },
+  ];
 }
 
-// Returns a CCW polygon approximating a horizontal pill (stadium) shape.
-// halfW: half total width, halfH: half height (= corner radius).
-// n: segments per semicircle. Traversal: right semicircle (-π/2 → +π/2)
-// then left semicircle (+π/2 → +3π/2), both CCW in Y-up.
-function getTraitPolygon(cx, cy, halfW, halfH, n = 16) {
-  const pts = [];
-  const rx = halfW - halfH; // distance from center to each semicircle center
-  // Right semicircle
-  for (let i = 0; i <= n; i++) {
-    const a = -Math.PI / 2 + (Math.PI * i) / n;
-    pts.push({
-      X: Math.round((cx + rx + Math.cos(a) * halfH) * CLIPPER_SCALE),
-      Y: Math.round((cy + Math.sin(a) * halfH) * CLIPPER_SCALE)
-    });
-  }
-  // Left semicircle
-  for (let i = 0; i <= n; i++) {
-    const a = Math.PI / 2 + (Math.PI * i) / n;
-    pts.push({
-      X: Math.round((cx - rx + Math.cos(a) * halfH) * CLIPPER_SCALE),
-      Y: Math.round((cy + Math.sin(a) * halfH) * CLIPPER_SCALE)
-    });
-  }
-  return pts;
+// Returns a CCW polygon for a pentagon (vertex-bottom, flat-top).
+// Ratios derived from polygone.svg viewBox 0 0 2.829 2.691, width-constrained by meet.
+// CCW vertex order in Y-up: E(right) → D(top-right) → C(top-left) → B(left) → A(bottom).
+function getPolygone5Polygon(cx, cy, r) {
+  const R_H  = 0.951;  // half-height / half-width ratio
+  const R_W  = 0.618;  // horizontal offset of top vertices
+  const R_VM = 0.224;  // vertical offset of left/right vertices
+  return [
+    { X: Math.round((cx + r)         * CLIPPER_SCALE), Y: Math.round((cy - R_VM * r) * CLIPPER_SCALE) }, // E right
+    { X: Math.round((cx + R_W  * r)  * CLIPPER_SCALE), Y: Math.round((cy + R_H  * r) * CLIPPER_SCALE) }, // D top-right
+    { X: Math.round((cx - R_W  * r)  * CLIPPER_SCALE), Y: Math.round((cy + R_H  * r) * CLIPPER_SCALE) }, // C top-left
+    { X: Math.round((cx - r)         * CLIPPER_SCALE), Y: Math.round((cy - R_VM * r) * CLIPPER_SCALE) }, // B left
+    { X: Math.round((cx)             * CLIPPER_SCALE), Y: Math.round((cy - R_H  * r) * CLIPPER_SCALE) }, // A bottom
+  ];
 }
 
-// Returns [outerPolygon, innerPolygon] for a ring (donut) shape.
-// outer is CCW (solid area, winding +1), inner is CW (hole, winding -1).
-// With NonZero fill rule, overlapping outer+inner regions cancel to 0 → hole.
-// If another solid shape overlaps the hole, the hole is filled (correct union behavior).
-function getCircleOutlinePolygons(cx, cy, outerR, innerR, n = 32) {
-  const outer = [];
-  const inner = [];
-  for (let i = 0; i < n; i++) {
-    const aOuter = (2 * Math.PI * i) / n;       // CCW: increasing angle
-    const aInner = (2 * Math.PI * (n - i)) / n; // CW: decreasing angle (reversed)
-    outer.push({
-      X: Math.round((cx + Math.cos(aOuter) * outerR) * CLIPPER_SCALE),
-      Y: Math.round((cy + Math.sin(aOuter) * outerR) * CLIPPER_SCALE)
-    });
-    inner.push({
-      X: Math.round((cx + Math.cos(aInner) * innerR) * CLIPPER_SCALE),
-      Y: Math.round((cy + Math.sin(aInner) * innerR) * CLIPPER_SCALE)
-    });
+// Returns a CCW polygon for an octagon.
+// Vertex ratios derived from polygone8.svg viewBox 0 0 2.314 2.314 after transform normalization.
+// CCW Y-up order: top → upper-right → right → lower-right → bottom → lower-left → left → upper-left.
+function getPolygone8Polygon(cx, cy, r) {
+  const verts = [
+    [ 0.001,  0.985], [ 0.701,  0.695], [ 0.991, -0.005], [ 0.701, -0.705],
+    [ 0.001, -0.995], [-0.699, -0.705], [-0.989, -0.005], [-0.699,  0.695],
+  ];
+  return verts.map(([dx, dy]) => ({
+    X: Math.round((cx + dx * r) * CLIPPER_SCALE),
+    Y: Math.round((cy + dy * r) * CLIPPER_SCALE),
+  }));
+}
+
+// Cubic Bezier circle approximation constant: (4/3) × tan(π/8) ≈ 0.5523.
+// Each of 4 quadrant segments has < 0.03% radial error — indistinguishable from a true circle.
+const BEZIER_K = 0.5522847498;
+
+// Appends a circle to an opentype.Path using 4 cubic Bezier segments.
+// CCW winding (cw=false) = solid area; CW (cw=true) = hole (for circle_outline inner ring).
+function addCircleBezier(path, cx, cy, r, cw) {
+  const k = BEZIER_K * r;
+  if (!cw) {
+    // CCW: right → top → left → bottom → right
+    path.moveTo(cx + r, cy);
+    path.bezierCurveTo(cx + r, cy + k,   cx + k, cy + r,   cx,     cy + r);
+    path.bezierCurveTo(cx - k, cy + r,   cx - r, cy + k,   cx - r, cy    );
+    path.bezierCurveTo(cx - r, cy - k,   cx - k, cy - r,   cx,     cy - r);
+    path.bezierCurveTo(cx + k, cy - r,   cx + r, cy - k,   cx + r, cy    );
+  } else {
+    // CW: right → bottom → left → top → right (hole in NonZero fill)
+    path.moveTo(cx + r, cy);
+    path.bezierCurveTo(cx + r, cy - k,   cx + k, cy - r,   cx,     cy - r);
+    path.bezierCurveTo(cx - k, cy - r,   cx - r, cy - k,   cx - r, cy    );
+    path.bezierCurveTo(cx - r, cy + k,   cx - k, cy + r,   cx,     cy + r);
+    path.bezierCurveTo(cx + k, cy + r,   cx + r, cy + k,   cx + r, cy    );
   }
-  return [outer, inner];
+  path.close();
+}
+
+// Appends a flat rectangle to an opentype.Path, CCW in Y-up.
+// halfW = r, halfH = r × (1.027/3.614) from viewBox 0 0 3.614 1.027.
+function addTrait2Bezier(path, cx, cy, r) {
+  const hh = r * (1.027 / 3.614);
+  path.moveTo(cx - r,  cy + hh);
+  path.lineTo(cx - r,  cy - hh);
+  path.lineTo(cx + r,  cy - hh);
+  path.lineTo(cx + r,  cy + hh);
+  path.close();
+}
+
+// Appends a pentagon (vertex-bottom, flat-top) to an opentype.Path, CCW in Y-up.
+// Ratios derived from polygone.svg viewBox 0 0 2.829 2.691, width-constrained by meet.
+function addPolygone5Bezier(path, cx, cy, r) {
+  const R_H  = 0.951;
+  const R_W  = 0.618;
+  const R_VM = 0.224;
+  path.moveTo(cx + r,        cy - R_VM * r);  // E right
+  path.lineTo(cx + R_W * r,  cy + R_H  * r);  // D top-right
+  path.lineTo(cx - R_W * r,  cy + R_H  * r);  // C top-left
+  path.lineTo(cx - r,        cy - R_VM * r);  // B left
+  path.lineTo(cx,            cy - R_H  * r);  // A bottom
+  path.close();
+}
+
+// Appends an octagon to an opentype.Path, CCW in Y-up.
+// Vertex ratios derived from polygone8.svg viewBox 0 0 2.314 2.314.
+function addPolygone8Bezier(path, cx, cy, r) {
+  const verts = [
+    [ 0.001,  0.985], [ 0.701,  0.695], [ 0.991, -0.005], [ 0.701, -0.705],
+    [ 0.001, -0.995], [-0.699, -0.705], [-0.989, -0.005], [-0.699,  0.695],
+  ];
+  path.moveTo(cx + verts[0][0] * r, cy + verts[0][1] * r);
+  for (let i = 1; i < verts.length; i++) {
+    path.lineTo(cx + verts[i][0] * r, cy + verts[i][1] * r);
+  }
+  path.close();
+}
+
+// Dispatches to the correct Bezier function for the current shape.
+// Used when dots cannot overlap (no Clipper union needed).
+function addShapeBezierToPath(path, cx, cy, r) {
+  if (currentShape === 'square') {
+    // Square has straight edges — 4 lineTo segments, no Bezier needed
+    path.moveTo(cx - r, cy + r);
+    path.lineTo(cx - r, cy - r);
+    path.lineTo(cx + r, cy - r);
+    path.lineTo(cx + r, cy + r);
+    path.close();
+  } else if (currentShape === 'trait_2') {
+    addTrait2Bezier(path, cx, cy, r);
+  } else if (currentShape === 'polygone') {
+    addPolygone5Bezier(path, cx, cy, r);
+  } else if (currentShape === 'polygone8') {
+    addPolygone8Bezier(path, cx, cy, r);
+  } else {
+    addCircleBezier(path, cx, cy, r, false);
+  }
 }
 
 // Loads Clipper.js from CDN into the page if not already present.
@@ -272,33 +340,72 @@ async function exportOTF() {
     name: 'space', unicode: 32, advanceWidth: 222, path: new opentype.Path()
   }));
 
+  // Disable blur during export: renderTextMask creates a full blur canvas when
+  // outsetRadius > 0, but the contour zone is not exported in OTF — wasted work.
+  const savedOutsetRadius = outsetRadius;
+  outsetRadius = 0;
+
+  // Hoist constants that are identical for every glyph
+  const step       = DOT_SPACING * tailleGenerationMultiplier;
+  const canOverlap = 2 * MAX_RADIUS * sizeMultiplier > DOT_SPACING;
+
+  // Pre-compute radius formula parts: radius = radiusBase + darkness * radiusRange
+  // Avoids repeating the same multiplications for every dot of every glyph.
+  const radiusMul   = sizeMultiplier * tailleGenerationMultiplier;
+  const radiusBase  = MIN_RADIUS * radiusMul;
+  const radiusRange = (MAX_RADIUS - MIN_RADIUS) * radiusMul;
+
   // One glyph per character present in the JSON
-  for (const char of CHARSET) {
+  for (let gi = 0; gi < CHARSET.length; gi++) {
+    const char = CHARSET[gi];
+
+    // Yield to the browser every 10 glyphs: allows repaints and prevents
+    // the "page unresponsive" dialog on large charsets.
+    if (gi % 10 === 0) {
+      exportOtfBtn.textContent = `${gi} / ${CHARSET.length}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+
     // Run the full render pipeline for this single character
     const { canvasW, canvasH } = renderTextMask(char);
+
+    // Always use gCtx (output of drawMeshGradientPreview) as the pixel source,
+    // matching what samplePixelsToSVGString reads in the web render.
+    //
+    // drawMeshGradientPreview applies THRESHOLD (240): any pixel with maskBrightness < 240
+    // is written as 0 into gCtx (regardless of its exact raw brightness), and background
+    // pixels are written as 249. This means all text-interior pixels — including
+    // anti-aliased edge pixels — receive brightness=0 → darkness=1 → max radius, exactly
+    // as in the web render.
+    //
+    // Reading raw ctx instead would give anti-aliased edge pixels their actual intermediate
+    // brightness (e.g. 100–230), producing reduced-darkness dots with smaller radii.
+    // This caused two visible artefacts: smaller shapes at character edges and isolated
+    // tiny dots that appear as contour bumps after Clipper union.
+    //
     // Pass canvasH as refWidth so the gradient x-axis uses a fixed reference (FONT_SIZE + 2*PADDING)
-    // identical for every character, eliminating per-character gradient remapping and the resulting trembling.
-    drawMeshGradientPreview(canvasW, canvasH, undefined, canvasH);
+    // identical for every character, eliminating per-character gradient remapping and trembling.
+    drawMeshGradientPreview(canvasW, canvasH, canvasH);
+    const pixels = gCtx.getImageData(0, 0, canvasW, canvasH).data;
 
-    const step      = DOT_SPACING * tailleGenerationMultiplier;
-    const imageData = gCtx.getImageData(0, 0, canvasW, canvasH);
-    const pixels    = imageData.data;
-
-    // Collect all shape polygons for this glyph before performing union
-    const polygons = [];
+    const polygons   = canOverlap ? [] : null;
+    const directPath = canOverlap ? null : new opentype.Path();
 
     for (let y = step / 2; y < canvasH; y += step) {
       for (let x = step / 2; x < canvasW; x += step) {
         const i          = (Math.floor(y) * canvasW + Math.floor(x)) * 4;
         const brightness = (pixels[i] + pixels[i+1] + pixels[i+2]) / 3;
-        if (brightness >= 245) continue;
+        if (brightness >= 245) continue;  // gCtx background = 249, text interior = 0–204
 
-        // Apply the same probabilistic filter as the SVG output
-        const probability = Math.max(0, 1 - (brightness / 204) * presenceStrength * 2);
+        // Apply the same probabilistic filter as the SVG output.
+        // meshSize 0 → solid black, brightness always 0 → use flat probability instead
+        const probability = meshSize === 0
+          ? 1 - presenceStrength
+          : Math.max(0, 1 - (brightness / 204) * presenceStrength * 2);
         if (Math.random() > probability) continue;
 
         const darkness = Math.max(0, 1 - brightness / 204);
-        const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * sizeMultiplier * tailleGenerationMultiplier;
+        const radius   = radiusBase + darkness * radiusRange;
 
         // Map canvas px → font units, flipping Y axis.
         // Round cx/cy to integers to avoid float-to-int rounding drift in opentype.js:
@@ -308,24 +415,29 @@ async function exportOTF() {
         const fy = Math.round((BASELINE_Y - y) * SCALE);
         const fr = radius * SCALE;
 
-        if (currentShape === 'square') {
-          polygons.push(getSquarePolygon(fx, fy, fr));
-        } else if (currentShape === 'ellipse') {
-          polygons.push(getEllipsePolygon(fx, fy, fr * (2 / 2.75), fr));
-        } else if (currentShape === 'trait') {
-          polygons.push(getTraitPolygon(fx, fy, fr, fr * (1.7 / 3.614)));
-        } else if (currentShape === 'circle_outline') {
-          const [outer, inner] = getCircleOutlinePolygons(fx, fy, fr, fr * (0.758 / 1.157));
-          polygons.push(outer, inner);
+        if (canOverlap) {
+          // Polygon mode — will be merged by Clipper union below
+          if (currentShape === 'square') {
+            polygons.push(getSquarePolygon(fx, fy, fr));
+          } else if (currentShape === 'trait_2') {
+            polygons.push(getTrait2Polygon(fx, fy, fr));
+          } else if (currentShape === 'polygone') {
+            polygons.push(getPolygone5Polygon(fx, fy, fr));
+          } else if (currentShape === 'polygone8') {
+            polygons.push(getPolygone8Polygon(fx, fy, fr));
+          } else {
+            polygons.push(getCirclePolygon(fx, fy, fr));
+          }
         } else {
-          polygons.push(getCirclePolygon(fx, fy, fr));
+          // Direct Bezier mode — 4 cubic segments per shape, no Clipper
+          addShapeBezierToPath(directPath, fx, fy, fr);
         }
       }
     }
 
-    // Merge all dot polygons into a single unified outline (boolean union)
-    const unifiedPaths = unionPolygons(polygons);
-    const path = clipperToOpentypePath(unifiedPaths);
+    const path = canOverlap
+      ? clipperToOpentypePath(unionPolygons(polygons))
+      : directPath;
 
     const name = GLYPH_NAMES[char] || char;
     glyphs.push(new opentype.Glyph({
@@ -336,9 +448,39 @@ async function exportOTF() {
     }));
   }
 
+  // Restore blur radius now that all glyphs are processed
+  outsetRadius = savedOutsetRadius;
+
+  // Human-readable shape name for style labels
+  const shapeLabel = {
+    circle:   'Circle',
+    square:   'Square',
+    trait_2:  'Trait 2',
+    polygone: 'Polygone',
+    polygone8:'Polygone 8'
+  }[currentShape] || currentShape;
+
+  // Abbreviated shape key for the legacy family name (nameID 1).
+  // Legacy apps only support 4 styles per family (Regular/Bold/Italic/Bold Italic),
+  // so each export needs a unique familyName to avoid conflicts when multiple
+  // variants are installed simultaneously.
+  const shapeAbbr = {
+    circle:   'Ci',
+    square:   'Sq',
+    trait_2:  'T2',
+    polygone: 'P5',
+    polygone8:'P8'
+  }[currentShape] || currentShape;
+  const legacyFamily = `FLUTGRABEN ${shapeAbbr} M${meshSize} T${tailleGenerationMultiplier.toFixed(2)} S${sizeMultiplier.toFixed(2)} H${presenceStrength.toFixed(2)}`;
+
+  // Full readable style name used as Typographic Subfamily (nameID 17).
+  // Modern apps (Figma, Adobe CC) read nameID 16/17 and group all exports
+  // under the shared "FLUTGRABEN" family, showing this string as the style.
+  const typographicStyle = `${shapeLabel} · Mesh ${meshSize} · Taille ${tailleGenerationMultiplier.toFixed(2)} · Size ${sizeMultiplier.toFixed(2)} · Hazard ${presenceStrength.toFixed(2)}`;
+
   const font = new opentype.Font({
-    familyName:     'DottFont',
-    styleName:      'Regular',
+    familyName:     legacyFamily,   // nameID 1 — unique per export, legacy compat
+    styleName:      'Regular',      // nameID 2 — always Regular for legacy compat
     unitsPerEm:     UPM,
     ascender:       ASCENDER,
     descender:      DESCENDER,
@@ -346,14 +488,14 @@ async function exportOTF() {
     manufacturer:   'Flutgraben e.V.',
     designer:       'Zoé Berthelot @Neutronzoo',
     version:        'Version 1.000',
-    description:    `Generated with DottFont Generator — ${currentShape} / taille:${tailleGenerationMultiplier.toFixed(2)} / size:${sizeMultiplier.toFixed(2)} / presence:${presenceStrength.toFixed(2)}`,
+    description:    `Generated with DottFont Generator — ${shapeLabel} / mesh:${meshSize} / taille:${tailleGenerationMultiplier.toFixed(2)} / size:${sizeMultiplier.toFixed(2)} / hazard:${presenceStrength.toFixed(2)}`,
     license:        'This Font Software is licensed under the SIL Open Font License, Version 1.1.',
     licenseURL:     'https://scripts.sil.org/OFL',
     glyphs
   });
 
-  // Build filename from current settings: shape_tailleGeneration_size_presence
-  const filename = `${currentShape}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
+  // Build filename from current settings: shape_mesh_tailleGeneration_size_presence
+  const filename = `FLUTGRABEN_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
   font.download(filename);
 
   // Restore the display to the current text input after processing

@@ -6,9 +6,9 @@
 //   step 2 — text shape filled with bilinear mesh gradient
 //             (4×4 grid, alternating black/grey from mesh.svg)
 //   step 3 — gradient canvas pixels sampled on a regular grid;
-//             each in-text pixel spawns a <use> clone of #base-dot
-//             (a <symbol>) sized by pixel darkness, with probabilistic
-//             presence filter driven by the presence slider
+//             each in-text pixel spawns a native SVG shape element
+//             (circle, rect, ellipse, etc.) sized by pixel darkness,
+//             with probabilistic presence filter driven by the presence slider
 // ============================================================
 
 const textInput              = document.getElementById('text-input');
@@ -19,20 +19,17 @@ const outputSvg              = document.getElementById('output');
 const hiddenCanvas           = document.getElementById('hidden-canvas');
 const exportBtn              = document.getElementById('export-btn');
 const exportPngBtn           = document.getElementById('export-png-btn');
-const outsetSlider           = document.getElementById('outset-slider');
-const outsetValue            = document.getElementById('outset-value');
 const presenceSlider         = document.getElementById('presence-slider');
 const presenceValue          = document.getElementById('presence-value');
 const sizeSlider             = document.getElementById('size-slider');
 const sizeValue              = document.getElementById('size-value');
 const tailleGenerationSlider = document.getElementById('taille-generation-slider');
 const tailleGenerationValue  = document.getElementById('taille-generation-value');
+const meshSlider             = document.getElementById('mesh-slider');
+const meshValue              = document.getElementById('mesh-value');
 const ctx                    = hiddenCanvas.getContext('2d');
 
-// Outset radius — controls how far the gray contour expands beyond the text shape
-let outsetRadius = parseInt(outsetSlider.value, 10);
-
-// Current text — stored so generateDots can insert the gray contour element
+// Current text — stored so generateAllDots can be called from contour sliders
 let currentText = '';
 
 // Presence strength — controls dot disappearance (0 = all present, 1 = dark zones only)
@@ -45,13 +42,17 @@ let sizeMultiplier = parseFloat(sizeSlider.value);
 // 1.0 = default, preserves visual density across all sizes
 let tailleGenerationMultiplier = parseFloat(tailleGenerationSlider.value);
 
-// Last canvas dimensions — stored so the presence slider can regenerate dots
+// Last canvas dimensions and blur data — stored so sliders can regenerate dots
 // without re-running the full text mask + gradient pipeline
-let lastCanvasW = 0;
-let lastCanvasH = 0;
+let lastCanvasW  = 0;
+let lastCanvasH  = 0;
+let lastBlurData = null;
 
 // Debounce timer for text input — avoids re-rendering on every keystroke
 let debounceTimer;
+
+// Debounce timer for sliders — avoids re-rendering on every drag pixel
+let sliderDebounceTimer;
 
 // --- Rendering constants ---
 const FONT_SIZE   = 150;  // px — text render size
@@ -61,19 +62,10 @@ const MIN_RADIUS  = 0.5;  // px — half-size of dot at lightest grey
 const THRESHOLD   = 240;  // brightness cutoff for text mask (0=black, 255=white)
 const PADDING     = 30;   // px — margin around text on canvas
 
-// --- Mesh gradient definition (from mesh.svg) ---
-// 5×5 control points for a 4×4 patch grid.
-// Alternating black (0) and grey (204 = #cccccc).
-const MESH_COLS = 4;
-const MESH_ROWS = 4;
-const MESH_GRID = [];
-
-for (let r = 0; r <= MESH_ROWS; r++) {
-  MESH_GRID[r] = [];
-  for (let c = 0; c <= MESH_COLS; c++) {
-    MESH_GRID[r][c] = (r + c) % 2 === 0 ? 204 : 0;
-  }
-}
+// --- Mesh gradient size ---
+// Number of patches along each axis. 0 = solid black (no mesh).
+// Checkerboard pattern is computed inline: (r+c) even → grey (204), odd → black (0).
+let meshSize = 0;
 
 // --- Shape definitions ---
 // Each shape maps to a <symbol> definition injected into the SVG defs.
@@ -90,22 +82,23 @@ const SHAPES = {
     viewBox: '0 0 2 2',
     content: '<rect x="0" y="0" width="2" height="2" fill="#ff00ff"/>'
   },
-  // Filled black ellipse (portrait, rx:ry ≈ 1:1.375) — clone/ellipse.svg
-  ellipse: {
-    viewBox: '0 0 2 2.75',
-    content: '<ellipse cx="1" cy="1.375" rx="1" ry="1.375" fill="#000000"/>'
+  // Thin flat rectangle (no rounded corners) — clone/trait_2.svg
+  // viewBox 0 0 3.614 1.027 — width-constrained by meet
+  trait_2: {
+    viewBox: '0 0 3.614 1.027',
+    content: '<rect x="0" y="0" width="3.614" height="1.027" fill="#000000"/>'
   },
-  // Horizontal pill / rounded stroke — clone/trait.svg
-  // width:height ≈ 3.614:1.7, corner radius = 0.85 (= height/2 → perfect stadium shape)
-  trait: {
-    viewBox: '0 0 3.614 1.7',
-    content: '<rect x="0" y="0" width="3.614" height="1.7" rx="0.85" fill="#000000"/>'
+  // Pentagon (vertex-bottom, flat-top) — clone/polygone.svg
+  // viewBox 0 0 2.829 2.691 — width-constrained by meet
+  polygone: {
+    viewBox: '0 0 2.829 2.691',
+    content: '<polygon points="1.415,2.691 0,1.663 0.540,0 2.289,0 2.829,1.663" fill="#000000"/>'
   },
-  // Ring / donut — clone/circle_outline.svg
-  // Outer r=1.157, inner r=0.758; fill-rule=evenodd punches the inner hole
-  circle_outline: {
+  // Octagon — clone/polygone8.svg
+  // viewBox 0 0 2.314 2.314 — square bounding box
+  polygone8: {
     viewBox: '0 0 2.314 2.314',
-    content: '<path fill-rule="evenodd" fill="#000000" d="M 1.157,0 C 1.796,0 2.314,0.518 2.314,1.157 C 2.314,1.796 1.796,2.314 1.157,2.314 C 0.518,2.314 0,1.796 0,1.157 C 0,0.518 0.518,0 1.157,0 Z M 1.157,0.399 C 1.576,0.399 1.915,0.738 1.915,1.157 C 1.915,1.576 1.576,1.915 1.157,1.915 C 0.738,1.915 0.399,1.576 0.399,1.157 C 0.399,0.738 0.738,0.399 1.157,0.399 Z"/>'
+    content: '<polygon points="0.348,0.353 0.012,1.163 0.348,1.973 1.158,2.309 1.968,1.973 2.304,1.163 1.968,0.353 1.158,0.017" fill="#000000"/>'
   }
 };
 
@@ -202,17 +195,14 @@ function drawContourPreview(canvasW, canvasH, blurData) {
 
 // Draws the bilinear mesh gradient onto the visible gradient canvas,
 // clipped to the text shape from the hidden canvas mask.
-// If blurData is provided, also fills the outset zone (pixels outside the text but
-// inside the blurred halo) with a gray value proportional to blur darkness —
-// darker near the text edge, lighter at the outset boundary.
-// This extends the sampling zone so dots appear at the edges but get smaller/sparser.
+// The outset/halo zone is handled separately by generateContourSVGString() in offset.js.
 //
 // refWidth — optional fixed reference width for the gradient x-axis.
 // When omitted, canvasW is used (normal web render behaviour).
 // Pass a constant value during OTF export so all characters share the same
 // gradient scale on x, preventing the per-character gradient remapping that
 // causes irregular dot sizes and the resulting trembling in the OTF.
-function drawMeshGradientPreview(canvasW, canvasH, blurData, refWidth) {
+function drawMeshGradientPreview(canvasW, canvasH, refWidth) {
   gradientCanvas.width  = canvasW;
   gradientCanvas.height = canvasH;
 
@@ -228,22 +218,7 @@ function drawMeshGradientPreview(canvasW, canvasH, blurData, refWidth) {
       const maskBrightness = (maskData.data[i] + maskData.data[i+1] + maskData.data[i+2]) / 3;
 
       if (maskBrightness >= THRESHOLD) {
-        // Background pixel — check blurred mask for outset zone
-        if (blurData) {
-          const blurBrightness = (blurData.data[i] + blurData.data[i+1] + blurData.data[i+2]) / 3;
-          if (blurBrightness < THRESHOLD) {
-            // Outset zone: map blur brightness (0=near edge, ~240=far edge)
-            // to dot-driving gray range 120–200 (inner edge = smaller but present dots,
-            // outer edge = very small sparse dots)
-            const outsetGray = Math.round(120 + (blurBrightness / THRESHOLD) * 80);
-            imgData.data[i]   = outsetGray;
-            imgData.data[i+1] = outsetGray;
-            imgData.data[i+2] = outsetGray;
-            imgData.data[i+3] = 255;
-            continue;
-          }
-        }
-        // True background
+        // Background pixel
         imgData.data[i]   = 249;
         imgData.data[i+1] = 249;
         imgData.data[i+2] = 249;
@@ -251,21 +226,29 @@ function drawMeshGradientPreview(canvasW, canvasH, blurData, refWidth) {
         continue;
       }
 
-      // Inside text — bilinear interpolation of mesh gradient grid.
+      // Inside text — meshSize 0 → solid black; otherwise bilinear interpolation
+      // of a checkerboard where (r+c) even → grey (204), odd → black (0).
       // gradRefW on x ensures consistent gradient scale across all characters.
-      const gx = (px / gradRefW) * MESH_COLS;
-      const gy = (py / canvasH) * MESH_ROWS;
-      const c0 = Math.min(Math.floor(gx), MESH_COLS - 1);
-      const r0 = Math.min(Math.floor(gy), MESH_ROWS - 1);
-      const tx = gx - c0;
-      const ty = gy - r0;
+      let value;
+      if (meshSize === 0) {
+        value = 0;
+      } else {
+        const gx = (px / gradRefW) * meshSize;
+        const gy = (py / canvasH) * meshSize;
+        const c0 = Math.min(Math.floor(gx), meshSize - 1);
+        const r0 = Math.min(Math.floor(gy), meshSize - 1);
+        const tx = gx - c0;
+        const ty = gy - r0;
 
-      const value = Math.round(
-        MESH_GRID[r0][c0]         * (1 - tx) * (1 - ty) +
-        MESH_GRID[r0][c0 + 1]     * tx       * (1 - ty) +
-        MESH_GRID[r0 + 1][c0]     * (1 - tx) * ty       +
-        MESH_GRID[r0 + 1][c0 + 1] * tx       * ty
-      );
+        // Inline checkerboard: (r+c) even → 204 (grey), odd → 0 (black)
+        const cv = (r, c) => (r + c) % 2 === 0 ? 204 : 0;
+        value = Math.round(
+          cv(r0,     c0)     * (1 - tx) * (1 - ty) +
+          cv(r0,     c0 + 1) * tx       * (1 - ty) +
+          cv(r0 + 1, c0)     * (1 - tx) * ty       +
+          cv(r0 + 1, c0 + 1) * tx       * ty
+        );
+      }
 
       imgData.data[i]   = value;
       imgData.data[i+1] = value;
@@ -277,17 +260,71 @@ function drawMeshGradientPreview(canvasW, canvasH, blurData, refWidth) {
   gCtx.putImageData(imgData, 0, 0);
 }
 
-// Samples the gradient canvas and returns SVG <use> clone elements.
-// Applies a probabilistic presence filter driven by presenceStrength:
-//   strength=0 → all dots present (probability always 1)
+// Returns an SVG element string for a single dot centered at (cx, cy) with half-size r.
+// Generates the appropriate native element type based on currentShape so the exported
+// SVG contains directly editable shapes (no <use> / <symbol> indirection).
+// Proportions are derived from each shape's viewBox and preserveAspectRatio="xMidYMid meet".
+function shapeDotSVG(cx, cy, r) {
+  const size = r * 2;
+  const x    = cx - r;
+  const y    = cy - r;
+
+  if (currentShape === 'square') {
+    return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" fill="#ff00ff"/>`;
+  }
+
+  if (currentShape === 'trait_2') {
+    // viewBox 0 0 3.614 1.027 — landscape, width-constrained by meet:
+    // scale = size/3.614 → rendered height = 1.027 × scale, no rounded corners
+    const h  = size * 1.027 / 3.614;
+    const oy = (size - h) / 2;  // vertical centering offset
+    return `<rect x="${x.toFixed(2)}" y="${(y + oy).toFixed(2)}" width="${size.toFixed(2)}" height="${h.toFixed(2)}" fill="#000000"/>`;
+  }
+
+  if (currentShape === 'polygone') {
+    // viewBox 0 0 2.829 2.691 — width-constrained by meet.
+    // Pentagon (vertex-bottom, flat-top). Ratios from normalized viewBox coordinates.
+    const h  = r * 0.951;  // half-height (vertical reach from center)
+    const hw = r * 0.618;  // horizontal offset of top-left/top-right vertices
+    const vm = r * 0.224;  // vertical offset of left/right vertices
+    const pts = [
+      `${cx.toFixed(2)},${(cy + h).toFixed(2)}`,           // bottom vertex
+      `${(cx - r).toFixed(2)},${(cy + vm).toFixed(2)}`,    // left
+      `${(cx - hw).toFixed(2)},${(cy - h).toFixed(2)}`,    // top-left
+      `${(cx + hw).toFixed(2)},${(cy - h).toFixed(2)}`,    // top-right
+      `${(cx + r).toFixed(2)},${(cy + vm).toFixed(2)}`     // right
+    ].join(' ');
+    return `<polygon points="${pts}" fill="#000000"/>`;
+  }
+
+  if (currentShape === 'polygone8') {
+    // viewBox 0 0 2.314 2.314 — square bounding box. scale = size/2.314.
+    // Vertex ratios derived from polygone8.svg after transform normalization (Y-down order).
+    const verts = [
+      [-0.699, -0.695], [-0.989,  0.005], [-0.699,  0.705], [ 0.001,  0.995],
+      [ 0.701,  0.705], [ 0.991,  0.005], [ 0.701, -0.695], [ 0.001, -0.985]
+    ];
+    const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');
+    return `<polygon points="${pts}" fill="#000000"/>`;
+  }
+
+  // Default: circle
+  return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="#000000"/>`;
+}
+
+// Samples the gradient canvas and returns an SVG markup string of native shape elements.
+// Building a string and inserting it once via insertAdjacentHTML is significantly faster
+// than creating N DOM elements individually (avoids per-element reflow cost).
+//
+// Presence filter:
+//   strength=0 → all dots present
 //   strength=0.5 → black zones full, grey zones ~0%
 //   strength=1 → only the darkest pixels survive
-// Formula: probability = max(0, 1 - (brightness / 204) * strength * 2)
-function samplePixelsToClones(canvasW, canvasH) {
+//   meshSize=0 → flat probability (1 - presenceStrength), brightness-independent
+function samplePixelsToSVGString(canvasW, canvasH) {
   const imageData = gCtx.getImageData(0, 0, canvasW, canvasH);
   const pixels    = imageData.data;
-  const ns        = 'http://www.w3.org/2000/svg';
-  const clones    = [];
+  let   svgStr    = '';
 
   // Grid step scales with taille-generation so spacing and dot size stay proportional
   const step = DOT_SPACING * tailleGenerationMultiplier;
@@ -300,29 +337,23 @@ function samplePixelsToClones(canvasW, canvasH) {
       // Skip background pixels (#f9f9f9 = 249)
       if (brightness >= 245) continue;
 
-      // Probabilistic presence filter
-      const probability = Math.max(0, 1 - (brightness / 204) * presenceStrength * 2);
+      // Probabilistic presence filter.
+      // meshSize 0 → solid black, brightness always 0 → use flat probability instead
+      const probability = meshSize === 0
+        ? 1 - presenceStrength
+        : Math.max(0, 1 - (brightness / 204) * presenceStrength * 2);
       if (Math.random() > probability) continue;
 
       // Map brightness (0–204) to half-size radius
       // sizeMultiplier scales radius only; tailleGenerationMultiplier scales radius + spacing together
       const darkness = Math.max(0, 1 - brightness / 204);
       const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * sizeMultiplier * tailleGenerationMultiplier;
-      const size     = radius * 2;
 
-      // Place <use> referencing the base symbol
-      // x/y position the top-left corner, width/height scale the symbol
-      const use = document.createElementNS(ns, 'use');
-      use.setAttribute('href', '#base-dot');
-      use.setAttribute('x',      (x - radius).toFixed(2));
-      use.setAttribute('y',      (y - radius).toFixed(2));
-      use.setAttribute('width',  size.toFixed(2));
-      use.setAttribute('height', size.toFixed(2));
-      clones.push(use);
+      svgStr += shapeDotSVG(x, y, radius);
     }
   }
 
-  return clones;
+  return svgStr;
 }
 
 // Main generation function — called on text change, shape change, or size slider change.
@@ -340,47 +371,45 @@ function generate() {
   // Update the base clone shape in SVG defs
   updateBaseShape(currentShape);
 
-  // Step 2a — render solid text mask + blurred halo for outset zone
+  // Step 2a — render solid text mask + blurred halo for contour zone
   const { canvasW, canvasH, blurData } = renderTextMask(text);
 
-  // Step 2b — draw mesh gradient (extended into outset zone if blurData present)
-  drawMeshGradientPreview(canvasW, canvasH, blurData);
+  // Store blurData so contour sliders can regenerate without re-running the full pipeline
+  lastBlurData = blurData;
 
-  // Step 3 — show blurred mask as preview (visualises the outset sampling zone)
+  // Step 2b — draw mesh gradient (text interior only; contour handled by offset.js)
+  drawMeshGradientPreview(canvasW, canvasH);
+
+  // Step 3 — show blurred mask as contour preview in the outline panel
   drawContourPreview(canvasW, canvasH, blurData);
 
   // Store dimensions so sliders can regenerate without re-running the full pipeline
   lastCanvasW = canvasW;
   lastCanvasH = canvasH;
 
-  // Sample gradient canvas and place dot clones into output SVG
-  generateDots(canvasW, canvasH);
+  // Generate contour dots (behind) + main dots (in front)
+  generateAllDots(canvasW, canvasH);
 }
 
-// Regenerates dot clones — called by presence/size sliders to avoid re-running
-// the full text mask and gradient pipeline.
-// The outset zone is already baked into the gradient canvas by drawMeshGradientPreview.
-function generateDots(canvasW, canvasH) {
-  const ns = 'http://www.w3.org/2000/svg';
-
+// Regenerates all dot clones — contour dots (behind) then main dots (in front).
+// Called by any slider that does not require a full pipeline re-run.
+// All content inserted in one insertAdjacentHTML call to minimize DOM operations.
+function generateAllDots(canvasW, canvasH) {
   outputSvg.setAttribute('width',   canvasW);
   outputSvg.setAttribute('height',  canvasH);
   outputSvg.setAttribute('viewBox', `0 0 ${canvasW} ${canvasH}`);
 
-  // Remove previous dots, keep <defs> (always first child)
+  // Remove previous content, keep <defs> (always first child)
   while (outputSvg.children.length > 1) {
     outputSvg.removeChild(outputSvg.lastChild);
   }
 
-  // Background rect preserved in SVG export
-  const bg = document.createElementNS(ns, 'rect');
-  bg.setAttribute('width',  canvasW);
-  bg.setAttribute('height', canvasH);
-  bg.setAttribute('fill',   '#f9f9f9');
-  outputSvg.appendChild(bg);
-
-  const clones = samplePixelsToClones(canvasW, canvasH);
-  clones.forEach(use => outputSvg.appendChild(use));
+  // Background + contour dots (behind) + main dots (in front) — single DOM insertion
+  outputSvg.insertAdjacentHTML('beforeend',
+    `<rect width="${canvasW}" height="${canvasH}" fill="#f9f9f9"/>` +
+    generateContourSVGString(canvasW, canvasH, lastBlurData) +
+    samplePixelsToSVGString(canvasW, canvasH)
+  );
 }
 
 // Resets all outputs to empty state
@@ -398,6 +427,12 @@ function clearOutputs() {
 
 // --- Event bindings ---
 
+// Debounced generate for heavy sliders — ~80ms delay avoids re-rendering on every drag pixel
+function debouncedGenerate() {
+  clearTimeout(sliderDebounceTimer);
+  sliderDebounceTimer = setTimeout(generate, 80);
+}
+
 // Shape selector buttons
 document.querySelectorAll('.shape-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -414,32 +449,32 @@ textInput.addEventListener('input', () => {
   debounceTimer = setTimeout(generate, 180);
 });
 
-// Outset slider — re-runs the full pipeline since the blur radius changes the mask and gradient
-outsetSlider.addEventListener('input', () => {
-  outsetRadius = parseInt(outsetSlider.value, 10);
-  outsetValue.textContent = outsetRadius;
-  generate();
-});
-
-// Presence slider — regenerates dots only, no full pipeline re-run
+// Presence slider — regenerates all dots only, no full pipeline re-run
 presenceSlider.addEventListener('input', () => {
   presenceStrength = parseFloat(presenceSlider.value);
   presenceValue.textContent = presenceStrength.toFixed(2);
-  if (lastCanvasW > 0) generateDots(lastCanvasW, lastCanvasH);
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
 });
 
 // Size slider — scales radius only, triggers full regeneration
 sizeSlider.addEventListener('input', () => {
   sizeMultiplier = parseFloat(sizeSlider.value);
   sizeValue.textContent = sizeMultiplier.toFixed(2);
-  generate();
+  debouncedGenerate();
 });
 
 // Taille-generation slider — scales radius AND spacing together, triggers full regeneration
 tailleGenerationSlider.addEventListener('input', () => {
   tailleGenerationMultiplier = parseFloat(tailleGenerationSlider.value);
   tailleGenerationValue.textContent = tailleGenerationMultiplier.toFixed(2);
-  generate();
+  debouncedGenerate();
+});
+
+// Mesh slider — changes grid size, triggers full regeneration
+meshSlider.addEventListener('input', () => {
+  meshSize = parseInt(meshSlider.value, 10);
+  meshValue.textContent = meshSize;
+  debouncedGenerate();
 });
 
 // Export output SVG as a .svg file download
@@ -451,7 +486,7 @@ exportBtn.addEventListener('click', () => {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download =  `${currentShape}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
+  a.download =  `${currentShape}_mesh${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
   a.click();
   URL.revokeObjectURL(url);
 });
@@ -479,11 +514,94 @@ exportPngBtn.addEventListener('click', () => {
     URL.revokeObjectURL(url);
     const a    = document.createElement('a');
     a.href     = canvas.toDataURL('image/png');
-    a.download = `${currentShape}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.png`;
+    a.download = `${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.png`;
     a.click();
   };
 
   img.src = url;
+});
+
+// --- Responsive span editing ---
+// Below 1200px, sliders are hidden and value spans are contenteditable.
+// bindSpanEdit wires focus/keydown/blur on a span so the user can type a value.
+// On blur: parse the text, clamp to [min, max], sync the hidden slider, call onCommit.
+// At wide viewport (> 1200px) the blur handler does nothing — pointer-events: none
+// on the span already prevents interaction, but the guard is here as a safety net.
+//
+// Parameters:
+//   spanEl   — the <span contenteditable> element
+//   sliderEl — the matching <input type="range"> (used for min/max/value sync)
+//   isInt    — true → round to integer (e.g. mesh); false → toFixed(2)
+//   onCommit — callback(value) fired after the clamped value is applied
+function bindSpanEdit(spanEl, sliderEl, isInt, onCommit) {
+  // Select all text on focus so the user can type a replacement immediately
+  spanEl.addEventListener('focus', () => {
+    const range = document.createRange();
+    range.selectNodeContents(spanEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+
+  // Keyboard controls:
+  //   Enter      — commit the edit (same as blurring)
+  //   ArrowUp    — increment value by one slider step
+  //   ArrowDown  — decrement value by one slider step
+  spanEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      spanEl.blur();
+      return;
+    }
+
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault(); // prevent page scroll
+      const step    = parseFloat(sliderEl.step) || 1;
+      const min     = parseFloat(sliderEl.min);
+      const max     = parseFloat(sliderEl.max);
+      const raw     = parseFloat(spanEl.textContent);
+      const current = isNaN(raw) ? parseFloat(sliderEl.value) : raw;
+      const next    = current + (e.key === 'ArrowUp' ? step : -step);
+      // Round to 2 dp before clamping to avoid floating-point drift (e.g. 0.05+0.25=0.300…04)
+      const rounded = parseFloat(next.toFixed(2));
+      const v       = isInt ? Math.round(Math.min(max, Math.max(min, rounded)))
+                            : parseFloat(Math.min(max, Math.max(min, rounded)).toFixed(2));
+      spanEl.textContent = isInt ? String(v) : v.toFixed(2);
+      sliderEl.value = v;
+      onCommit(v);
+    }
+  });
+
+  // On blur: parse, clamp, update span text + slider, fire callback
+  spanEl.addEventListener('blur', () => {
+    if (window.innerWidth > 1200) return;
+    const raw = parseFloat(spanEl.textContent);
+    const min = parseFloat(sliderEl.min);
+    const max = parseFloat(sliderEl.max);
+    const clamped = isNaN(raw) ? parseFloat(sliderEl.value) : Math.min(max, Math.max(min, raw));
+    const v = isInt ? Math.round(clamped) : clamped;
+    spanEl.textContent = isInt ? String(v) : v.toFixed(2);
+    sliderEl.value = v;
+    onCommit(v);
+  });
+}
+
+// Bind editable spans for the four main-panel sliders
+bindSpanEdit(meshValue, meshSlider, true, (v) => {
+  meshSize = v;
+  debouncedGenerate();
+});
+bindSpanEdit(tailleGenerationValue, tailleGenerationSlider, false, (v) => {
+  tailleGenerationMultiplier = v;
+  debouncedGenerate();
+});
+bindSpanEdit(sizeValue, sizeSlider, false, (v) => {
+  sizeMultiplier = v;
+  debouncedGenerate();
+});
+bindSpanEdit(presenceValue, presenceSlider, false, (v) => {
+  presenceStrength = v;
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
 });
 
 // Initial render once DINish font is loaded

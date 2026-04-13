@@ -1,0 +1,200 @@
+// ============================================================
+// Offset panel — independent contour controls
+//
+// Manages the halo zone (outset) dots separately from main dots.
+// Reads blurData and maskData computed by renderTextMask() in
+// script-generator_DottFont.js (shared global scope).
+//
+// Exposed globals used by script-generator_DottFont.js:
+//   outsetRadius, generateContourSVGString()
+// ============================================================
+
+const outsetSlider           = document.getElementById('outset-slider');
+const outsetValue            = document.getElementById('outset-value');
+const contourHazardSlider    = document.getElementById('contour-hazard-slider');
+const contourHazardValue     = document.getElementById('contour-hazard-value');
+const contourTailleGenSlider = document.getElementById('contour-taille-generation-slider');
+const contourTailleGenValue  = document.getElementById('contour-taille-generation-value');
+const contourSizeSlider      = document.getElementById('contour-size-slider');
+const contourSizeValue       = document.getElementById('contour-size-value');
+
+// Outset radius — Gaussian blur radius defining the halo zone width
+let outsetRadius = parseInt(outsetSlider.value, 10);
+
+// Contour presence strength — 0 = all dots present, 1 = only darkest survive
+let contourPresenceStrength = parseFloat(contourHazardSlider.value);
+
+// Contour taille-generation — scales dot spacing AND radius together for contour dots
+let contourTailleGenerationMultiplier = parseFloat(contourTailleGenSlider.value);
+
+// Contour size multiplier — scales dot radius only for contour dots
+let contourSizeMultiplier = parseFloat(contourSizeSlider.value);
+
+// Debounce timer for contour sliders
+let contourSliderDebounceTimer;
+
+// Samples blurData for pixels in the halo zone (outside text, inside Gaussian blur)
+// and returns an SVG markup string of native shape elements.
+// Near the text edge: blur is dark → larger dots.
+// Far from edge: blur is light → smaller, sparser dots.
+// Parameters:
+//   canvasW/H — canvas dimensions matching the hidden canvas
+//   blurData  — ImageData from the Gaussian-blurred text mask
+function generateContourSVGString(canvasW, canvasH, blurData) {
+  if (!blurData || outsetRadius === 0) return '';
+
+  // Read the current text mask from the hidden canvas (set by renderTextMask)
+  const maskData = ctx.getImageData(0, 0, canvasW, canvasH);
+  let svgStr = '';
+
+  // Grid step scales with contour taille-generation multiplier
+  const step = DOT_SPACING * contourTailleGenerationMultiplier;
+
+  for (let y = step / 2; y < canvasH; y += step) {
+    for (let x = step / 2; x < canvasW; x += step) {
+      const i = (Math.floor(y) * canvasW + Math.floor(x)) * 4;
+      const maskBrightness = (maskData.data[i] + maskData.data[i+1] + maskData.data[i+2]) / 3;
+
+      // Skip pixels inside the text — contour only covers the halo zone
+      if (maskBrightness < THRESHOLD) continue;
+
+      const blurBrightness = (blurData.data[i] + blurData.data[i+1] + blurData.data[i+2]) / 3;
+
+      // Skip pixels outside the halo zone
+      if (blurBrightness >= THRESHOLD) continue;
+
+      // Map blur brightness (0=near edge → dark, ~240=far edge → light)
+      // to gray range 120–200: darker = larger dots, lighter = smaller dots
+      const gray = Math.round(120 + (blurBrightness / THRESHOLD) * 80);
+
+      // Probabilistic presence filter using contour-specific strength
+      const probability = Math.max(0, 1 - (gray / 204) * contourPresenceStrength * 2);
+      if (Math.random() > probability) continue;
+
+      // Map gray (120–200) to dot radius with contour-specific size multipliers
+      const darkness = Math.max(0, 1 - gray / 204);
+      const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * contourSizeMultiplier * contourTailleGenerationMultiplier;
+
+      svgStr += shapeDotSVG(x, y, radius);
+    }
+  }
+
+  return svgStr;
+}
+
+// Outset slider — blur radius changes → full pipeline re-run (new blurData needed)
+outsetSlider.addEventListener('input', () => {
+  outsetRadius = parseInt(outsetSlider.value, 10);
+  outsetValue.textContent = outsetRadius;
+  clearTimeout(contourSliderDebounceTimer);
+  contourSliderDebounceTimer = setTimeout(generate, 80);
+});
+
+// Contour hazard slider — re-sample all dots only, no pipeline re-run
+contourHazardSlider.addEventListener('input', () => {
+  contourPresenceStrength = parseFloat(contourHazardSlider.value);
+  contourHazardValue.textContent = contourPresenceStrength.toFixed(2);
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+});
+
+// Contour taille-generation slider — spacing changes → debounced re-sample
+contourTailleGenSlider.addEventListener('input', () => {
+  contourTailleGenerationMultiplier = parseFloat(contourTailleGenSlider.value);
+  contourTailleGenValue.textContent = contourTailleGenerationMultiplier.toFixed(2);
+  clearTimeout(contourSliderDebounceTimer);
+  contourSliderDebounceTimer = setTimeout(() => {
+    if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+  }, 80);
+});
+
+// Contour size slider — radius changes → debounced re-sample
+contourSizeSlider.addEventListener('input', () => {
+  contourSizeMultiplier = parseFloat(contourSizeSlider.value);
+  contourSizeValue.textContent = contourSizeMultiplier.toFixed(2);
+  clearTimeout(contourSliderDebounceTimer);
+  contourSliderDebounceTimer = setTimeout(() => {
+    if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+  }, 80);
+});
+
+// Bind editable spans for the four contour-panel sliders (narrow viewport only).
+// bindSpanEdit is defined in script-generator_DottFont.js, loaded before this file.
+bindSpanEdit(outsetValue, outsetSlider, true, (v) => {
+  outsetRadius = v;
+  generate();
+});
+bindSpanEdit(contourHazardValue, contourHazardSlider, false, (v) => {
+  contourPresenceStrength = v;
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+});
+bindSpanEdit(contourTailleGenValue, contourTailleGenSlider, false, (v) => {
+  contourTailleGenerationMultiplier = v;
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+});
+bindSpanEdit(contourSizeValue, contourSizeSlider, false, (v) => {
+  contourSizeMultiplier = v;
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+});
+
+// --- Randomize all parameters ---
+
+// Returns a random value snapped to the slider's step grid, within [min, max].
+// Reads min/max/step directly from the slider element so it stays in sync with HTML.
+function randomSnap(sliderEl) {
+  const min   = parseFloat(sliderEl.min);
+  const max   = parseFloat(sliderEl.max);
+  const step  = parseFloat(sliderEl.step);
+  const steps = Math.round((max - min) / step);
+  const n     = Math.floor(Math.random() * (steps + 1));
+  return parseFloat((min + n * step).toFixed(6));
+}
+
+// Sets every parameter to a random value and triggers a full pipeline re-run.
+// Declared globally so it can be called from outside if needed.
+function randomizeAll() {
+  // Main panel
+  meshSize = Math.round(randomSnap(meshSlider));
+  meshSlider.value = meshSize;
+  meshValue.textContent = String(meshSize);
+
+  tailleGenerationMultiplier = randomSnap(tailleGenerationSlider);
+  tailleGenerationSlider.value = tailleGenerationMultiplier;
+  tailleGenerationValue.textContent = tailleGenerationMultiplier.toFixed(2);
+
+  sizeMultiplier = randomSnap(sizeSlider);
+  sizeSlider.value = sizeMultiplier;
+  sizeValue.textContent = sizeMultiplier.toFixed(2);
+
+  presenceStrength = randomSnap(presenceSlider);
+  presenceSlider.value = presenceStrength;
+  presenceValue.textContent = presenceStrength.toFixed(2);
+
+  // Offset panel
+  outsetRadius = Math.round(randomSnap(outsetSlider));
+  outsetSlider.value = outsetRadius;
+  outsetValue.textContent = String(outsetRadius);
+
+  contourPresenceStrength = randomSnap(contourHazardSlider);
+  contourHazardSlider.value = contourPresenceStrength;
+  contourHazardValue.textContent = contourPresenceStrength.toFixed(2);
+
+  contourTailleGenerationMultiplier = randomSnap(contourTailleGenSlider);
+  contourTailleGenSlider.value = contourTailleGenerationMultiplier;
+  contourTailleGenValue.textContent = contourTailleGenerationMultiplier.toFixed(2);
+
+  contourSizeMultiplier = randomSnap(contourSizeSlider);
+  contourSizeSlider.value = contourSizeMultiplier;
+  contourSizeValue.textContent = contourSizeMultiplier.toFixed(2);
+
+  // Pick a random shape from the available shape buttons
+  const shapeBtns = Array.from(document.querySelectorAll('.shape-btn'));
+  const pickedBtn = shapeBtns[Math.floor(Math.random() * shapeBtns.length)];
+  shapeBtns.forEach(b => b.classList.remove('active'));
+  pickedBtn.classList.add('active');
+  currentShape = pickedBtn.dataset.shape;
+
+  // Full re-run — outset change requires new blur data
+  generate();
+}
+
+document.getElementById('btn-aleatoire').addEventListener('click', randomizeAll);
