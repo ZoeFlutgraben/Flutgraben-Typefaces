@@ -2,15 +2,9 @@ a faire:
 
 OFFset affinage
 optimisation export courbe de bezier -> forme polygonale
-responsive
 arabic script
 
-contour (?)
-
-
 dont know
-export svg propre
-caractere
 souris (?)
 
 vf:
@@ -21,6 +15,7 @@ dont'know :
 export svg propre
 
 fait:
+responsive
 metadonnees export
 tremblement export
 non prise en charge de certaines formes lors de l'export

@@ -103,6 +103,7 @@ body {
 #size-value,
 #taille-generation-value,
 #mesh-value,
+#contour-mesh-value,
 #contour-hazard-value,
 #contour-taille-generation-value,
 #contour-size-value,
@@ -244,6 +245,7 @@ body {
 #size-slider,
 #taille-generation-slider,
 #mesh-slider,
+#contour-mesh-slider,
 #contour-hazard-slider,
 #contour-taille-generation-slider,
 #contour-size-slider {
@@ -261,6 +263,7 @@ body {
 #size-slider::-webkit-slider-thumb,
 #taille-generation-slider::-webkit-slider-thumb,
 #mesh-slider::-webkit-slider-thumb,
+#contour-mesh-slider::-webkit-slider-thumb,
 #contour-hazard-slider::-webkit-slider-thumb,
 #contour-taille-generation-slider::-webkit-slider-thumb,
 #contour-size-slider::-webkit-slider-thumb {
@@ -278,6 +281,7 @@ body {
 #size-slider::-moz-range-thumb,
 #taille-generation-slider::-moz-range-thumb,
 #mesh-slider::-moz-range-thumb,
+#contour-mesh-slider::-moz-range-thumb,
 #contour-hazard-slider::-moz-range-thumb,
 #contour-taille-generation-slider::-moz-range-thumb,
 #contour-size-slider::-moz-range-thumb {
@@ -294,6 +298,7 @@ body {
 #size-value,
 #taille-generation-value,
 #mesh-value,
+#contour-mesh-value,
 #contour-hazard-value,
 #contour-taille-generation-value,
 #contour-size-value {
@@ -348,6 +353,7 @@ body {
   #panels-left #size-value,
   #panels-left #taille-generation-value,
   #panels-left #mesh-value,
+  #panels-left #contour-mesh-value,
   #panels-left #contour-hazard-value,
   #panels-left #contour-taille-generation-value,
   #panels-left #contour-size-value {

@@ -44,9 +44,13 @@ let tailleGenerationMultiplier = parseFloat(tailleGenerationSlider.value);
 
 // Last canvas dimensions and blur data — stored so sliders can regenerate dots
 // without re-running the full text mask + gradient pipeline
-let lastCanvasW  = 0;
-let lastCanvasH  = 0;
-let lastBlurData = null;
+let lastCanvasW       = 0;
+let lastCanvasH       = 0;
+let lastBlurData      = null;
+// Cached SVG strings — each layer stores its last render so the other can be
+// rebuilt independently without re-randomising
+let lastTextSVGString    = '';
+let lastContourSVGString = '';
 
 // Debounce timer for text input — avoids re-rendering on every keystroke
 let debounceTimer;
@@ -125,10 +129,24 @@ function updateBaseShape(shapeKey) {
   }
 }
 
+// Applies a Gaussian blur to the existing hidden canvas content and returns
+// the blurred ImageData. Called both from renderTextMask() on full pipeline runs
+// and from generateContourOnly() when only the halo radius changes.
+// Parameters: canvasW/H — dimensions of the hidden canvas (must already be rendered).
+function computeBlurData(canvasW, canvasH) {
+  if (outsetRadius === 0) return null;
+  const blurCanvas = document.createElement('canvas');
+  blurCanvas.width  = canvasW;
+  blurCanvas.height = canvasH;
+  const blurCtx = blurCanvas.getContext('2d');
+  blurCtx.filter = `blur(${outsetRadius}px)`;
+  blurCtx.drawImage(hiddenCanvas, 0, 0);
+  return blurCtx.getImageData(0, 0, canvasW, canvasH);
+}
+
 // Renders the text to the hidden canvas as a solid black mask on white.
-// Also computes a Gaussian-blurred version of the mask for outset zone sampling:
-// the blur naturally creates a gray gradient around the text that drives small dots.
 // Canvas dimensions adapt to the measured text width.
+// Returns { canvasW, canvasH, blurData } — blurData via computeBlurData().
 function renderTextMask(text) {
   const fontSpec = `700 ${FONT_SIZE}px DINish, sans-serif`;
 
@@ -148,20 +166,7 @@ function renderTextMask(text) {
   ctx.textBaseline = 'top';
   ctx.fillText(text, PADDING, PADDING);
 
-  // Compute blurred version for outset zone: blur(r px) creates a gray halo
-  // around the text — dark near the edge, fading to white at outsetRadius distance
-  let blurData = null;
-  if (outsetRadius > 0) {
-    const blurCanvas = document.createElement('canvas');
-    blurCanvas.width  = canvasW;
-    blurCanvas.height = canvasH;
-    const blurCtx = blurCanvas.getContext('2d');
-    blurCtx.filter = `blur(${outsetRadius}px)`;
-    blurCtx.drawImage(hiddenCanvas, 0, 0);
-    blurData = blurCtx.getImageData(0, 0, canvasW, canvasH);
-  }
-
-  return { canvasW, canvasH, blurData };
+  return { canvasW, canvasH, blurData: computeBlurData(canvasW, canvasH) };
 }
 
 // Draws the step 3 contour preview canvas.
@@ -404,12 +409,59 @@ function generateAllDots(canvasW, canvasH) {
     outputSvg.removeChild(outputSvg.lastChild);
   }
 
+  // Cache each layer so the other can be rebuilt independently without re-randomising
+  lastContourSVGString = generateContourSVGString(canvasW, canvasH, lastBlurData);
+  lastTextSVGString    = samplePixelsToSVGString(canvasW, canvasH);
+
   // Background + contour dots (behind) + main dots (in front) — single DOM insertion
   outputSvg.insertAdjacentHTML('beforeend',
     `<rect width="${canvasW}" height="${canvasH}" fill="#f9f9f9"/>` +
-    generateContourSVGString(canvasW, canvasH, lastBlurData) +
-    samplePixelsToSVGString(canvasW, canvasH)
+    lastContourSVGString +
+    lastTextSVGString
   );
+}
+
+// Rebuilds only the halo/contour layer, leaving the text dots untouched.
+// Called when outsetRadius changes — recomputes blurData from the existing
+// hidden canvas (text already rendered) and reinserts cached text dots.
+function generateContourOnly() {
+  if (lastCanvasW === 0) return;
+  lastBlurData = computeBlurData(lastCanvasW, lastCanvasH);
+  drawContourPreview(lastCanvasW, lastCanvasH, lastBlurData);
+
+  while (outputSvg.children.length > 1) {
+    outputSvg.removeChild(outputSvg.lastChild);
+  }
+  lastContourSVGString = generateContourSVGString(lastCanvasW, lastCanvasH, lastBlurData);
+  outputSvg.insertAdjacentHTML('beforeend',
+    `<rect width="${lastCanvasW}" height="${lastCanvasH}" fill="#f9f9f9"/>` +
+    lastContourSVGString +
+    lastTextSVGString
+  );
+}
+
+// Rebuilds only the text layer, leaving the contour dots untouched.
+// Called by main-panel sliders — resamples from the existing gradient canvas.
+function generateTextOnly() {
+  if (lastCanvasW === 0) return;
+  lastTextSVGString = samplePixelsToSVGString(lastCanvasW, lastCanvasH);
+
+  while (outputSvg.children.length > 1) {
+    outputSvg.removeChild(outputSvg.lastChild);
+  }
+  outputSvg.insertAdjacentHTML('beforeend',
+    `<rect width="${lastCanvasW}" height="${lastCanvasH}" fill="#f9f9f9"/>` +
+    lastContourSVGString +
+    lastTextSVGString
+  );
+}
+
+// Redraws the mesh gradient then regenerates the text layer only.
+// Called when meshSize changes — gradient values must be recomputed first.
+function regenerateTextWithMesh() {
+  if (lastCanvasW === 0) return;
+  drawMeshGradientPreview(lastCanvasW, lastCanvasH);
+  generateTextOnly();
 }
 
 // Resets all outputs to empty state
@@ -449,32 +501,35 @@ textInput.addEventListener('input', () => {
   debounceTimer = setTimeout(generate, 180);
 });
 
-// Presence slider — regenerates all dots only, no full pipeline re-run
+// Presence slider — text layer only, contour preserved
 presenceSlider.addEventListener('input', () => {
   presenceStrength = parseFloat(presenceSlider.value);
   presenceValue.textContent = presenceStrength.toFixed(2);
-  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+  if (lastCanvasW > 0) generateTextOnly();
 });
 
-// Size slider — scales radius only, triggers full regeneration
+// Size slider — text layer only, contour preserved
 sizeSlider.addEventListener('input', () => {
   sizeMultiplier = parseFloat(sizeSlider.value);
   sizeValue.textContent = sizeMultiplier.toFixed(2);
-  debouncedGenerate();
+  clearTimeout(sliderDebounceTimer);
+  sliderDebounceTimer = setTimeout(generateTextOnly, 80);
 });
 
-// Taille-generation slider — scales radius AND spacing together, triggers full regeneration
+// Taille-generation slider — text layer only, contour preserved
 tailleGenerationSlider.addEventListener('input', () => {
   tailleGenerationMultiplier = parseFloat(tailleGenerationSlider.value);
   tailleGenerationValue.textContent = tailleGenerationMultiplier.toFixed(2);
-  debouncedGenerate();
+  clearTimeout(sliderDebounceTimer);
+  sliderDebounceTimer = setTimeout(generateTextOnly, 80);
 });
 
-// Mesh slider — changes grid size, triggers full regeneration
+// Mesh slider — redraws gradient then text layer only, contour preserved
 meshSlider.addEventListener('input', () => {
   meshSize = parseInt(meshSlider.value, 10);
   meshValue.textContent = meshSize;
-  debouncedGenerate();
+  clearTimeout(sliderDebounceTimer);
+  sliderDebounceTimer = setTimeout(regenerateTextWithMesh, 80);
 });
 
 // Export output SVG as a .svg file download
@@ -486,7 +541,7 @@ exportBtn.addEventListener('click', () => {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download =  `${currentShape}_mesh${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
+  a.download =  `${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
   a.click();
   URL.revokeObjectURL(url);
 });
@@ -586,22 +641,22 @@ function bindSpanEdit(spanEl, sliderEl, isInt, onCommit) {
   });
 }
 
-// Bind editable spans for the four main-panel sliders
+// Bind editable spans for the four main-panel sliders (narrow viewport only)
 bindSpanEdit(meshValue, meshSlider, true, (v) => {
   meshSize = v;
-  debouncedGenerate();
+  regenerateTextWithMesh();
 });
 bindSpanEdit(tailleGenerationValue, tailleGenerationSlider, false, (v) => {
   tailleGenerationMultiplier = v;
-  debouncedGenerate();
+  generateTextOnly();
 });
 bindSpanEdit(sizeValue, sizeSlider, false, (v) => {
   sizeMultiplier = v;
-  debouncedGenerate();
+  generateTextOnly();
 });
 bindSpanEdit(presenceValue, presenceSlider, false, (v) => {
   presenceStrength = v;
-  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+  if (lastCanvasW > 0) generateTextOnly();
 });
 
 // Initial render once DINish font is loaded

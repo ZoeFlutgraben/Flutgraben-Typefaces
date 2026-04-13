@@ -81,14 +81,14 @@
     <!-- SIZE PREGENERATION — scales dot radius and grid spacing together -->
     <div class="slider-row">
       <label for="taille-generation-slider">Size pregeneration</label>
-      <input type="range" id="taille-generation-slider" min="0.25" max="3" step="0.05" value="1" />
+      <input type="range" id="taille-generation-slider" min="0.50" max="3" step="0.05" value="1" />
       <span id="taille-generation-value" contenteditable="true">1.00</span>
     </div>
 
     <!-- SIZE POSTGENERATION — scales dot radius only -->
     <div class="slider-row">
       <label for="size-slider">Size postgeneration</label>
-      <input type="range" id="size-slider" min="0.25" max="3" step="0.05" value="1" />
+      <input type="range" id="size-slider" min="0.50" max="3" step="0.05" value="1" />
       <span id="size-value" contenteditable="true">1.00</span>
     </div>
 
@@ -98,9 +98,6 @@
       <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
       <span id="presence-value" contenteditable="true">0.5</span>
     </div>
-
-
-
   </div>
   
   <!-- ===================== OFFSET PANEL — contour controls ===================== -->
@@ -112,6 +109,13 @@
       <div id="panel-contour">
         <canvas id="contour-canvas"></canvas>
       </div>
+    </div>
+
+    <!-- CONTOUR MESH — bilinear checkerboard modulating contour dot presence (0 = solid) -->
+    <div class="slider-row">
+      <label for="contour-mesh-slider">Mesh</label>
+      <input type="range" id="contour-mesh-slider" min="0" max="4" step="1" value="0" />
+      <span id="contour-mesh-value" contenteditable="true">0</span>
     </div>
 
     <!-- HALO — Gaussian blur radius defining the contour zone width -->
@@ -131,14 +135,14 @@
     <!-- CONTOUR SIZE PREGENERATION — scales dot radius and grid spacing together -->
     <div class="slider-row">
       <label for="contour-taille-generation-slider">Size pregeneration</label>
-      <input type="range" id="contour-taille-generation-slider" min="0.25" max="3" step="0.05" value="1" />
+      <input type="range" id="contour-taille-generation-slider" min="0.50" max="3" step="0.05" value="1" />
       <span id="contour-taille-generation-value" contenteditable="true">1.00</span>
     </div>
 
     <!-- CONTOUR SIZE POSTGENERATION — scales dot radius only -->
     <div class="slider-row">
       <label for="contour-size-slider">Size postgeneration</label>
-      <input type="range" id="contour-size-slider" min="0.25" max="3" step="0.05" value="1" />
+      <input type="range" id="contour-size-slider" min="0.50" max="3" step="0.05" value="1" />
       <span id="contour-size-value" contenteditable="true">1.00</span>
     </div>
 
@@ -156,7 +160,7 @@
   </div>
 
   <div id="top-panel-aleatoire">     
-    <button id="btn-aleatoire">Tout melangez !</button>
+    <button id="btn-aleatoire">Flop it!</button>
   </div>
 
   </div><!-- /panels-left -->

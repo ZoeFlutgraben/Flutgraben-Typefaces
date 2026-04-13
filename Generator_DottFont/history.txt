@@ -820,3 +820,137 @@ offset.js
   Listener #btn-aleatoire ✓
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 13/04/2026 — suite (après-midi)
+------------------------------------------------------------
+
+SÉPARATION DES CALQUES TEXTE / OFFSET (indépendance totale)
+  Objectif : modifier les sliders d'un panel sans régénérer l'autre calque.
+
+  Problème initial :
+    - outsetSlider appelait generate() → pipeline complet → texte re-randomisé.
+    - Les autres sliders offset (hazard, size pre/post) appelaient
+      generateAllDots() → re-randomisait aussi le texte.
+    - Les sliders du panel principal appelaient generateAllDots() ou generate()
+      → re-randomisait aussi le contour.
+
+  Architecture retenue — deux fonctions de mise à jour ciblées :
+    generateContourOnly() — reconstruit uniquement le calque contour,
+      réutilise lastTextSVGString (texte caché).
+    generateTextOnly()    — reconstruit uniquement le calque texte,
+      réutilise lastContourSVGString (contour caché).
+    regenerateTextWithMesh() — redessine le gradient (meshSize a changé)
+      puis appelle generateTextOnly().
+
+  Fonctions et variables ajoutées dans script-generator_DottFont.js :
+    let lastContourSVGString = ''  (symétrique à lastTextSVGString)
+    computeBlurData(canvasW, canvasH)  — extrait de renderTextMask(),
+      applique le blur sur le canvas caché existant sans re-rendre le texte.
+    generateContourOnly()   — recompute blurData + preview + contour SVG,
+      réassemble avec lastTextSVGString.
+    generateTextOnly()      — re-sample depuis gCtx, réassemble avec
+      lastContourSVGString.
+    regenerateTextWithMesh() — drawMeshGradientPreview() + generateTextOnly().
+
+  generateAllDots() mis à jour :
+    Stocke les deux strings avant l'insertion DOM :
+      lastContourSVGString = generateContourSVGString(...)
+      lastTextSVGString    = samplePixelsToSVGString(...)
+
+  Routing des listeners :
+    Panel principal (presence, size, taille-gen) → generateTextOnly()
+    Panel principal (mesh)                       → regenerateTextWithMesh()
+    Panel offset (tous les sliders)              → generateContourOnly()
+    Text input / shape change                    → generate() (pipeline complet,
+      obligatoire car les dimensions du canvas changent avec le texte)
+    Tout mélangez !                              → generate() (idem)
+
+  Résultat :
+    Modifier n'importe quel slider d'un panel ne touche pas l'autre calque.
+    Seul un changement de texte ou de shape reconstruit les deux.
+
+
+CURSEUR MESH POUR LE PANEL OFFSET
+  Objectif : appliquer un damier bilinéaire sur la zone de contour,
+             comme le slider Mesh du panel principal.
+
+  index.html :
+    Ajout d'un slider #contour-mesh-slider (min=0, max=4, step=1, value=0)
+    et span #contour-mesh-value, placé avant le slider Halo.
+
+  offset.js :
+    let contourMeshSize = 0
+    generateContourSVGString() modifiée :
+      contourMeshSize=0 → comportement actuel (probabilité pilotée par blur)
+      contourMeshSize>0 → damier bilinéaire en X/Y (même formule que panel
+        principal) module la probabilité de présence ; le rayon reste piloté
+        par la distance au bord (blur).
+    Listener contourMeshSlider → generateContourOnly()
+    bindSpanEdit + randomizeAll() mis à jour.
+
+  CSS/style.css :
+    #contour-mesh-slider et #contour-mesh-value ajoutés dans les 6 règles
+    existantes (typo, track, thumb webkit, thumb moz, valeur span, responsive).
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (13/04/2026 — après-midi)
+------------------------------------------------------------
+
+script-generator_DottFont.js
+  lastTextSVGString    : cache le rendu texte ✓
+  lastContourSVGString : cache le rendu contour ✓
+  computeBlurData()    : blur indépendant, sans re-rendre le texte ✓
+  generateTextOnly()   : met à jour le calque texte seul ✓
+  generateContourOnly(): met à jour le calque contour seul ✓
+  regenerateTextWithMesh(): gradient + texte seul ✓
+  Listeners panel principal → generateTextOnly / regenerateTextWithMesh ✓
+
+offset.js
+  contourMeshSize      : slider 0–4, damier bilinéaire sur le contour ✓
+  generateContourSVGString() : formule mesh intégrée ✓
+  Tous les listeners offset → generateContourOnly() ✓
+  bindSpanEdit + randomizeAll() mis à jour ✓
+
+index.html
+  #contour-mesh-slider / #contour-mesh-value ajoutés ✓
+
+CSS/style.css
+  #contour-mesh-slider et #contour-mesh-value dans toutes les règles ✓
+
+
+------------------------------------------------------------
+PISTE — RÉDUCTION DU POIDS OTF (objectif : 200 Ko)
+------------------------------------------------------------
+Non implémenté. À étudier selon l'usage.
+
+Contexte : la taille d'un OTF généré vient presque entièrement du nombre
+de points par glyphe (courbes CFF). Avec 138 glyphes et des dizaines à
+des centaines de dots par lettre, les exports peuvent dépasser 200 Ko.
+
+Leviers identifiés (du plus au moins impactant) :
+
+  1. SUBSET À L'EXPORT
+       Ajouter une option "quels glyphes exporter" (ex. A–Z = 26 glyphes,
+       A–Z + a–z = 52, complet = 138).
+       Gain linéaire : A–Z seulement → taille ÷ ~5.
+       Aucune dégradation de qualité — l'utilisateur choisit ce dont il a besoin.
+
+  2. BYPASS CLIPPER (forcer le mode Bezier)
+       En mode overlap, Clipper crée des polygones N=16 points par dot
+       (~150 bytes/cercle en CFF). Le mode Bezier (4 segments cubiques)
+       produit ~30 bytes/cercle.
+       Gain potentiel : ÷ 4 à ÷ 5 sur les glyphes en mode overlap.
+       Impact visuel : nul à l'écran et en impression standard. La différence
+       n'existe que dans des contextes très spécifiques (transparence PDF,
+       imposition, certains RIP). À proposer comme flag "export léger".
+
+  3. RÉDUIRE N DES POLYGONES CLIPPER (N=16 → N=8)
+       ÷ 2 sur les points en mode overlap.
+       Erreur visuelle < 1 font unit à ces tailles, imperceptible.
+
+  Pour atteindre 200 Ko avec 138 glyphes complexes : combiner 1 + 2, ou
+  appliquer 1 seul avec un subset strict (A–Z).
+
+============================================================
