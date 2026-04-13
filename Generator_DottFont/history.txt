@@ -545,6 +545,94 @@ index.html
 ============================================================
 
 ------------------------------------------------------------
+SESSION 13/04/2026
+------------------------------------------------------------
+
+NOUVELLES SHAPES — Remplacement des formes obsolètes
+  Supprimées : ellipse, trait, circle_outline
+  Ajoutées depuis dossier clone/ :
+    - trait_2        (viewBox 0 0 3.614 1.027 — rectangle plat sans arrondi)
+    - polygone       (viewBox 0 0 2.829 2.691 — pentagone, sommet en bas, plat en haut)
+    - polygone8      (viewBox 0 0 2.314 2.314 — octogone)
+
+  Fichiers modifiés :
+    index.html                    → 3 boutons remplacés dans .shape-btns
+    script-generator_DottFont.js  → objet SHAPES mis à jour + 3 cas shapeDotSVG remplacés
+    export-otf.js                 → fonctions polygon/bezier + dispatchers + shapeLabel/shapeAbbr
+
+  Détail des ratios (extraits des viewBox, preserveAspectRatio="xMidYMid meet") :
+    trait_2   : halfW = r, halfH = r × (1.027/3.614). Lignes droites, pas de Bezier.
+    polygone  : width-constrained. R_H=0.951, R_W=0.618, R_VM=0.224.
+                OTF CCW Y-up order : E(right) → D(top-right) → C(top-left) → B(left) → A(bottom).
+    polygone8 : square viewBox, ratios from transform normalization of polygone8.svg.
+                OTF CCW Y-up order : top → upper-right → right → … → upper-left.
+
+
+BUG — FORMES RÉDUITES + PETITS RONDS PARASITES À L'EXPORT OTF (13/04/2026)
+  Symptôme 1 : dans l'OTF, certains dots aux bords des glyphes étaient
+               beaucoup plus petits qu'attendu (ex. trait_2 très courts sur N).
+  Symptôme 2 : petits ronds isolés dépassant du bord gauche du "1" (et autres
+               caractères étroits) dans l'OTF, absents du rendu web.
+
+  Cause racine (unique) :
+    L'export OTF utilisait un fast path pour meshSize=0 : lecture directe du
+    canvas `ctx` brut (ctx.getImageData). Le rendu web, lui, lit toujours depuis
+    `gCtx` (sortie de drawMeshGradientPreview).
+
+    drawMeshGradientPreview applique THRESHOLD=240 : tout pixel avec
+    maskBrightness < 240 est écrit 0 dans gCtx, le fond est écrit 249.
+    → Tous les pixels "texte" (même anti-aliasés) reçoivent brightness=0
+      dans gCtx → darkness=1 → rayon MAXIMUM → formes à taille pleine.
+
+    En lisant ctx brut, les pixels anti-aliasés du bord (brightness 50–230)
+    conservent leur valeur intermédiaire → darkness réduit → rayon réduit →
+    petits dots isolés aux bords → bosses dans le contour Clipper (sympt. 2)
+    et formes plus petites que le rendu web (sympt. 1).
+
+  Fix :
+    Suppression du fast path. L'export OTF appelle désormais toujours
+    drawMeshGradientPreview(canvasW, canvasH, canvasH) et lit gCtx,
+    identiquement au rendu web.
+    Seuil de brightness conservé à 245 (gCtx background = 249 > 245).
+
+  Fichier modifié : export-otf.js (section lecture pixels, avant boucle glyphs).
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (13/04/2026)
+------------------------------------------------------------
+
+export-otf.js
+  Charset    : dynamique depuis JSON (138 glyphes A–Z, a–z, accents, chiffres, ponctuation)
+  Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
+  Advance W  : depuis JSON par glyphe
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Pixels     : toujours depuis gCtx (drawMeshGradientPreview) — identique au rendu web ✓
+  Threshold  : 245 (gCtx background=249 exclu, texte/gradient 0–204 inclus) ✓
+  Shapes     : circle, square, trait_2, polygone, polygone8 ✓
+  Mode no-overlap : Bezier direct (lignes droites pour tous les polygones) ✓
+  Mode overlap    : polygones N-gon + Clipper.js union pftNonZero ✓
+  Hazard     : formule adaptée meshSize=0 (probabilité plate) ✓
+  nameID 1   : legacyFamily unique par export (shape abrégée + params) ✓
+  nameID 2   : "Regular" (toujours, compatibilité legacy) ✓
+  description: dynamique avec paramètres courants ✓
+
+script-generator_DottFont.js
+  SHAPES     : circle, square, trait_2, polygone, polygone8 ✓
+  meshSize   : slider 0–4, 0=noir pur, 1–4=damier bilinéaire ✓
+  refWidth   : paramètre ajouté à drawMeshGradientPreview() ✓
+  PNG export : XMLSerializer → Blob → Image → canvas 4× → download ✓
+
+index.html
+  Shape btns : circle, square, polygone, polygone8, trait_2 ✓
+  Sliders    : Mesh (0–4), Size pregeneration, Size postgeneration,
+               Contour, Hazard ✓
+  Boutons    : SVG, PNG, OTF ✓
+
+============================================================
+
+------------------------------------------------------------
 SESSION 10/04/2026
 ------------------------------------------------------------
 
@@ -581,5 +669,154 @@ BUG — EXPORTS OTF INVISIBLES / IDENTIQUES DANS INKSCAPE
   Note pratique :
     Désinstaller les anciens OTF et redémarrer Inkscape avant de tester
     (son cache font peut conserver les anciens noms).
+
+
+------------------------------------------------------------
+ÉTAPE 12 — SVG NATIF (plus de <use> / <symbol>)
+------------------------------------------------------------
+Date : 10/04/2026
+
+Objectif : rendre le SVG exporté directement éditable dans Inkscape
+           (changement de couleur, Path > Union, sélection individuelle)
+           sans avoir à "dissocier" les clones au préalable.
+
+Avant :
+  Chaque dot était un élément <use href="#base-dot" x y width height/>,
+  référençant un <symbol id="base-dot"> dans les <defs>.
+  Inkscape devait d'abord "dissocier" (Object > Symbol > Extract)
+  avant toute édition de forme ou de couleur.
+
+Après :
+  Chaque dot est un élément SVG natif :
+    circle        → <circle cx cy r fill="#000000"/>
+    square        → <rect x y width height fill="#ff00ff"/>
+    ellipse       → <ellipse cx cy rx ry fill="#000000"/>
+                    rx = size/2.75, ry = size/2
+                    (viewBox 0 0 2 2.75, height-constrained by meet)
+    trait         → <rect x y width height rx fill="#000000"/>
+                    height = size×1.7/3.614, rx = height/2
+                    (viewBox 0 0 3.614 1.7, width-constrained by meet)
+    circle_outline→ <path fill-rule="evenodd" fill="#000000" d="..."/>
+                    deux arcs SVG par anneau (outer + inner), donut via evenodd
+
+Fichiers modifiés :
+  script-generator_DottFont.js
+    - Ajout de shapeDotSVG(cx, cy, r) → retourne la string SVG native
+      selon currentShape, proportions recalculées depuis chaque viewBox.
+    - samplePixelsToSVGString() : remplace <use> par shapeDotSVG().
+    - Variable size supprimée (inutile).
+
+  offset.js
+    - generateContourSVGString() : même remplacement.
+    - Variable size supprimée (inutile).
+
+Note : <defs>/<symbol> conservés dans le DOM (inoffensifs, non référencés).
+       shapeDotSVG() définie dans script-generator_DottFont.js est accessible
+       dans offset.js via le scope global partagé.
+
+============================================================
+
+------------------------------------------------------------
+SESSION 13/04/2026 — suite
+------------------------------------------------------------
+
+RESPONSIVE #panels-left
+  Objectif : sliders adaptatifs à la taille de l'écran.
+             En dessous de 1300px, les sliders disparaissent et les
+             valeurs sont éditées directement via les spans.
+
+  index.html :
+    Ajout de contenteditable="true" sur les 8 spans de valeur :
+      #mesh-value, #taille-generation-value, #size-value, #presence-value
+      #outset-value, #contour-hazard-value,
+      #contour-taille-generation-value, #contour-size-value
+
+  CSS/style.css :
+    Règle par défaut (large écran) :
+      pointer-events: none; outline: none sur les spans de valeur
+      → non interactifs tant que les sliders sont visibles.
+
+    @media (max-width: 1300px) :
+      #panels-left input[type="range"] → display: none
+      .slider-row label                → flex: 1 (remplace l'espace du slider)
+      spans de valeur                  → pointer-events: auto; cursor: text;
+                                         border-bottom: 1px solid var(--color-label)
+
+  script-generator_DottFont.js :
+    Ajout de bindSpanEdit(spanEl, sliderEl, isInt, onCommit) :
+      - focus  : sélectionne tout le texte (remplacement immédiat)
+      - keydown Enter    : blur() pour valider
+      - keydown ArrowUp/ArrowDown : ±1 step (snap + clamp),
+                           mise à jour live du slider + onCommit
+      - blur   : parse, clamp sur [min, max] du slider,
+                 sync span + slider, appel onCommit
+                 (ignoré si window.innerWidth > 1300)
+
+    4 appels bindSpanEdit pour :
+      meshValue, tailleGenerationValue, sizeValue, presenceValue
+
+  offset.js :
+    4 appels bindSpanEdit (bindSpanEdit est global depuis le script précédent) :
+      outsetValue, contourHazardValue, contourTailleGenValue, contourSizeValue
+
+
+BOUTON "TOUT MÉLANGEZ !" (#btn-aleatoire)
+  Objectif : randomiser tous les paramètres + la shape en un clic.
+
+  index.html (modifié par l'utilisateur) :
+    Ajout de <div id="top-panel-aleatoire">
+      <button id="btn-aleatoire">Tout melangez !</button>
+    </div>
+
+  offset.js (ajouté en fin de fichier, après les bindSpanEdit) :
+    randomSnap(sliderEl) :
+      Retourne une valeur aléatoire snappée au step du slider,
+      dans [min, max]. Lit min/max/step depuis l'élément DOM.
+
+    randomizeAll() :
+      Met à jour les 8 variables JS + les valeurs slider + les spans :
+        meshSize, tailleGenerationMultiplier, sizeMultiplier, presenceStrength
+        outsetRadius, contourPresenceStrength,
+        contourTailleGenerationMultiplier, contourSizeMultiplier
+      Tire aussi une shape aléatoire depuis les .shape-btn (data-shape),
+      met à jour la classe .active et currentShape.
+      Appelle generate() une seule fois à la fin (pipeline complet).
+
+    Listener : document.getElementById('btn-aleatoire') → randomizeAll
+
+
+OPTIMISATION CSS — panels (lignes 80–120)
+  Avant : 4 blocs #top-panel* répétant padding, border-radius, display,
+          flex-direction, gap, color (7 props × 4 = 28 déclarations).
+  Après : 1 règle partagée pour les 4 sélecteurs (7 props),
+          + 4 lignes une couleur chacune → 11 déclarations.
+  Aucun changement visuel.
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (13/04/2026 — suite)
+------------------------------------------------------------
+
+index.html
+  Shape btns  : circle, square, polygone, polygone8, trait_2 ✓
+  Value spans : contenteditable="true" sur les 8 spans ✓
+  Panels      : top-panel, top-panel-offset, top-panel-export,
+                top-panel-aleatoire ✓
+  Boutons     : SVG, PNG, OTF, Tout mélangez ✓
+
+CSS/style.css
+  Panels      : base partagée + couleur individuelle ✓
+  Responsive  : @media (max-width: 1300px) — sliders cachés,
+                spans éditables ✓
+  Spans wide  : pointer-events: none (non interactifs) ✓
+
+script-generator_DottFont.js
+  bindSpanEdit() : focus/keydown/blur + flèches clavier ✓
+  4 bindings spans panneau principal ✓
+
+offset.js
+  4 bindings spans panneau contour ✓
+  randomSnap() / randomizeAll() ✓
+  Listener #btn-aleatoire ✓
 
 ============================================================

@@ -22,7 +22,7 @@
     <div class="stage">
       <!-- <span class="step-label">step 1 — text</span> -->
       <div class="panel">
-        <div id="text-input" contenteditable="true" spellcheck="false">Text</div>
+        <div id="text-input" contenteditable="true" spellcheck="false">Flut</div>
       </div>
     </div>
 
@@ -50,21 +50,21 @@
           </svg>
         </button>
 
-        <button class="shape-btn" data-shape="ellipse" title="Ellipse">
-          <svg viewBox="0 0 2 2.75" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="1" cy="1.375" rx="1" ry="1.375" fill="#000000" />
+        <button class="shape-btn" data-shape="polygone" title="Polygone">
+          <svg viewBox="0 0 2.829 2.691" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="1.415,2.691 0,1.663 0.540,0 2.289,0 2.829,1.663" fill="#000000" />
           </svg>
         </button>
 
-        <button class="shape-btn" data-shape="trait" title="Trait">
-          <svg viewBox="0 0 3.614 1.7" xmlns="http://www.w3.org/2000/svg">
-            <rect x="0" y="0" width="3.614" height="1.7" rx="0.85" fill="#000000" />
-          </svg>
-        </button>
-
-        <button class="shape-btn" data-shape="circle_outline" title="Circle outline">
+        <button class="shape-btn" data-shape="polygone8" title="Polygone 8">
           <svg viewBox="0 0 2.314 2.314" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" fill="#000000" d="M 1.157,0 C 1.796,0 2.314,0.518 2.314,1.157 C 2.314,1.796 1.796,2.314 1.157,2.314 C 0.518,2.314 0,1.796 0,1.157 C 0,0.518 0.518,0 1.157,0 Z M 1.157,0.399 C 1.576,0.399 1.915,0.738 1.915,1.157 C 1.915,1.576 1.576,1.915 1.157,1.915 C 0.738,1.915 0.399,1.576 0.399,1.157 C 0.399,0.738 0.738,0.399 1.157,0.399 Z" />
+            <polygon points="0.348,0.353 0.012,1.163 0.348,1.973 1.158,2.309 1.968,1.973 2.304,1.163 1.968,0.353 1.158,0.017" fill="#000000" />
+          </svg>
+        </button>
+
+        <button class="shape-btn" data-shape="trait_2" title="Trait 2">
+          <svg viewBox="0 0 3.614 1.027" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="3.614" height="1.027" fill="#000000" />
           </svg>
         </button>
 
@@ -75,28 +75,28 @@
     <div class="slider-row">
       <label for="mesh-slider">Mesh</label>
       <input type="range" id="mesh-slider" min="0" max="4" step="1" value="0" />
-      <span id="mesh-value">0</span>
+      <span id="mesh-value" contenteditable="true">0</span>
     </div>
 
     <!-- SIZE PREGENERATION — scales dot radius and grid spacing together -->
     <div class="slider-row">
       <label for="taille-generation-slider">Size pregeneration</label>
       <input type="range" id="taille-generation-slider" min="0.25" max="3" step="0.05" value="1" />
-      <span id="taille-generation-value">1.00</span>
+      <span id="taille-generation-value" contenteditable="true">1.00</span>
     </div>
 
     <!-- SIZE POSTGENERATION — scales dot radius only -->
     <div class="slider-row">
       <label for="size-slider">Size postgeneration</label>
       <input type="range" id="size-slider" min="0.25" max="3" step="0.05" value="1" />
-      <span id="size-value">1.00</span>
+      <span id="size-value" contenteditable="true">1.00</span>
     </div>
 
     <!-- PRESENCE — probabilistic dot filter -->
     <div class="slider-row">
       <label for="presence-slider">Hazard</label>
       <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
-      <span id="presence-value">0.5</span>
+      <span id="presence-value" contenteditable="true">0.5</span>
     </div>
 
 
@@ -118,28 +118,28 @@
     <div class="slider-row">
       <label for="outset-slider">Halo</label>
       <input type="range" id="outset-slider" min="0" max="30" step="1" value="8" />
-      <span id="outset-value">8</span>
+      <span id="outset-value" contenteditable="true">8</span>
     </div>
 
     <!-- CONTOUR HAZARD — probabilistic dot filter for the contour zone -->
     <div class="slider-row">
       <label for="contour-hazard-slider">Hazard</label>
       <input type="range" id="contour-hazard-slider" min="0" max="1" step="0.01" value="0.5" />
-      <span id="contour-hazard-value">0.50</span>
+      <span id="contour-hazard-value" contenteditable="true">0.50</span>
     </div>
 
     <!-- CONTOUR SIZE PREGENERATION — scales dot radius and grid spacing together -->
     <div class="slider-row">
       <label for="contour-taille-generation-slider">Size pregeneration</label>
       <input type="range" id="contour-taille-generation-slider" min="0.25" max="3" step="0.05" value="1" />
-      <span id="contour-taille-generation-value">1.00</span>
+      <span id="contour-taille-generation-value" contenteditable="true">1.00</span>
     </div>
 
     <!-- CONTOUR SIZE POSTGENERATION — scales dot radius only -->
     <div class="slider-row">
       <label for="contour-size-slider">Size postgeneration</label>
       <input type="range" id="contour-size-slider" min="0.25" max="3" step="0.05" value="1" />
-      <span id="contour-size-value">1.00</span>
+      <span id="contour-size-value" contenteditable="true">1.00</span>
     </div>
 
   </div>
@@ -153,6 +153,10 @@
       <button id="export-otf-btn">OTF</button>
     </div>
 
+  </div>
+
+  <div id="top-panel-aleatoire">     
+    <button id="btn-aleatoire">Tout melangez !</button>
   </div>
 
   </div><!-- /panels-left -->

@@ -116,3 +116,85 @@ contourSizeSlider.addEventListener('input', () => {
     if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
   }, 80);
 });
+
+// Bind editable spans for the four contour-panel sliders (narrow viewport only).
+// bindSpanEdit is defined in script-generator_DottFont.js, loaded before this file.
+bindSpanEdit(outsetValue, outsetSlider, true, (v) => {
+  outsetRadius = v;
+  generate();
+});
+bindSpanEdit(contourHazardValue, contourHazardSlider, false, (v) => {
+  contourPresenceStrength = v;
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+});
+bindSpanEdit(contourTailleGenValue, contourTailleGenSlider, false, (v) => {
+  contourTailleGenerationMultiplier = v;
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+});
+bindSpanEdit(contourSizeValue, contourSizeSlider, false, (v) => {
+  contourSizeMultiplier = v;
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
+});
+
+// --- Randomize all parameters ---
+
+// Returns a random value snapped to the slider's step grid, within [min, max].
+// Reads min/max/step directly from the slider element so it stays in sync with HTML.
+function randomSnap(sliderEl) {
+  const min   = parseFloat(sliderEl.min);
+  const max   = parseFloat(sliderEl.max);
+  const step  = parseFloat(sliderEl.step);
+  const steps = Math.round((max - min) / step);
+  const n     = Math.floor(Math.random() * (steps + 1));
+  return parseFloat((min + n * step).toFixed(6));
+}
+
+// Sets every parameter to a random value and triggers a full pipeline re-run.
+// Declared globally so it can be called from outside if needed.
+function randomizeAll() {
+  // Main panel
+  meshSize = Math.round(randomSnap(meshSlider));
+  meshSlider.value = meshSize;
+  meshValue.textContent = String(meshSize);
+
+  tailleGenerationMultiplier = randomSnap(tailleGenerationSlider);
+  tailleGenerationSlider.value = tailleGenerationMultiplier;
+  tailleGenerationValue.textContent = tailleGenerationMultiplier.toFixed(2);
+
+  sizeMultiplier = randomSnap(sizeSlider);
+  sizeSlider.value = sizeMultiplier;
+  sizeValue.textContent = sizeMultiplier.toFixed(2);
+
+  presenceStrength = randomSnap(presenceSlider);
+  presenceSlider.value = presenceStrength;
+  presenceValue.textContent = presenceStrength.toFixed(2);
+
+  // Offset panel
+  outsetRadius = Math.round(randomSnap(outsetSlider));
+  outsetSlider.value = outsetRadius;
+  outsetValue.textContent = String(outsetRadius);
+
+  contourPresenceStrength = randomSnap(contourHazardSlider);
+  contourHazardSlider.value = contourPresenceStrength;
+  contourHazardValue.textContent = contourPresenceStrength.toFixed(2);
+
+  contourTailleGenerationMultiplier = randomSnap(contourTailleGenSlider);
+  contourTailleGenSlider.value = contourTailleGenerationMultiplier;
+  contourTailleGenValue.textContent = contourTailleGenerationMultiplier.toFixed(2);
+
+  contourSizeMultiplier = randomSnap(contourSizeSlider);
+  contourSizeSlider.value = contourSizeMultiplier;
+  contourSizeValue.textContent = contourSizeMultiplier.toFixed(2);
+
+  // Pick a random shape from the available shape buttons
+  const shapeBtns = Array.from(document.querySelectorAll('.shape-btn'));
+  const pickedBtn = shapeBtns[Math.floor(Math.random() * shapeBtns.length)];
+  shapeBtns.forEach(b => b.classList.remove('active'));
+  pickedBtn.classList.add('active');
+  currentShape = pickedBtn.dataset.shape;
+
+  // Full re-run — outset change requires new blur data
+  generate();
+}
+
+document.getElementById('btn-aleatoire').addEventListener('click', randomizeAll);

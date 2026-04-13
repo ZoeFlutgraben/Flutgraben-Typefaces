@@ -1,8 +1,11 @@
 a faire:
 
 OFFset affinage
-optimisation export courbe de bezier
+optimisation export courbe de bezier -> forme polygonale
+responsive
 arabic script
+
+
 
 dont know
 export svg propre

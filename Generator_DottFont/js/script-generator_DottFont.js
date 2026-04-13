@@ -82,22 +82,23 @@ const SHAPES = {
     viewBox: '0 0 2 2',
     content: '<rect x="0" y="0" width="2" height="2" fill="#ff00ff"/>'
   },
-  // Filled black ellipse (portrait, rx:ry ≈ 1:1.375) — clone/ellipse.svg
-  ellipse: {
-    viewBox: '0 0 2 2.75',
-    content: '<ellipse cx="1" cy="1.375" rx="1" ry="1.375" fill="#000000"/>'
+  // Thin flat rectangle (no rounded corners) — clone/trait_2.svg
+  // viewBox 0 0 3.614 1.027 — width-constrained by meet
+  trait_2: {
+    viewBox: '0 0 3.614 1.027',
+    content: '<rect x="0" y="0" width="3.614" height="1.027" fill="#000000"/>'
   },
-  // Horizontal pill / rounded stroke — clone/trait.svg
-  // width:height ≈ 3.614:1.7, corner radius = 0.85 (= height/2 → perfect stadium shape)
-  trait: {
-    viewBox: '0 0 3.614 1.7',
-    content: '<rect x="0" y="0" width="3.614" height="1.7" rx="0.85" fill="#000000"/>'
+  // Pentagon (vertex-bottom, flat-top) — clone/polygone.svg
+  // viewBox 0 0 2.829 2.691 — width-constrained by meet
+  polygone: {
+    viewBox: '0 0 2.829 2.691',
+    content: '<polygon points="1.415,2.691 0,1.663 0.540,0 2.289,0 2.829,1.663" fill="#000000"/>'
   },
-  // Ring / donut — clone/circle_outline.svg
-  // Outer r=1.157, inner r=0.758; fill-rule=evenodd punches the inner hole
-  circle_outline: {
+  // Octagon — clone/polygone8.svg
+  // viewBox 0 0 2.314 2.314 — square bounding box
+  polygone8: {
     viewBox: '0 0 2.314 2.314',
-    content: '<path fill-rule="evenodd" fill="#000000" d="M 1.157,0 C 1.796,0 2.314,0.518 2.314,1.157 C 2.314,1.796 1.796,2.314 1.157,2.314 C 0.518,2.314 0,1.796 0,1.157 C 0,0.518 0.518,0 1.157,0 Z M 1.157,0.399 C 1.576,0.399 1.915,0.738 1.915,1.157 C 1.915,1.576 1.576,1.915 1.157,1.915 C 0.738,1.915 0.399,1.576 0.399,1.157 C 0.399,0.738 0.738,0.399 1.157,0.399 Z"/>'
+    content: '<polygon points="0.348,0.353 0.012,1.163 0.348,1.973 1.158,2.309 1.968,1.973 2.304,1.163 1.968,0.353 1.158,0.017" fill="#000000"/>'
   }
 };
 
@@ -272,27 +273,39 @@ function shapeDotSVG(cx, cy, r) {
     return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" fill="#ff00ff"/>`;
   }
 
-  if (currentShape === 'ellipse') {
-    // viewBox 0 0 2 2.75 — portrait, height-constrained by meet:
-    // scale = size/2.75 → rx = 1 × scale = size/2.75, ry = 1.375 × scale = size/2
-    return `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${(size / 2.75).toFixed(2)}" ry="${r.toFixed(2)}" fill="#000000"/>`;
-  }
-
-  if (currentShape === 'trait') {
-    // viewBox 0 0 3.614 1.7 — landscape, width-constrained by meet:
-    // scale = size/3.614 → rendered height = 1.7 × scale, rx = 0.85 × scale = h/2
-    const h  = size * 1.7 / 3.614;
-    const rx = h / 2;
+  if (currentShape === 'trait_2') {
+    // viewBox 0 0 3.614 1.027 — landscape, width-constrained by meet:
+    // scale = size/3.614 → rendered height = 1.027 × scale, no rounded corners
+    const h  = size * 1.027 / 3.614;
     const oy = (size - h) / 2;  // vertical centering offset
-    return `<rect x="${x.toFixed(2)}" y="${(y + oy).toFixed(2)}" width="${size.toFixed(2)}" height="${h.toFixed(2)}" rx="${rx.toFixed(2)}" fill="#000000"/>`;
+    return `<rect x="${x.toFixed(2)}" y="${(y + oy).toFixed(2)}" width="${size.toFixed(2)}" height="${h.toFixed(2)}" fill="#000000"/>`;
   }
 
-  if (currentShape === 'circle_outline') {
-    // viewBox 0 0 2.314 2.314 — outer r = size/2, inner r = r × 0.758/1.157
-    // Full-circle arc: two semicircles per ring (SVG arcs cannot start/end at same point)
-    const ri = r * (0.758 / 1.157);
-    const d  = `M ${cx.toFixed(2)},${(cy - r).toFixed(2)} A ${r.toFixed(2)},${r.toFixed(2)} 0 1,1 ${cx.toFixed(2)},${(cy + r).toFixed(2)} A ${r.toFixed(2)},${r.toFixed(2)} 0 1,1 ${cx.toFixed(2)},${(cy - r).toFixed(2)} Z M ${cx.toFixed(2)},${(cy - ri).toFixed(2)} A ${ri.toFixed(2)},${ri.toFixed(2)} 0 1,1 ${cx.toFixed(2)},${(cy + ri).toFixed(2)} A ${ri.toFixed(2)},${ri.toFixed(2)} 0 1,1 ${cx.toFixed(2)},${(cy - ri).toFixed(2)} Z`;
-    return `<path fill-rule="evenodd" fill="#000000" d="${d}"/>`;
+  if (currentShape === 'polygone') {
+    // viewBox 0 0 2.829 2.691 — width-constrained by meet.
+    // Pentagon (vertex-bottom, flat-top). Ratios from normalized viewBox coordinates.
+    const h  = r * 0.951;  // half-height (vertical reach from center)
+    const hw = r * 0.618;  // horizontal offset of top-left/top-right vertices
+    const vm = r * 0.224;  // vertical offset of left/right vertices
+    const pts = [
+      `${cx.toFixed(2)},${(cy + h).toFixed(2)}`,           // bottom vertex
+      `${(cx - r).toFixed(2)},${(cy + vm).toFixed(2)}`,    // left
+      `${(cx - hw).toFixed(2)},${(cy - h).toFixed(2)}`,    // top-left
+      `${(cx + hw).toFixed(2)},${(cy - h).toFixed(2)}`,    // top-right
+      `${(cx + r).toFixed(2)},${(cy + vm).toFixed(2)}`     // right
+    ].join(' ');
+    return `<polygon points="${pts}" fill="#000000"/>`;
+  }
+
+  if (currentShape === 'polygone8') {
+    // viewBox 0 0 2.314 2.314 — square bounding box. scale = size/2.314.
+    // Vertex ratios derived from polygone8.svg after transform normalization (Y-down order).
+    const verts = [
+      [-0.699, -0.695], [-0.989,  0.005], [-0.699,  0.705], [ 0.001,  0.995],
+      [ 0.701,  0.705], [ 0.991,  0.005], [ 0.701, -0.695], [ 0.001, -0.985]
+    ];
+    const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');
+    return `<polygon points="${pts}" fill="#000000"/>`;
   }
 
   // Default: circle
@@ -506,6 +519,89 @@ exportPngBtn.addEventListener('click', () => {
   };
 
   img.src = url;
+});
+
+// --- Responsive span editing ---
+// Below 1200px, sliders are hidden and value spans are contenteditable.
+// bindSpanEdit wires focus/keydown/blur on a span so the user can type a value.
+// On blur: parse the text, clamp to [min, max], sync the hidden slider, call onCommit.
+// At wide viewport (> 1200px) the blur handler does nothing — pointer-events: none
+// on the span already prevents interaction, but the guard is here as a safety net.
+//
+// Parameters:
+//   spanEl   — the <span contenteditable> element
+//   sliderEl — the matching <input type="range"> (used for min/max/value sync)
+//   isInt    — true → round to integer (e.g. mesh); false → toFixed(2)
+//   onCommit — callback(value) fired after the clamped value is applied
+function bindSpanEdit(spanEl, sliderEl, isInt, onCommit) {
+  // Select all text on focus so the user can type a replacement immediately
+  spanEl.addEventListener('focus', () => {
+    const range = document.createRange();
+    range.selectNodeContents(spanEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+
+  // Keyboard controls:
+  //   Enter      — commit the edit (same as blurring)
+  //   ArrowUp    — increment value by one slider step
+  //   ArrowDown  — decrement value by one slider step
+  spanEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      spanEl.blur();
+      return;
+    }
+
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault(); // prevent page scroll
+      const step    = parseFloat(sliderEl.step) || 1;
+      const min     = parseFloat(sliderEl.min);
+      const max     = parseFloat(sliderEl.max);
+      const raw     = parseFloat(spanEl.textContent);
+      const current = isNaN(raw) ? parseFloat(sliderEl.value) : raw;
+      const next    = current + (e.key === 'ArrowUp' ? step : -step);
+      // Round to 2 dp before clamping to avoid floating-point drift (e.g. 0.05+0.25=0.300…04)
+      const rounded = parseFloat(next.toFixed(2));
+      const v       = isInt ? Math.round(Math.min(max, Math.max(min, rounded)))
+                            : parseFloat(Math.min(max, Math.max(min, rounded)).toFixed(2));
+      spanEl.textContent = isInt ? String(v) : v.toFixed(2);
+      sliderEl.value = v;
+      onCommit(v);
+    }
+  });
+
+  // On blur: parse, clamp, update span text + slider, fire callback
+  spanEl.addEventListener('blur', () => {
+    if (window.innerWidth > 1200) return;
+    const raw = parseFloat(spanEl.textContent);
+    const min = parseFloat(sliderEl.min);
+    const max = parseFloat(sliderEl.max);
+    const clamped = isNaN(raw) ? parseFloat(sliderEl.value) : Math.min(max, Math.max(min, raw));
+    const v = isInt ? Math.round(clamped) : clamped;
+    spanEl.textContent = isInt ? String(v) : v.toFixed(2);
+    sliderEl.value = v;
+    onCommit(v);
+  });
+}
+
+// Bind editable spans for the four main-panel sliders
+bindSpanEdit(meshValue, meshSlider, true, (v) => {
+  meshSize = v;
+  debouncedGenerate();
+});
+bindSpanEdit(tailleGenerationValue, tailleGenerationSlider, false, (v) => {
+  tailleGenerationMultiplier = v;
+  debouncedGenerate();
+});
+bindSpanEdit(sizeValue, sizeSlider, false, (v) => {
+  sizeMultiplier = v;
+  debouncedGenerate();
+});
+bindSpanEdit(presenceValue, presenceSlider, false, (v) => {
+  presenceStrength = v;
+  if (lastCanvasW > 0) generateAllDots(lastCanvasW, lastCanvasH);
 });
 
 // Initial render once DINish font is loaded
