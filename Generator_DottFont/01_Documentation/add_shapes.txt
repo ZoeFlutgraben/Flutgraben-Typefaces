@@ -1,0 +1,249 @@
+AJOUTER OU MODIFIER UNE SHAPE — Guide technique
+================================================
+Generator DottFont — Flutgraben e.V.
+Dernière mise à jour : 2026-04-14
+
+
+ARCHITECTURE GÉNÉRALE
+─────────────────────
+Le générateur place des copies d'une forme atomique sur une grille,
+à l'intérieur du masque de texte. Le circuit complet est :
+
+  1. L'utilisateur sélectionne une shape via les boutons dans #shape-selector (index.html)
+  2. updateBaseShape() injecte la shape comme <symbol id="base-dot"> dans les <defs> du SVG
+     → utilisé pour l'aperçu en direct (les <use> dans le SVG de sortie)
+  3. shapeDotSVG() génère les éléments SVG natifs (circle, rect, polygon…)
+     → utilisé pour l'export SVG (pas de <use>, formes directement éditables)
+  4. export-otf.js convertit les mêmes positions en paths opentype.js
+     → utilisé pour l'export OTF
+
+
+LE DOSSIER clone/
+─────────────────
+Les fichiers SVG dans clone/ sont des fichiers de référence dessinés dans Inkscape.
+Ils ne sont PAS chargés dynamiquement par le navigateur.
+Leur rôle : conserver la source de dessin pour chaque shape active.
+
+  clone/circle.svg      → cercle noir plein
+  clone/pink_square.svg → carré magenta (#ff00ff)
+  clone/polygone.svg    → pentagone (sommet en bas, base en haut)
+  clone/polygone8.svg   → octogone
+  clone/trait_2.svg     → rectangle fin paysage (largeur >> hauteur)
+
+  clone/archives/       → shapes retirées (conservées pour référence)
+    darkblue_circle.svg, heart.svg, stars.svg, circle_outline.svg,
+    ellipse.svg, outline.svg, trait.svg
+
+
+EXTRAIRE UN VIEWBOX PROPRE DEPUIS INKSCAPE
+──────────────────────────────────────────
+Les SVGs Inkscape utilisent des coordonnées absolues (offset de page + calque).
+Il faut les normaliser avant de les utiliser dans le code.
+
+Méthode :
+  1. Dessiner la forme dans Inkscape
+  2. Fichier > Propriétés du document > Redimensionner la page au dessin
+     → la page colle exactement à la forme ; les coordonnées deviennent relatives à (0, 0)
+  3. Dans l'éditeur XML (Ctrl+Maj+X), lire width et height sur l'élément <svg>
+     → ces valeurs donnent les dimensions du viewBox
+  4. Le viewBox à utiliser dans le code : "0 0 W H"
+     (arrondir à 3 décimales maximum, ou à l'entier si c'est propre)
+  5. Réécrire le contenu de la forme avec des coordonnées propres depuis (0, 0)
+     → ne pas copier le contenu brut d'Inkscape (transform="translate(...)" pollué)
+
+Exemples des 5 shapes actives :
+
+  circle.svg
+    width="1.9135373mm" height="1.9135373mm"
+    → viewBox dans le code : "0 0 2 2"  (arrondi à l'entier)
+    → contenu normalisé : <circle cx="1" cy="1" r="1" fill="#000000"/>
+
+  pink_square.svg
+    width="2mm" height="2mm"
+    → viewBox dans le code : "0 0 2 2"
+    → contenu normalisé : <rect x="0" y="0" width="2" height="2" fill="#ff00ff"/>
+
+  polygone.svg
+    width="2.8294549mm" height="2.6909716mm"
+    → viewBox dans le code : "0 0 2.829 2.691"
+    → contenu normalisé : <polygon points="1.415,2.691 0,1.663 0.540,0 2.289,0 2.829,1.663"
+                                   fill="#000000"/>
+
+  polygone8.svg
+    width="2.314mm" height="2.314mm"  (boîte carrée)
+    → viewBox dans le code : "0 0 2.314 2.314"
+    → contenu normalisé : <polygon points="0.348,0.353 0.012,1.163 0.348,1.973 1.158,2.309
+                                           1.968,1.973 2.304,1.163 1.968,0.353 1.158,0.017"
+                                   fill="#000000"/>
+
+  trait_2.svg
+    width="3.6135399mm" height="1.0272721mm"
+    → viewBox dans le code : "0 0 3.614 1.027"
+    → contenu normalisé : <rect x="0" y="0" width="3.614" height="1.027" fill="#000000"/>
+
+Règle du preserveAspectRatio="xMidYMid meet" :
+  Le symbole est toujours contraint par le côté le plus court de la cellule.
+  Une forme large (trait_2) s'adapte en width, une forme haute s'adapte en height.
+  Les ratios du viewBox définissent directement les proportions visuelles du dot.
+
+
+AJOUTER UNE NOUVELLE SHAPE — procédure complète
+────────────────────────────────────────────────
+Exemple fictif : une forme appelée "diamond" (losange).
+
+──── ÉTAPE 1 — Dessiner la forme dans Inkscape
+  Créer le fichier clone/diamond.svg via la méthode ci-dessus.
+  Supposons un viewBox "0 0 2 2.6" et les points du losange :
+    1,0  2,1.3  1,2.6  0,1.3
+
+──── ÉTAPE 2 — Ajouter l'entrée dans SHAPES
+  Fichier : js/script-generator_DottFont.js
+  Objet SHAPES, vers la ligne 78.
+  Ajouter à la fin de l'objet :
+
+    // Diamond (rhombus) — clone/diamond.svg
+    diamond: {
+      viewBox: '0 0 2 2.6',
+      content: '<polygon points="1,0 2,1.3 1,2.6 0,1.3" fill="#000000"/>'
+    }
+
+──── ÉTAPE 3 — Ajouter le case dans shapeDotSVG()
+  Fichier : js/script-generator_DottFont.js
+  Fonction shapeDotSVG(), vers la ligne 272.
+  Ajouter avant le "Default: circle" final :
+
+    if (currentShape === 'diamond') {
+      // viewBox 0 0 2 2.6 — height-constrained by meet.
+      // Half-height = r * (2.6/2), horizontal reach = r.
+      const hh = r * 1.3;
+      const pts = [
+        `${cx.toFixed(2)},${(cy - hh).toFixed(2)}`,  // top
+        `${(cx + r).toFixed(2)},${cy.toFixed(2)}`,   // right
+        `${cx.toFixed(2)},${(cy + hh).toFixed(2)}`,  // bottom
+        `${(cx - r).toFixed(2)},${cy.toFixed(2)}`    // left
+      ].join(' ');
+      return `<polygon points="${pts}" fill="#000000"/>`;
+    }
+
+  Note sur les ratios :
+    Le viewBox est "0 0 2 2.6" ; le côté long est la hauteur (2.6 > 2).
+    Avec meet, c'est la hauteur qui contraint → scale = size / 2.6.
+    La demi-hauteur en coordonnées de dot = r × (2.6 / 2) = r × 1.3.
+    La demi-largeur = r × (2 / 2) = r × 1.0 = r.
+
+──── ÉTAPE 4 — Ajouter le bouton dans index.html
+  Fichier : index.html
+  Div #shape-selector > .shape-btns, vers la ligne 39.
+  Ajouter après le dernier <button> :
+
+    <button class="shape-btn" data-shape="diamond" title="Diamond">
+      <svg viewBox="0 0 2 2.6" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="1,0 2,1.3 1,2.6 0,1.3" fill="#000000" />
+      </svg>
+    </button>
+
+──── ÉTAPE 5 — Mettre à jour export-otf.js (5 endroits)
+  Fichier : js/export-otf.js
+
+  5a. Ajouter la fonction polygone Clipper (mode dots qui se chevauchent)
+      après getPolygone8Polygon(), vers la ligne 109 :
+
+        // Returns a CCW polygon for a diamond (rhombus) in Y-up font coordinates.
+        // viewBox 0 0 2 2.6 — height-constrained; half-height ratio = 1.3.
+        function getDiamondPolygon(cx, cy, r) {
+          const hh = r * 1.3;
+          return [
+            { X: Math.round(cx           * CLIPPER_SCALE), Y: Math.round((cy + hh) * CLIPPER_SCALE) }, // top
+            { X: Math.round((cx + r)     * CLIPPER_SCALE), Y: Math.round(cy         * CLIPPER_SCALE) }, // right
+            { X: Math.round(cx           * CLIPPER_SCALE), Y: Math.round((cy - hh) * CLIPPER_SCALE) }, // bottom
+            { X: Math.round((cx - r)     * CLIPPER_SCALE), Y: Math.round(cy         * CLIPPER_SCALE) }, // left
+          ];
+        }
+
+      Winding CCW en Y-up : top → right → bottom → left.
+      (Si les dots ne s'unissent pas correctement, inverser l'ordre des points.)
+
+  5b. Ajouter la fonction path direct opentype.js (mode non-chevauchant)
+      après addPolygone8Bezier(), vers la ligne 174 :
+
+        // Appends a diamond (rhombus) to an opentype.Path, CCW in Y-up.
+        // Half-height = r * 1.3 from viewBox 0 0 2 2.6, height-constrained.
+        function addDiamondBezier(path, cx, cy, r) {
+          const hh = r * 1.3;
+          path.moveTo(cx,      cy + hh);  // top
+          path.lineTo(cx + r,  cy);       // right
+          path.lineTo(cx,      cy - hh);  // bottom
+          path.lineTo(cx - r,  cy);       // left
+          path.close();
+        }
+
+  5c. Ajouter dans addShapeBezierToPath(), vers la ligne 179 :
+
+        } else if (currentShape === 'diamond') {
+          addDiamondBezier(path, cx, cy, r);
+        }
+
+  5d. Ajouter dans le bloc canOverlap (polygon mode), vers la ligne 420 :
+
+        } else if (currentShape === 'diamond') {
+          polygons.push(getDiamondPolygon(fx, fy, fr));
+        }
+
+  5e. Ajouter dans shapeLabel et shapeAbbr, vers la ligne 455 :
+
+        const shapeLabel = {
+          ...
+          diamond: 'Diamond'
+        }[currentShape] || currentShape;
+
+        const shapeAbbr = {
+          ...
+          diamond: 'Di'
+        }[currentShape] || currentShape;
+
+      shapeAbbr sert à construire le legacyFamily name de l'OTF.
+      Choisir une abréviation de 2 caractères, unique parmi les shapes existantes.
+
+
+MODIFIER UNE SHAPE EXISTANTE
+─────────────────────────────
+  1. Archiver l'ancien SVG dans clone/archives/ (ne pas supprimer)
+  2. Redessiner dans Inkscape → sauvegarder dans clone/ avec le même nom de fichier
+  3. Extraire le nouveau viewBox et le contenu normalisé (voir section ci-dessus)
+  4. Mettre à jour l'entrée dans SHAPES (viewBox + content)
+  5. Mettre à jour shapeDotSVG() : recalculer les ratios depuis le nouveau viewBox
+  6. Mettre à jour export-otf.js : recalculer les ratios dans les fonctions
+     getXxxPolygon() et addXxxBezier() correspondantes
+  7. Mettre à jour le bouton dans index.html (SVG d'aperçu)
+
+
+CALCUL DES RATIOS DE FORME (rappel)
+─────────────────────────────────────
+  Toutes les fonctions de rendu reçoivent r = demi-taille du dot (rayon ou demi-largeur).
+  Les dimensions réelles s'obtiennent depuis le viewBox par la règle xMidYMid meet :
+
+    côté contraint = le plus court entre W et H du viewBox
+    scale = (r * 2) / côté_contraint
+    → demi-largeur rendue  = (vbW / 2) × scale = r × (vbW / côté_contraint)
+    → demi-hauteur rendue  = (vbH / 2) × scale = r × (vbH / côté_contraint)
+
+  Exemples :
+    circle   viewBox 0 0 2 2     → carré → demi-largeur = r, demi-hauteur = r
+    trait_2  viewBox 0 0 3.614 1.027 → width contraint (3.614 > 1.027 est faux...
+             ...en fait H < W donc height n'est pas le côté court ; W = 3.614 est contraint
+             → scale = (r*2)/3.614 → demi-hauteur = 1.027/2 × scale = r × (1.027/3.614)
+    diamond  viewBox 0 0 2 2.6   → H > W → W est le côté court → scale = (r*2)/2
+             → demi-hauteur = 2.6/2 × scale = r × 1.3
+
+
+CHECKLIST RAPIDE (nouvelle shape)
+──────────────────────────────────
+  [ ] clone/<nom>.svg  créé et normalisé (page ajustée au dessin dans Inkscape)
+  [ ] SHAPES{}  entrée ajoutée  (script-generator_DottFont.js)
+  [ ] shapeDotSVG()  case ajouté  (script-generator_DottFont.js)
+  [ ] <button data-shape="...">  ajouté  (index.html)
+  [ ] getDiamondPolygon()  ajouté  (export-otf.js)
+  [ ] addDiamondBezier()   ajouté  (export-otf.js)
+  [ ] addShapeBezierToPath()  case ajouté  (export-otf.js)
+  [ ] bloc canOverlap  case ajouté  (export-otf.js)
+  [ ] shapeLabel + shapeAbbr  entrées ajoutées  (export-otf.js)

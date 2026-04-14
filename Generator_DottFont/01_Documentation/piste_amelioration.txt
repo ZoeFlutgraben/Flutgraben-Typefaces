@@ -1,0 +1,123 @@
+PISTES D'AMÉLIORATION — Export OTF et union des formes
+========================================================
+Generator DottFont — Flutgraben e.V.
+Dernière mise à jour : 2026-04-14
+
+
+POURQUOI L'UNION EST NÉCESSAIRE
+────────────────────────────────
+Un fichier OTF valide et propre exige que chaque glyphe soit décrit
+par un contour unique et fermé, sans surfaces qui se chevauchent.
+
+Quand les dots sont denses (taille élevée, espacement serré), les formes
+atomiques se superposent. Si elles sont exportées telles quelles — comme
+des paths indépendants — les zones de recouvrement créent des "trous"
+selon la règle de remplissage NonZero ou Even-Odd utilisée par les outils
+de design (Figma, Illustrator, FontLab). Le résultat visuel est cassé,
+et les outils de validation de fontes rejettent ces contours.
+
+La solution est d'effectuer une union booléenne de tous les dots d'un
+glyphe pour obtenir un contour fusionné propre, équivalent à
+Path > Union dans Inkscape.
+
+
+SOLUTION ACTUELLE — Union côté client avec Clipper.js
+───────────────────────────────────────────────────────
+Le fichier js/export-otf.js effectue cette union directement dans le
+navigateur via la bibliothèque Clipper.js (injectée dynamiquement depuis
+un CDN à la demande).
+
+Fonctionnement :
+  1. Chaque dot est approximé comme un polygone (liste de points {X, Y})
+     multiplié par CLIPPER_SCALE (100) pour travailler en entiers
+  2. Tous les polygones d'un glyphe sont passés à ClipperLib.Clipper
+     en mode ctUnion + pftNonZero
+  3. Le résultat est reconverti en path opentype.js via clipperToOpentypePath()
+
+Ce circuit fonctionne et produit des fontes installables. Il présente
+cependant des limites significatives.
+
+
+LIMITES DE L'APPROCHE ACTUELLE
+────────────────────────────────
+
+1. Qualité des courbes — le problème principal
+   Clipper.js est une bibliothèque de découpe de polygones.
+   Elle ne comprend pas les courbes : les cercles et toutes les formes
+   courbes sont d'abord approximés en polygones (N segments droits),
+   puis l'union est calculée sur ces polygones, puis reconvertis en
+   lignes droites dans l'OTF.
+   → Un glyphe en shape "circle" génère des dots aux contours facettés
+     (16 segments par dot), visibles à l'impression haute résolution
+     et dans les outils vectoriels. Le "rond" n'est pas vraiment rond.
+
+2. Performance — export lent sur les gros charsets
+   L'union est calculée glyphe par glyphe, dans le thread principal du
+   navigateur. Pour un charset complet (~100 caractères) avec beaucoup
+   de dots par glyphe, l'export peut durer plusieurs dizaines de secondes.
+   Des setTimeout(r, 0) toutes les 10 glyphes permettent des repaints
+   intermédiaires, mais le blocage reste perceptible.
+
+3. Dépendance CDN
+   Clipper.js est chargé depuis cdn.jsdelivr.net à la demande.
+   Aucun export OTF n'est possible hors ligne ou si le CDN est indisponible.
+
+4. Précision limitée par les entiers
+   Clipper travaille en coordonnées entières. CLIPPER_SCALE = 100 donne
+   une précision de 0.01 unité de fonte — suffisant en pratique, mais
+   un artefact d'arrondi peut apparaître sur des formes très petites.
+
+
+AMÉLIORATION IDÉALE — Union en back-end Python
+────────────────────────────────────────────────
+L'union devrait idéalement être déléguée à un back-end Python qui dispose
+d'outils vectoriels de qualité professionnelle.
+
+Bibliothèques Python pertinentes :
+
+  fonttools (pip install fonttools)
+    → Manipulation complète des fichiers OTF/TTF : lecture, écriture,
+      table par table. Actuellement utilisé en production par la plupart
+      des fonderies numériques. Remplace opentype.js côté serveur.
+
+  shapely (pip install shapely)
+    → Union et opérations booléennes sur des géométries vectorielles.
+      Travaille nativement avec des courbes et des polygones complexes.
+      Résultat : contours propres avec coordonnées flottantes précises.
+
+  skia-pathops (pip install skia-pathops)
+    → Implémentation des opérations booléennes sur paths de Skia (le moteur
+      de rendu de Chrome/Android). C'est exactement ce qu'utilise FontLab
+      et ce que recommandent les outils de validation de fontes modernes.
+      Préserve les courbes de Bézier cubiques → les cercles restent des
+      cercles dans l'OTF exporté.
+
+Architecture cible :
+  Le générateur front-end (HTML/JS) envoie les paramètres courants
+  (shape, mesh, taille, size, hazard) à un endpoint Python via une
+  requête HTTP. Le back-end :
+    1. Reproduit le même algorithme de placement des dots (même grille,
+       même filtre probabiliste — idéalement avec le même seed aléatoire)
+    2. Construit les paths de Bézier pour chaque dot
+    3. Effectue l'union via skia-pathops ou shapely
+    4. Assemble le fichier OTF avec fonttools
+    5. Renvoie le binaire .otf au navigateur en téléchargement direct
+
+Avantages :
+  - Cercles exportés comme de vrais Bézier cubiques (non facettés)
+  - Union rapide, hors du thread UI
+  - Pas de dépendance CDN
+  - Meilleure validation (fonttools peut exécuter otf-sanitize)
+  - Ouvre la porte à un export batch (plusieurs paramètres d'un coup)
+
+
+EN ATTENDANT — Contournement partiel actuel
+────────────────────────────────────────────
+Pour minimiser les artefacts de facettage des cercles dans l'export
+actuel, getCirclePolygon() utilise n=16 segments (dans export-otf.js).
+Augmenter n améliore la précision au coût d'un fichier plus lourd.
+Ce n'est pas une solution — c'est un compromis temporaire.
+
+Les shapes à base de lignes droites (square, trait_2, polygone, polygone8)
+ne souffrent pas de ce problème : Clipper.js les gère sans perte de qualité
+puisque ce sont déjà des polygones.

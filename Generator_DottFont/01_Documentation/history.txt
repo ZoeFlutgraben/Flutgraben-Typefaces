@@ -954,3 +954,74 @@ Leviers identifiés (du plus au moins impactant) :
   appliquer 1 seul avec un subset strict (A–Z).
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 14/04/2026
+------------------------------------------------------------
+
+DOCUMENTATION TECHNIQUE — Ajout de clone.txt et future.txt
+
+  Deux fichiers de documentation créés à la racine de Generator_DottFont/.
+
+
+clone.txt — Guide pour ajouter ou modifier une shape
+  Contexte : le projet commence à accumuler des shapes (5 actives, 5 archivées).
+             Sans documentation, ajouter une nouvelle forme oblige à retrouver
+             tous les points de modification par lecture du code.
+
+  Contenu :
+    - Architecture générale du pipeline
+        shape SVG → SHAPES dict → updateBaseShape() → shapeDotSVG() → export-otf.js
+    - Rôle du dossier clone/ (fichiers de référence Inkscape, non chargés à runtime)
+      et de clone/archives/ (shapes retirées)
+    - Méthode d'extraction d'un viewBox propre depuis Inkscape :
+        Fichier > Propriétés du document > Redimensionner la page au dessin
+        → coordonnées normalisées à (0, 0) → viewBox = "0 0 W H"
+      avec les 5 shapes actives en exemples (circle, pink_square, polygone,
+      polygone8, trait_2)
+    - Procédure complète d'ajout d'une nouvelle shape (exemple fictif "diamond") :
+        1. Dessiner dans Inkscape → clone/<nom>.svg
+        2. Ajouter dans SHAPES{} (script-generator_DottFont.js)
+        3. Ajouter un case dans shapeDotSVG() avec le calcul des ratios viewBox
+        4. Ajouter le <button data-shape="..."> dans index.html
+        5. export-otf.js : 5 endroits à modifier —
+             getXxxPolygon()     (Clipper, mode chevauchement)
+             addXxxBezier()      (opentype.js direct, mode non-chevauchant)
+             addShapeBezierToPath() case
+             bloc canOverlap case
+             shapeLabel + shapeAbbr dicts
+    - Procédure de modification d'une shape existante (archiver d'abord)
+    - Calcul des ratios de forme depuis le viewBox (règle xMidYMid meet)
+    - Checklist rapide (9 cases à cocher)
+
+
+future.txt — Limites actuelles et pistes d'amélioration de l'export OTF
+  Contexte : l'union Clipper.js fonctionne mais présente des limitations
+             connues qui méritent d'être documentées pour une future évolution.
+
+  Contenu :
+    - Pourquoi l'union est obligatoire dans un fichier OTF
+        (contours superposés → trous visuels selon fill rule, rejet par outils)
+    - Solution actuelle : union côté client avec Clipper.js
+        fonctionnement : polygonisation → ClipperLib ctUnion pftNonZero
+        → clipperToOpentypePath → opentype.js
+    - Limites de l'approche actuelle :
+        1. Qualité des courbes — Clipper ne comprend pas les courbes ;
+           les cercles sont facettés (16 segments) dans l'OTF exporté.
+           Problème principal, visible haute résolution et en outillage vectoriel.
+        2. Performance — export lourd sur un charset complet (~138 caractères),
+           thread principal bloqué malgré les yield.
+        3. Dépendance CDN — aucun export OTF hors ligne si cdn.jsdelivr.net
+           est indisponible.
+        4. Précision entière — CLIPPER_SCALE=100 → 0.01 unité de fonte,
+           artefacts potentiels sur très petites formes.
+    - Amélioration idéale : union en back-end Python
+        bibliothèques : fonttools, shapely, skia-pathops
+        (skia-pathops préserve les courbes Bézier → cercles vraiment ronds)
+        architecture cible : endpoint Python reçoit les paramètres, reproduit
+        la grille de dots, effectue l'union, assemble l'OTF via fonttools,
+        renvoie le binaire au navigateur.
+    - Contournement actuel : n=16 dans getCirclePolygon() — compromis temporaire,
+      ne concerne que les shapes courbes (polygones non impactés).
+
+============================================================
