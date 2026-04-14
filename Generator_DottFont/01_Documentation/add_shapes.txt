@@ -12,8 +12,10 @@ Le générateur place des copies d'une forme atomique sur une grille,
   1. L'utilisateur sélectionne une shape via les boutons dans #shape-selector (index.html)
   2. updateBaseShape() injecte la shape comme <symbol id="base-dot"> dans les <defs> du SVG
      → utilisé pour l'aperçu en direct (les <use> dans le SVG de sortie)
+     → lit directement SHAPES[] — aucune modification de la fonction nécessaire
   3. shapeDotSVG() génère les éléments SVG natifs (circle, rect, polygon…)
      → utilisé pour l'export SVG (pas de <use>, formes directement éditables)
+     → doit être mis à jour pour chaque nouvelle shape (voir ANATOMIE ci-dessous)
   4. export-otf.js convertit les mêmes positions en paths opentype.js
      → utilisé pour l'export OTF
 
@@ -87,6 +89,123 @@ Règle du preserveAspectRatio="xMidYMid meet" :
   Les ratios du viewBox définissent directement les proportions visuelles du dot.
 
 
+CALCUL DES RATIOS DE FORME
+───────────────────────────
+Toutes les fonctions de rendu reçoivent r = demi-taille du dot (rayon ou demi-largeur).
+Les dimensions réelles s'obtiennent depuis le viewBox par la règle xMidYMid meet.
+
+La cellule du dot est carrée (size × size). Avec meet :
+  scale = size / max(vbW, vbH)    ← le plus grand côté du viewBox est le côté contraint
+
+  → demi-largeur rendue = (vbW / 2) × scale = r × (vbW / max(vbW, vbH))
+  → demi-hauteur rendue = (vbH / 2) × scale = r × (vbH / max(vbW, vbH))
+
+Exemples :
+  circle   viewBox 0 0 2 2       → max = 2 → demi-largeur = r, demi-hauteur = r
+  polygone viewBox 0 0 2.829 2.691 → max = W = 2.829
+             → demi-hauteur = r × (2.691 / 2.829) ≈ r × 0.951
+  trait_2  viewBox 0 0 3.614 1.027 → max = W = 3.614
+             → demi-hauteur = r × (1.027 / 3.614) ≈ r × 0.284
+             (dans le code : h = size × 1.027 / 3.614 — même résultat)
+  diamond  viewBox 0 0 2 2.6     → max = H = 2.6
+             → demi-hauteur = r × (2.6 / 2.6) = r × 1.0
+             → demi-largeur  = r × (2 / 2.6)   ≈ r × 0.769
+             ATTENTION : si H > W, c'est H qui est contraint, pas W.
+             La largeur devient inférieure à r, la hauteur vaut r exactement.
+
+Formule générale pour un sommet de polygon (px, py) dans un viewBox "0 0 vbW vbH" :
+  offset_x = (px - vbW/2) × scale  où scale = r × 2 / max(vbW, vbH)
+  offset_y = (py - vbH/2) × scale
+  → sommet rendu = (cx + offset_x, cy + offset_y)
+
+  Exemple avec le sommet bas de polygone (px=1.415, py=2.691), vbW=2.829 contraint :
+    scale = r × 2 / 2.829
+    offset_x = (1.415 - 1.415) × scale = 0             → cx
+    offset_y = (2.691 - 1.346) × scale = 1.346 × scale ≈ r × 0.951   → cy + r×0.951
+
+
+ANATOMIE DE shapeDotSVG()
+──────────────────────────
+Cette section décrit la structure de la fonction pour que tu puisses y ajouter
+ou modifier un case sans avoir à deviner les conventions.
+
+Signature : function shapeDotSVG(cx, cy, r)
+  cx, cy  — coordonnées du centre du dot dans le SVG de sortie (pixels)
+  r       — demi-taille finale du dot (après tous les multiplicateurs de taille)
+
+Variables locales pré-calculées en haut de la fonction (disponibles dans chaque case) :
+  const size = r * 2    → diamètre / côté pleine largeur
+  const x    = cx - r   → bord gauche du dot (coin haut-gauche pour un rect carré)
+  const y    = cy - r   → bord haut du dot   (coin haut-gauche pour un rect carré)
+
+La fonction est une série de if/return — un bloc par shape — suivis du default circle.
+Chaque bloc retourne une string SVG avec les coordonnées calculées depuis cx, cy, r.
+Ajouter le nouveau bloc juste avant le commentaire "// Default: circle" (ligne 321).
+
+── PATRON A — rect carré (viewBox W == H) ──────────────────────────────────────
+  Utiliser x, y, size directement.
+
+  if (currentShape === 'square') {
+    return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}"
+                  width="${size.toFixed(2)}" height="${size.toFixed(2)}" fill="#ff00ff"/>`;
+  }
+
+── PATRON B — rect non carré (viewBox W ≠ H) ───────────────────────────────────
+  Le côté le plus grand du viewBox détermine scale ; l'autre côté est réduit en proportion.
+  Le rect rendu a toujours une dimension = size et l'autre < size.
+  Il faut recentrer le rect sur cy (ou cx si c'est la hauteur qui est pleine).
+
+  Exemple : trait_2 (viewBox 0 0 3.614 1.027) — W > H → W est contraint.
+    size correspond à la largeur (côté contraint).
+    Hauteur rendue : h = size × (vbH / vbW) = size × (1.027 / 3.614)
+    Décalage vertical pour recentrer : oy = (size - h) / 2
+
+    if (currentShape === 'trait_2') {
+      // viewBox 0 0 3.614 1.027 — width-constrained. Height = size * (1.027/3.614).
+      const h  = size * 1.027 / 3.614;
+      const oy = (size - h) / 2;        // vertical centering offset
+      return `<rect x="${x.toFixed(2)}" y="${(y + oy).toFixed(2)}"
+                    width="${size.toFixed(2)}" height="${h.toFixed(2)}" fill="#000000"/>`;
+    }
+
+  Si H > W (forme haute plutôt que large), c'est la hauteur qui vaut size :
+    Largeur rendue : w = size × (vbW / vbH)
+    Décalage horizontal : ox = (size - w) / 2
+    Utiliser x + ox pour le x du rect, et y pour le y.
+
+── PATRON C — polygon ──────────────────────────────────────────────────────────
+  Calculer chaque sommet depuis le centre (cx, cy) avec la formule de la section
+  CALCUL DES RATIOS DE FORME.
+  L'ordre des points suit le sens des aiguilles d'une montre en coordonnées SVG (Y-down).
+
+  Exemple : diamond (viewBox 0 0 2 2.6) — H > W → H est contraint.
+    scale = r × 2 / 2.6
+    demi-hauteur = r × (2.6/2.6) = r × 1.0 = r   (côté contraint → ratio = 1)
+    demi-largeur = r × (2/2.6)   ≈ r × 0.769
+
+    if (currentShape === 'diamond') {
+      // viewBox 0 0 2 2.6 — height-constrained. hw = r * (2/2.6), hh = r * 1.0.
+      const hw = r * (2 / 2.6);    // horizontal half-width
+      const hh = r;                 // vertical half-height (= r, constrained side)
+      const pts = [
+        `${cx.toFixed(2)},${(cy - hh).toFixed(2)}`,      // top
+        `${(cx + hw).toFixed(2)},${cy.toFixed(2)}`,      // right
+        `${cx.toFixed(2)},${(cy + hh).toFixed(2)}`,      // bottom
+        `${(cx - hw).toFixed(2)},${cy.toFixed(2)}`       // left
+      ].join(' ');
+      return `<polygon points="${pts}" fill="#000000"/>`;
+    }
+
+  Démarche générale pour un polygon :
+    1. Identifier le côté contraint : max(vbW, vbH)
+    2. Pour chaque sommet (px, py) du viewBox :
+         offset_x = (px - vbW/2) × (r × 2 / max(vbW, vbH))
+         offset_y = (py - vbH/2) × (r × 2 / max(vbW, vbH))
+         → `${(cx + offset_x).toFixed(2)},${(cy + offset_y).toFixed(2)}`
+    3. Nommer les constantes intermédiaires avec des noms lisibles (h, hw, vm, hh…)
+       plutôt que d'inliner les formules dans chaque point.
+
+
 AJOUTER UNE NOUVELLE SHAPE — procédure complète
 ────────────────────────────────────────────────
 Exemple fictif : une forme appelée "diamond" (losange).
@@ -107,29 +226,32 @@ Exemple fictif : une forme appelée "diamond" (losange).
       content: '<polygon points="1,0 2,1.3 1,2.6 0,1.3" fill="#000000"/>'
     }
 
+  Note : updateBaseShape() lit SHAPES[] automatiquement — aucune autre modification.
+
 ──── ÉTAPE 3 — Ajouter le case dans shapeDotSVG()
   Fichier : js/script-generator_DottFont.js
-  Fonction shapeDotSVG(), vers la ligne 272.
-  Ajouter avant le "Default: circle" final :
+  Fonction shapeDotSVG(), vers la ligne 277.
+  Ajouter le bloc juste avant "// Default: circle" (ligne 321).
+  Choisir le patron A, B ou C selon la section ANATOMIE DE shapeDotSVG().
+
+  Pour diamond (polygon, H > W → H contraint, voir PATRON C) :
+    Calcul des ratios depuis viewBox "0 0 2 2.6" :
+      côté contraint = H = 2.6 → scale = r×2 / 2.6
+      demi-hauteur = r × (2.6/2.6) = r × 1.0 = r
+      demi-largeur = r × (2/2.6) ≈ r × 0.769
 
     if (currentShape === 'diamond') {
-      // viewBox 0 0 2 2.6 — height-constrained by meet.
-      // Half-height = r * (2.6/2), horizontal reach = r.
-      const hh = r * 1.3;
+      // viewBox 0 0 2 2.6 — height-constrained. hw = r*(2/2.6), hh = r.
+      const hw = r * (2 / 2.6);
+      const hh = r;
       const pts = [
-        `${cx.toFixed(2)},${(cy - hh).toFixed(2)}`,  // top
-        `${(cx + r).toFixed(2)},${cy.toFixed(2)}`,   // right
-        `${cx.toFixed(2)},${(cy + hh).toFixed(2)}`,  // bottom
-        `${(cx - r).toFixed(2)},${cy.toFixed(2)}`    // left
+        `${cx.toFixed(2)},${(cy - hh).toFixed(2)}`,      // top
+        `${(cx + hw).toFixed(2)},${cy.toFixed(2)}`,      // right
+        `${cx.toFixed(2)},${(cy + hh).toFixed(2)}`,      // bottom
+        `${(cx - hw).toFixed(2)},${cy.toFixed(2)}`       // left
       ].join(' ');
       return `<polygon points="${pts}" fill="#000000"/>`;
     }
-
-  Note sur les ratios :
-    Le viewBox est "0 0 2 2.6" ; le côté long est la hauteur (2.6 > 2).
-    Avec meet, c'est la hauteur qui contraint → scale = size / 2.6.
-    La demi-hauteur en coordonnées de dot = r × (2.6 / 2) = r × 1.3.
-    La demi-largeur = r × (2 / 2) = r × 1.0 = r.
 
 ──── ÉTAPE 4 — Ajouter le bouton dans index.html
   Fichier : index.html
@@ -149,14 +271,15 @@ Exemple fictif : une forme appelée "diamond" (losange).
       après getPolygone8Polygon(), vers la ligne 109 :
 
         // Returns a CCW polygon for a diamond (rhombus) in Y-up font coordinates.
-        // viewBox 0 0 2 2.6 — height-constrained; half-height ratio = 1.3.
+        // viewBox 0 0 2 2.6 — height-constrained; hw = r*(2/2.6), hh = r.
         function getDiamondPolygon(cx, cy, r) {
-          const hh = r * 1.3;
+          const hw = r * (2 / 2.6);
+          const hh = r;
           return [
-            { X: Math.round(cx           * CLIPPER_SCALE), Y: Math.round((cy + hh) * CLIPPER_SCALE) }, // top
-            { X: Math.round((cx + r)     * CLIPPER_SCALE), Y: Math.round(cy         * CLIPPER_SCALE) }, // right
-            { X: Math.round(cx           * CLIPPER_SCALE), Y: Math.round((cy - hh) * CLIPPER_SCALE) }, // bottom
-            { X: Math.round((cx - r)     * CLIPPER_SCALE), Y: Math.round(cy         * CLIPPER_SCALE) }, // left
+            { X: Math.round(cx        * CLIPPER_SCALE), Y: Math.round((cy + hh) * CLIPPER_SCALE) }, // top
+            { X: Math.round((cx + hw) * CLIPPER_SCALE), Y: Math.round(cy         * CLIPPER_SCALE) }, // right
+            { X: Math.round(cx        * CLIPPER_SCALE), Y: Math.round((cy - hh) * CLIPPER_SCALE) }, // bottom
+            { X: Math.round((cx - hw) * CLIPPER_SCALE), Y: Math.round(cy         * CLIPPER_SCALE) }, // left
           ];
         }
 
@@ -167,13 +290,14 @@ Exemple fictif : une forme appelée "diamond" (losange).
       après addPolygone8Bezier(), vers la ligne 174 :
 
         // Appends a diamond (rhombus) to an opentype.Path, CCW in Y-up.
-        // Half-height = r * 1.3 from viewBox 0 0 2 2.6, height-constrained.
+        // viewBox 0 0 2 2.6 — height-constrained; hw = r*(2/2.6), hh = r.
         function addDiamondBezier(path, cx, cy, r) {
-          const hh = r * 1.3;
+          const hw = r * (2 / 2.6);
+          const hh = r;
           path.moveTo(cx,      cy + hh);  // top
-          path.lineTo(cx + r,  cy);       // right
+          path.lineTo(cx + hw, cy);       // right
           path.lineTo(cx,      cy - hh);  // bottom
-          path.lineTo(cx - r,  cy);       // left
+          path.lineTo(cx - hw, cy);       // left
           path.close();
         }
 
@@ -211,39 +335,37 @@ MODIFIER UNE SHAPE EXISTANTE
   2. Redessiner dans Inkscape → sauvegarder dans clone/ avec le même nom de fichier
   3. Extraire le nouveau viewBox et le contenu normalisé (voir section ci-dessus)
   4. Mettre à jour l'entrée dans SHAPES (viewBox + content)
-  5. Mettre à jour shapeDotSVG() : recalculer les ratios depuis le nouveau viewBox
-  6. Mettre à jour export-otf.js : recalculer les ratios dans les fonctions
-     getXxxPolygon() et addXxxBezier() correspondantes
+     → updateBaseShape() se met à jour automatiquement depuis SHAPES[]
+
+  5. Mettre à jour shapeDotSVG() — recalculer les ratios depuis le nouveau viewBox
+     Localiser le bloc if (currentShape === 'nom') dans shapeDotSVG(), vers la ligne 282.
+     Appliquer la formule de la section CALCUL DES RATIOS DE FORME avec les nouvelles valeurs.
+
+     Exemple — polygone change de viewBox "0 0 2.829 2.691" → "0 0 3.0 2.8" :
+       Avant  : côté contraint = W = 2.829  → h = r × (2.691/2.829) ≈ r × 0.951
+       Après  : côté contraint = W = 3.0    → h = r × (2.8/3.0)     ≈ r × 0.933
+       Dans le code, remplacer :
+         const h = r * 0.951;   →   const h = r * (2.8 / 3.0);
+       Faire de même pour tous les ratios du bloc (hw, vm, hh…).
+
+     Pour retrouver tous les ratios existants sans les recalculer depuis zéro :
+       ils sont déjà nommés dans le case courant — les lire, puis recalculer
+       uniquement ceux qui changent avec le nouveau viewBox.
+
+  6. Mettre à jour export-otf.js : recalculer les ratios dans getXxxPolygon()
+     et addXxxBezier() — mêmes formules, mêmes ratios qu'à l'étape 5.
+
   7. Mettre à jour le bouton dans index.html (SVG d'aperçu)
-
-
-CALCUL DES RATIOS DE FORME (rappel)
-─────────────────────────────────────
-  Toutes les fonctions de rendu reçoivent r = demi-taille du dot (rayon ou demi-largeur).
-  Les dimensions réelles s'obtiennent depuis le viewBox par la règle xMidYMid meet :
-
-    côté contraint = le plus court entre W et H du viewBox
-    scale = (r * 2) / côté_contraint
-    → demi-largeur rendue  = (vbW / 2) × scale = r × (vbW / côté_contraint)
-    → demi-hauteur rendue  = (vbH / 2) × scale = r × (vbH / côté_contraint)
-
-  Exemples :
-    circle   viewBox 0 0 2 2     → carré → demi-largeur = r, demi-hauteur = r
-    trait_2  viewBox 0 0 3.614 1.027 → width contraint (3.614 > 1.027 est faux...
-             ...en fait H < W donc height n'est pas le côté court ; W = 3.614 est contraint
-             → scale = (r*2)/3.614 → demi-hauteur = 1.027/2 × scale = r × (1.027/3.614)
-    diamond  viewBox 0 0 2 2.6   → H > W → W est le côté court → scale = (r*2)/2
-             → demi-hauteur = 2.6/2 × scale = r × 1.3
 
 
 CHECKLIST RAPIDE (nouvelle shape)
 ──────────────────────────────────
   [ ] clone/<nom>.svg  créé et normalisé (page ajustée au dessin dans Inkscape)
   [ ] SHAPES{}  entrée ajoutée  (script-generator_DottFont.js)
-  [ ] shapeDotSVG()  case ajouté  (script-generator_DottFont.js)
+  [ ] shapeDotSVG()  case ajouté  patron A/B/C  (script-generator_DottFont.js, avant ligne 321)
   [ ] <button data-shape="...">  ajouté  (index.html)
-  [ ] getDiamondPolygon()  ajouté  (export-otf.js)
-  [ ] addDiamondBezier()   ajouté  (export-otf.js)
+  [ ] getXxxPolygon()   ajouté  (export-otf.js)
+  [ ] addXxxBezier()    ajouté  (export-otf.js)
   [ ] addShapeBezierToPath()  case ajouté  (export-otf.js)
   [ ] bloc canOverlap  case ajouté  (export-otf.js)
   [ ] shapeLabel + shapeAbbr  entrées ajoutées  (export-otf.js)

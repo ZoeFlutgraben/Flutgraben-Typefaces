@@ -108,6 +108,20 @@ function getPolygone8Polygon(cx, cy, r) {
   }));
 }
 
+// Returns a CCW polygon for a cross star in Y-up font coordinates.
+// viewBox 0 0 0.748 0.748 — square bounding box. scale = size/0.748.
+// Vertex ratios: negate SVG dy and reverse order to convert CW Y-down → CCW Y-up.
+function getCrossPolygon(cx, cy, r) {
+  const verts = [
+    [-0.587,  0.002], [-1.002, -0.999], [-0.001, -0.583], [ 0.999, -0.999],
+    [ 0.584,  0.002], [ 0.997,  1.000], [-0.001,  0.588], [-1.000,  1.000]
+  ];
+  return verts.map(([dx, dy]) => ({
+    X: Math.round((cx + dx * r) * CLIPPER_SCALE),
+    Y: Math.round((cy + dy * r) * CLIPPER_SCALE),
+  }));
+}
+
 // Cubic Bezier circle approximation constant: (4/3) × tan(π/8) ≈ 0.5523.
 // Each of 4 quadrant segments has < 0.03% radial error — indistinguishable from a true circle.
 const BEZIER_K = 0.5522847498;
@@ -173,6 +187,21 @@ function addPolygone8Bezier(path, cx, cy, r) {
   path.close();
 }
 
+// Appends a cross star to an opentype.Path, CCW in Y-up.
+// viewBox 0 0 0.748 0.748 — square bounding box.
+// Vertex ratios: negated SVG dy, reversed order for CCW winding.
+function addCrossBezier(path, cx, cy, r) {
+  const verts = [
+    [-0.587,  0.002], [-1.002, -0.999], [-0.001, -0.583], [ 0.999, -0.999],
+    [ 0.584,  0.002], [ 0.997,  1.000], [-0.001,  0.588], [-1.000,  1.000]
+  ];
+  path.moveTo(cx + verts[0][0] * r, cy + verts[0][1] * r);
+  for (let i = 1; i < verts.length; i++) {
+    path.lineTo(cx + verts[i][0] * r, cy + verts[i][1] * r);
+  }
+  path.close();
+}
+
 // Dispatches to the correct Bezier function for the current shape.
 // Used when dots cannot overlap (no Clipper union needed).
 function addShapeBezierToPath(path, cx, cy, r) {
@@ -189,6 +218,8 @@ function addShapeBezierToPath(path, cx, cy, r) {
     addPolygone5Bezier(path, cx, cy, r);
   } else if (currentShape === 'polygone8') {
     addPolygone8Bezier(path, cx, cy, r);
+  } else if (currentShape === 'cross') {
+    addCrossBezier(path, cx, cy, r);
   } else {
     addCircleBezier(path, cx, cy, r, false);
   }
@@ -425,6 +456,8 @@ async function exportOTF() {
             polygons.push(getPolygone5Polygon(fx, fy, fr));
           } else if (currentShape === 'polygone8') {
             polygons.push(getPolygone8Polygon(fx, fy, fr));
+          } else if (currentShape === 'cross') {
+            polygons.push(getCrossPolygon(fx, fy, fr));
           } else {
             polygons.push(getCirclePolygon(fx, fy, fr));
           }
@@ -457,7 +490,8 @@ async function exportOTF() {
     square:   'Square',
     trait_2:  'Trait 2',
     polygone: 'Polygone',
-    polygone8:'Polygone 8'
+    polygone8:'Polygone 8',
+    cross:    'Cross'
   }[currentShape] || currentShape;
 
   // Abbreviated shape key for the legacy family name (nameID 1).
@@ -469,7 +503,8 @@ async function exportOTF() {
     square:   'Sq',
     trait_2:  'T2',
     polygone: 'P5',
-    polygone8:'P8'
+    polygone8:'P8',
+    cross:    'Cr'
   }[currentShape] || currentShape;
   const legacyFamily = `FLUTGRABEN ${shapeAbbr} M${meshSize} T${tailleGenerationMultiplier.toFixed(2)} S${sizeMultiplier.toFixed(2)} H${presenceStrength.toFixed(2)}`;
 

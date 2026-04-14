@@ -103,6 +103,11 @@ const SHAPES = {
   polygone8: {
     viewBox: '0 0 2.314 2.314',
     content: '<polygon points="0.348,0.353 0.012,1.163 0.348,1.973 1.158,2.309 1.968,1.973 2.304,1.163 1.968,0.353 1.158,0.017" fill="#000000"/>'
+  },
+
+  cross:{
+    viewBox: '0 0 0.748 0.748',
+    content: '<polygon points="0,0 0.373447,0.154202 0.746893,0 0.592326,0.373081 0.747624,0.747624 0.373447,0.59196 -7.31e-4,0.747624 0.154568,0.373081" fill="#dc2828"/>'
   }
 };
 
@@ -312,6 +317,18 @@ function shapeDotSVG(cx, cy, r) {
     const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');
     return `<polygon points="${pts}" fill="#000000"/>`;
   }
+
+  if (currentShape === 'cross') {
+      // viewBox 0 0 0.748 0.748 — square bounding box. scale = size/0.748
+      // 8-point cross star. Vertex ratios derived from normalized viewBox coords:                                                         
+      // ratio = (px - vbW/2) / (vbW/2) = (px - 0.374) / 0.374                                                                                              
+      const verts = [                                    
+        [-1.000, -1.000], [-0.001, -0.588], [ 0.997, -1.000], [ 0.584, -0.002],                                                      
+        [ 0.999,  0.999], [-0.001,  0.583], [-1.002,  0.999], [-0.587, -0.002]                                                          
+      ];                                                               
+      const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');                                             
+      return `<polygon points="${pts}" fill="#dc2828"/>`;                                                             
+    }       
 
   // Default: circle
   return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="#000000"/>`;
