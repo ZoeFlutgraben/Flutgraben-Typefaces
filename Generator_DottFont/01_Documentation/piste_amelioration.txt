@@ -1,6 +1,6 @@
 PISTES D'AMÉLIORATION — Export OTF et union des formes
 ========================================================
-Generator DottFont — Flutgraben e.V.
+Generator DottFont — Zoé Berthelot @neutronzoo
 Dernière mise à jour : 2026-04-14
 
 

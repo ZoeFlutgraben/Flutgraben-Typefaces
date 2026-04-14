@@ -1,0 +1,137 @@
+CHANGER LA POLICE D'ENTRÉE — Guide technique
+=============================================
+Generator DottFont — Zoé Berthelot @neutronzoo
+Dernière mise à jour : 2026-04-14
+
+
+POINTS D'ENTRÉE
+───────────────
+La police de génération est câblée à deux endroits distincts.
+Les deux doivent être mis à jour ensemble.
+
+1. CSS/style.css — lignes 24–30
+   Déclaration @font-face qui charge le fichier de police
+   et fixe les métriques verticales.
+
+     @font-face {
+       font-family: 'DINish';
+       src: url('../DINish/DINish-Bold.woff') format('woff');
+       font-weight: 700;
+       font-style: normal;
+       ascent-override:   102.54%;
+       descent-override:  24.22%;
+       line-gap-override: 0%;
+     }
+
+2. js/script-generator_DottFont.js — fonction renderTextMask(), ligne 151
+   Spec de police utilisée pour deux opérations critiques :
+     a. ctx.measureText(text)  — calcule la largeur du canvas caché
+     b. ctx.fillText(text, …)  — rasterise le masque texte pixel par pixel
+
+     const fontSpec = `700 ${FONT_SIZE}px DINish, sans-serif`;
+
+   Le nom de famille ('DINish') et le weight (700) doivent correspondre
+   exactement à ce qui est déclaré dans @font-face.
+
+
+PROCÉDURE COMPLÈTE
+──────────────────
+Exemple fictif : remplacer DINish Bold par une police appelée "Koulen".
+
+──── ÉTAPE 1 — Ajouter le fichier de police
+  Créer un sous-dossier au même niveau que DINish/ :
+
+    Koulen/
+      Koulen-Regular.woff
+
+  Format acceptés : .woff, .woff2, .ttf, .otf
+  Préférer .woff2 (meilleure compression) ou .woff (compatibilité maximale).
+
+──── ÉTAPE 2 — Mettre à jour @font-face dans CSS/style.css
+  Remplacer la déclaration existante :
+
+    @font-face {
+      font-family: 'Koulen';
+      src: url('../Koulen/Koulen-Regular.woff') format('woff');
+      font-weight: 400;
+      font-style: normal;
+      ascent-override:   [voir section Métriques ci-dessous];
+      descent-override:  [voir section Métriques ci-dessous];
+      line-gap-override: 0%;
+    }
+
+  Mettre aussi à jour les règles qui référencent 'DINish' dans le même fichier :
+    - #text-input   { font-family: 'Koulen', sans-serif; font-weight: 400; }
+    - #export-btn, #export-png-btn, etc. (labels UI — peuvent rester en DINish
+      si on veut garder DINish pour l'interface et changer seulement la police
+      de génération)
+
+──── ÉTAPE 3 — Mettre à jour fontSpec dans script-generator_DottFont.js
+  Fichier : js/script-generator_DottFont.js
+  Fonction renderTextMask(), ligne 151.
+
+  Avant :
+    const fontSpec = `700 ${FONT_SIZE}px DINish, sans-serif`;
+
+  Après :
+    const fontSpec = `400 ${FONT_SIZE}px Koulen, sans-serif`;
+
+  Le format est : "<weight> <size>px <family>, <fallback>"
+  Le weight doit correspondre exactement au font-weight déclaré dans @font-face.
+
+
+MÉTRIQUES VERTICALES (ascent-override / descent-override)
+──────────────────────────────────────────────────────────
+Les overrides forcent le navigateur à utiliser les métriques de la police telles
+qu'elles sont, sans ajustement automatique. Si la nouvelle police a des métriques
+différentes, le masque texte risque d'être coupé en haut ou en bas.
+
+Comment obtenir les bonnes valeurs :
+  1. Ouvrir la police dans FontLab, Glyphs, ou un inspecteur de polices
+  2. Relever : unitsPerEm (UPM), ascender, descender
+  3. Calculer :
+       ascent-override  = (ascender  / UPM) × 100  en %
+       descent-override = (|descender| / UPM) × 100  en %
+
+  Exemple DINish Bold :
+    UPM = 1024, ascender = 1050, descender = -248
+    → ascent-override:  102.54%   (1050 / 1024 × 100)
+    → descent-override:  24.22%   (248  / 1024 × 100)
+
+Si les valeurs exactes sont inconnues, commencer par :
+    ascent-override:  100%;
+    descent-override: 20%;
+et ajuster visuellement jusqu'à ce que le texte ne soit pas coupé.
+
+
+CAS PARTICULIERS ET PIÈGES
+───────────────────────────
+1. Police pas encore chargée au moment du rendu
+   Le masque texte est rasterisé sur un canvas caché (ctx.fillText).
+   Si la police n'est pas encore disponible dans le navigateur au moment
+   où l'utilisateur tape la première lettre, ctx.measureText() tombe en
+   fallback (sans-serif) et le canvas sera sous-dimensionné.
+
+   Vérification : ouvrir l'onglet Network dans DevTools et confirmer que
+   le fichier .woff est bien chargé avant la première interaction.
+
+   Si le problème persiste, forcer le préchargement dans index.html :
+     <link rel="preload" href="Koulen/Koulen-Regular.woff" as="font"
+           type="font/woff" crossorigin>
+
+2. Weight inexact
+   Si fontSpec utilise font-weight: 700 mais que @font-face déclare
+   font-weight: 400, le navigateur substitue la police système Bold —
+   le masque sera rendu en Arial Bold au lieu de la police voulue.
+   Toujours faire correspondre les deux valeurs exactement.
+
+3. Rendu canvas ≠ rendu écran
+   Le canvas (#hidden-canvas) rasterise la police à FONT_SIZE = 150px.
+   Le div contenteditable (#text-input) l'affiche à --text-font-size: 15px.
+   Les deux utilisent la même famille, mais le rendu à 150px est nettement
+   plus précis — c'est celui-ci qui compte pour la génération des dots.
+
+4. Changer uniquement la taille de rendu
+   Modifier la constante FONT_SIZE (ligne 62 de script-generator_DottFont.js).
+   Une valeur plus grande → masque plus détaillé → plus de dots par caractère.
+   La largeur du canvas s'adapte automatiquement via ctx.measureText().
