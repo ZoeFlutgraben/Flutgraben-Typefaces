@@ -1,8 +1,7 @@
 // ============================================================
 // reglage_advance.js — Advanced typographic overlay controls
 //
-// Adds three visual overlays to the output SVG:
-//   - metrics  : baseline, cap height, x-height, descender lines
+// Adds two visual overlays to the output SVG:
 //   - outline  : vector contour of the DINish Bold letterforms
 //   - approches: left/right sidebearing zones per glyph
 //
@@ -18,9 +17,12 @@
 let dinishFont = null;
 
 // Overlay toggle state
-let showMetrics   = false;
 let showOutline   = false;
 let showApproches = false;
+
+// When true, export-otf.js skips Clipper boolean union and uses direct Bezier paths instead.
+// Exported as a global so export-otf.js can read it without a module system.
+let skipUnion = false;
 
 // Additional letter-spacing added to each inter-glyph gap, in canvas pixels (default 0)
 let letterSpacingPx = 0;
@@ -33,7 +35,7 @@ opentype.load('DINish/DINish-Bold.woff', (err, font) => {
     return;
   }
   dinishFont = font;
-  // Redraw if a font-dependent overlay is already active and canvas is ready
+  // Redraw if an overlay is already active and canvas is ready
   if ((showOutline || showApproches) && lastCanvasW > 0) drawOverlay();
 });
 
@@ -114,37 +116,12 @@ function drawOverlay() {
   const existing = outputSvg.querySelector('#overlay');
   if (existing) existing.remove();
 
-  if (!showMetrics && !showOutline && !showApproches) return;
+  if (!showOutline && !showApproches) return;
 
   const overlay = svgEl('g', { id: 'overlay' });
 
   // Compute shared metric positions — used by multiple overlays
   const m = computeMetricYPositions();
-
-  // --- Metric lines ---
-  if (showMetrics) {
-    const gm = svgEl('g', { id: 'overlay-metrics' });
-    const lines = [
-      { y: m.capHeightY, label: 'cap height', color: '#ff6600' },
-      { y: m.xHeightY,   label: 'x-height',   color: '#cc00aa' },
-      { y: m.baselineY,  label: 'baseline',   color: '#111111' },
-      { y: m.descenderY, label: 'descender',  color: '#009900' },
-    ];
-    for (const { y, label, color } of lines) {
-      gm.appendChild(svgEl('line', {
-        x1: 0, y1: y.toFixed(1), x2: w, y2: y.toFixed(1),
-        stroke: color, 'stroke-width': 0.6, 'stroke-dasharray': '5 3', opacity: 0.75
-      }));
-      const lbl = svgEl('text', {
-        x: 5, y: (y - 2.5).toFixed(1),
-        fill: color, 'font-size': 6,
-        'font-family': 'DINish, sans-serif', 'font-weight': 700, opacity: 0.85
-      });
-      lbl.textContent = label;
-      gm.appendChild(lbl);
-    }
-    overlay.appendChild(gm);
-  }
 
   // --- Font-based overlays: outline, approches (require font to be loaded) ---
   if ((showOutline || showApproches) && dinishFont && currentText) {
@@ -269,6 +246,7 @@ function drawOverlay() {
           lbl.textContent = Math.round(dispRsbPx / scale);
           ga.appendChild(lbl);
         }
+
       }
 
       // Closing boundary line at the end of the last glyph's displayed advance
@@ -367,9 +345,9 @@ generateContourOnly = function()     { _origGenerateContourOnly();  drawOverlay(
 generateTextOnly    = function()     { _origGenerateTextOnly();     drawOverlay(); };
 
 // --- Overlay toggle checkboxes ---
-document.getElementById('adv-show-metrics' ).addEventListener('change', e => { showMetrics   = e.target.checked; drawOverlay(); });
 document.getElementById('adv-show-outline' ).addEventListener('change', e => { showOutline   = e.target.checked; drawOverlay(); });
 document.getElementById('adv-show-approches').addEventListener('change', e => { showApproches = e.target.checked; drawOverlay(); });
+document.getElementById('adv-no-union'      ).addEventListener('change', e => { skipUnion     = e.target.checked; });
 
 // --- Tracking (letter-spacing) slider ---
 // Writes letterSpacingPx to the canvas context and triggers a full re-render

@@ -172,10 +172,7 @@
   <details id="top-panel-advance">
     <summary><span class="step-label">réglages avancés</span></summary>
     <div class="adv-controls">
-      <label class="adv-check">
-        <input type="checkbox" id="adv-show-metrics">
-        <span class="step-label">metrics</span>
-      </label>
+      <div class="flex">
       <label class="adv-check">
         <input type="checkbox" id="adv-show-outline">
         <span class="step-label">outline</span>
@@ -184,10 +181,15 @@
         <input type="checkbox" id="adv-show-approches">
         <span class="step-label">approches</span>
       </label>
+      <label class="adv-check">
+        <input type="checkbox" id="adv-no-union">
+        <span class="step-label">no union</span>
+      </label>
       <div class="slider-row">
         <label for="adv-tracking-slider">tracking</label>
         <input type="range" id="adv-tracking-slider" min="-30" max="30" step="1" value="0">
         <span id="adv-tracking-value" contenteditable="true">0</span>
+      </div>
       </div>
     </div>
   </details>

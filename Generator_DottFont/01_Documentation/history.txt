@@ -1166,3 +1166,31 @@ future.txt — Limites actuelles et pistes d'amélioration de l'export OTF
       ne concerne que les shapes courbes (polygones non impactés).
 
 ============================================================
+
+------------------------------------------------------------
+SESSION DU 15/04/2026 — RÉGLAGES AVANCÉS (top-panel-advance)
+------------------------------------------------------------
+Fichier modifié : Generator_DottFont/index.html
+Div concernée   : #top-panel-advance > .adv-controls
+
+Modifications apportées :
+
+1. Suppression du checkbox "metrics" (id="adv-show-metrics")
+   → Retiré du panneau avancé, probablement obsolète ou déplacé ailleurs.
+
+2. Regroupement des checkboxes dans un <div class="flex">
+   → Les checkboxes outline, approches et no-union sont désormais
+     encapsulés dans un conteneur flex pour l'alignement horizontal.
+   → Le slider "tracking" reste en dehors de ce wrapper (disposition verticale).
+
+3. Ajout du checkbox "no union" (id="adv-no-union")
+   → Nouvelle option avancée permettant de désactiver l'union Clipper.js
+     lors de l'export OTF.
+   → Utile pour comparer le résultat avec/sans union, ou pour déboguer
+     des problèmes de contours superposés.
+
+4. Validation du slider "tracking" (id="adv-tracking-slider")
+   → Fonctionnement confirmé : range de -30 à +30, step 1, valeur défaut 0.
+   → Valeur affichée dans un <span contenteditable> (#adv-tracking-value).
+
+============================================================

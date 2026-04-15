@@ -280,14 +280,16 @@ async function exportOTF() {
   exportOtfBtn.textContent = 'En cours...';
   exportOtfBtn.disabled = true;
 
-  // Load Clipper.js for polygon boolean union (injected dynamically, no HTML change needed).
-  try {
-    await loadClipper();
-  } catch (e) {
-    console.error('Failed to load Clipper.js:', e);
-    exportOtfBtn.textContent = 'Erreur Clipper';
-    exportOtfBtn.disabled = false;
-    return;
+  // Load Clipper.js for polygon boolean union — skipped when skipUnion is active.
+  if (!skipUnion) {
+    try {
+      await loadClipper();
+    } catch (e) {
+      console.error('Failed to load Clipper.js:', e);
+      exportOtfBtn.textContent = 'Erreur Clipper';
+      exportOtfBtn.disabled = false;
+      return;
+    }
   }
 
   // Load font metrics and glyph data from JSON.
@@ -378,7 +380,8 @@ async function exportOTF() {
 
   // Hoist constants that are identical for every glyph
   const step       = DOT_SPACING * tailleGenerationMultiplier;
-  const canOverlap = 2 * MAX_RADIUS * sizeMultiplier > DOT_SPACING;
+  // skipUnion (set by adv-no-union checkbox) forces direct Bezier paths regardless of dot size.
+  const canOverlap = !skipUnion && (2 * MAX_RADIUS * sizeMultiplier > DOT_SPACING);
 
   // Pre-compute radius formula parts: radius = radiusBase + darkness * radiusRange
   // Avoids repeating the same multiplications for every dot of every glyph.
