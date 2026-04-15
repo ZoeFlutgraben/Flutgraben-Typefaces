@@ -80,7 +80,8 @@ body {
 #top-panel,
 #top-panel-offset,
 #top-panel-export,
-#top-panel-aleatoire {
+#top-panel-aleatoire,
+#top-panel-advance {
   padding: 15px;
   border-radius: 10px;
   display: flex;
@@ -93,8 +94,9 @@ body {
 #top-panel          { background-color: rgba(255, 81,  228, 0.54); } /* pink   — main controls  */
 #top-panel-offset   { background-color: rgba(81,  190, 255, 0.54); } /* blue   — contour        */
 #top-panel-export   { background-color: rgba(81,  255, 125, 0.54); } /* green  — export         */
-#top-panel-aleatoire{ background-color: rgba(136, 81,  255, 0.54); } /* purple — randomize      */
-
+#top-panel-aleatoire{ background-color: rgba(136, 81,  255, 0.54); } /* purple — randomize  
+    */
+#top-panel-advance{ background-color: rgba(214, 142, 33, 0.54); }
 /* === Shared small-caps label typography (DINish 700 10px uppercase) === */
 .step-label,
 .slider-row label,
@@ -112,7 +114,7 @@ body {
 #export-png-btn {
   font-family: 'DINish', sans-serif;
   font-weight: 700;
-  font-size: 10px;
+  font-size: 0.6em;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -344,7 +346,7 @@ body {
   /* Label expands to fill the space left by the hidden slider */
   #panels-left .slider-row label {
     flex: 1;
-    font-size: 8px;
+    font-size: 0.5em;
   }
 
   /* Value spans become the editable input — show a subtle underline cue */
@@ -364,9 +366,107 @@ body {
   }
 }
 
+/* === Advanced panel — details/summary toggle === */
+#top-panel-advance summary {
+  cursor: pointer;
+  list-style: none;        /* Firefox */
+  user-select: none;
+}
+
+/* Hide the default disclosure triangle in WebKit/Blink */
+#top-panel-advance summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Checkbox rows inside the advanced panel */
+.adv-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Each row: checkbox + label side by side */
+.adv-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* Override the block display and bottom margin that .step-label normally has */
+.adv-check .step-label {
+  display: inline;
+  margin-bottom: 0;
+}
+
+.adv-check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--color-dark);
+  flex-shrink: 0;
+}
+
+/* === Tracking slider — same look as the main panel sliders === */
+#adv-tracking-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 2px;
+  background: var(--color-dark);
+  outline: none;
+  cursor: pointer;
+}
+
+#adv-tracking-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--color-dark);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#adv-tracking-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--color-dark);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Tracking value span — same typography as the other value labels */
+#adv-tracking-value {
+  font-family: 'DINish', sans-serif;
+  font-weight: 700;
+  font-size: 0.6em;
+  letter-spacing: 0.12em;
+  color: var(--color-label);
+  min-width: 2.5ch;
+  text-align: right;
+  pointer-events: none;
+  outline: none;
+}
+
+/* Narrow viewport: make the tracking value span editable (mirrors other sliders) */
+@media (max-width: 1300px) {
+  #panels-left #adv-tracking-value {
+    pointer-events: auto;
+    cursor: text;
+    border-bottom: 1px solid var(--color-label);
+    min-width: 3ch;
+  }
+
+  #panels-left #adv-tracking-slider {
+    display: none;
+  }
+}
+
 @media (max-width: 650px) {
   /* Hide all range sliders in the left panel */
   #panels-left {
-    font-size: 8px;
+    font-size: 0.5em;
   }
  }

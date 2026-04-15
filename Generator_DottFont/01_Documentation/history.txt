@@ -956,6 +956,147 @@ Leviers identifiés (du plus au moins impactant) :
 ============================================================
 
 ------------------------------------------------------------
+SESSION 14–15/04/2026
+------------------------------------------------------------
+
+PANNEAU RÉGLAGES AVANCÉS — js/reglage_advance.js (nouveau fichier)
+  Objectif : ajouter des overlays typographiques sur le SVG de sortie,
+             similaires à opentype.js.org — metrics, contour vectoriel,
+             approches latérales, slider de tracking.
+
+  index.html :
+    <details id="top-panel-advance"> existait déjà (vide).
+    Ajout dans le <details> :
+      3 checkboxes : adv-show-metrics, adv-show-outline, adv-show-approches
+      1 slider     : adv-tracking-slider (min=-50, max=200, step=1, default=0)
+      1 span       : adv-tracking-value
+    Suppression du checkbox adv-show-points (retiré à la demande).
+    Ajout de <script src="js/reglage_advance.js"></script> en dernier.
+
+  CSS/style.css :
+    Styles ajoutés pour le panneau avancé (fond orange #top-panel-advance),
+    summary (cursor pointer, no disclosure triangle), .adv-controls,
+    .adv-check, #adv-tracking-slider (même look que les autres sliders),
+    #adv-tracking-value (DINish 700 0.6em), responsive @media 1300px.
+
+  js/reglage_advance.js — fonctions principales :
+    dinishFont          : opentype.Font DINish Bold chargé via opentype.load()
+    showMetrics         : toggle ligne baseline/capHeight/xHeight/descender
+    showOutline         : toggle contour vectoriel DINish
+    showApproches       : toggle zones sidebearing LSB / RSB
+    letterSpacingPx     : valeur courante du slider tracking (px canvas)
+
+    computeMetricYPositions() :
+      ctx.measureText avec textBaseline='top'.
+      baselineY  = PADDING + actualBoundingBoxDescent('A')
+      capHeightY = PADDING - actualBoundingBoxAscent('H')
+      xHeightY   = PADDING - actualBoundingBoxAscent('x')
+      descenderY = PADDING + actualBoundingBoxDescent('g')
+
+    computeGlyphPositions(glyphs) :
+      Calcule la position X de chaque glyphe en tenant compte du kerning
+      (dinishFont.getKerningValue) et du letterSpacingPx.
+      extraLsb = letterSpacingPx x (lsbPx / (lsbPx + rsbPx))
+        → part du tracking ajoutée à gauche, proportionnelle au LSB d'origine.
+      Fallback : letterSpacingPx / 2 si le glyphe n'a pas de contour.
+
+    drawOverlay() :
+      Construit <g id="overlay"> avec sous-groupes :
+        #overlay-metrics  : 4 lignes horizontales colorées + labels
+        #overlay-outline  : path SVG du contour vectoriel (bleu #0055ff)
+        #overlay-approches: rects LSB (bleu) + RSB (orange) + valeurs en unités
+
+    Wrapping des fonctions globales (sans toucher les autres scripts) :
+      generateAllDots, generateContourOnly, generateTextOnly sont réassignées
+      à des wrappers appelant l'original puis drawOverlay().
+
+
+TRACKING — MISE À JOUR DU CANVAS (monkey-patch ctx)
+  Problème : renderTextMask() reset toutes les propriétés du contexte
+             (hiddenCanvas.width = canvasW efface letterSpacing).
+             Affecter ctx.letterSpacing avant generate() était sans effet.
+
+  Fix : monkey-patch de ctx.measureText et ctx.fillText à l'init.
+    ctx.measureText : injecte ctx.letterSpacing avant chaque mesure
+      → le canvas est dimensionné correctement.
+    ctx.fillText    : si letterSpacingPx > 0 et dinishFont chargé,
+      rend chaque caractère individuellement avec curX + extraLsb
+      (ctx.letterSpacing = '0px', positionnement manuel par caractère).
+      → le corps du glyphe est centré entre les zones LSB et RSB agrandies,
+         pas collé au bord gauche de l'avance élargie.
+
+  Distribution proportionnelle LSB/RSB :
+    extraLsb = letterSpacingPx x (lsbPx / (lsbPx + rsbPx))
+    Le glyphe se décale à droite de extraLsb, LSB et RSB s'agrandissent
+    dans les mêmes proportions que leurs tailles d'origine.
+    Les overlays (outline, approches) utilisent le même extraLsb.
+
+
+SUPPRESSION DU CHECKBOX "POINTS"
+  Retiré à la demande de l'utilisatrice.
+  index.html : bloc label.adv-check#adv-show-points supprimé.
+  reglage_advance.js : tout le code lié aux bezier points supprimé.
+
+
+INTÉGRATION DU TRACKING DANS L'EXPORT OTF (15/04/2026 — tentative)
+  Objectif : que l'OTF exporté reflète le tracking courant.
+
+  Deux corrections appliquées dans export-otf.js (boucle per-glyph) :
+
+  1. Correction X :
+     Avant  : fx = Math.round((x - PADDING) * SCALE)
+     Après  : fx = Math.round((x - PADDING - extraLsb) * SCALE)
+     La canvas rend chaque caractère à PADDING + extraLsb (voir monkey-patch).
+     Soustraire extraLsb récupère la coordonnée relative au glyphe.
+     extraLsb calculé avec la même formule LSB/RSB que le monkey-patch.
+
+  2. Correction advance width :
+     Avant  : advanceWidth: metrics.glyphs[char].advanceWidth
+     Après  : advanceWidth: metrics.glyphs[char].advanceWidth
+                            + Math.round(letterSpacingPx * SCALE)
+     letterSpacingPx (px canvas) x SCALE (UPM / FONT_SIZE) = unités fonte.
+
+  Note : résultat non encore validé visuellement (à vérifier).
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (15/04/2026)
+------------------------------------------------------------
+
+export-otf.js
+  Charset    : dynamique depuis JSON (138 glyphes A–Z, a–z, accents, chiffres, ponctuation)
+  Métriques  : UPM=1024, ascender=1050, descender=-248 depuis JSON
+  Advance W  : depuis JSON + Math.round(letterSpacingPx x SCALE) (tracking) [tentative]
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Coord map  : fontX = round((canvasX - PADDING - extraLsb) x SCALE) [tentative]
+               fontY = round((BASELINE_Y - canvasY) x SCALE)
+  extraLsb   : calculé par glyphe depuis dinishFont (même formule que monkey-patch)
+  Pixels     : toujours depuis gCtx (drawMeshGradientPreview) ✓
+  Shapes     : circle, square, trait_2, polygone, polygone8, cross ✓
+  Mode no-overlap : Bezier direct ✓
+  Mode overlap    : polygones N-gon + Clipper.js union pftNonZero ✓
+  Hazard     : formule adaptée meshSize=0 ✓
+
+js/reglage_advance.js (NOUVEAU)
+  Overlays   : metrics, outline, approches ✓
+  Tracking   : letterSpacingPx, slider + span éditable ✓
+  Monkey-patch ctx.measureText / ctx.fillText ✓
+  Distribution proportionnelle LSB/RSB ✓
+  Wrappers generateAllDots / generateContourOnly / generateTextOnly ✓
+
+index.html
+  <details #top-panel-advance> : checkboxes metrics/outline/approches,
+    slider tracking ✓
+  <script reglage_advance.js> chargé en dernier ✓
+
+CSS/style.css
+  #top-panel-advance, summary, .adv-controls, .adv-check,
+  #adv-tracking-slider, #adv-tracking-value, responsive ✓
+
+============================================================
+
+------------------------------------------------------------
 SESSION 14/04/2026
 ------------------------------------------------------------
 

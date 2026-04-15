@@ -168,6 +168,29 @@
   <div id="top-panel-aleatoire">     
     <button id="btn-aleatoire">Flop it!</button>
   </div>
+    
+  <details id="top-panel-advance">
+    <summary><span class="step-label">réglages avancés</span></summary>
+    <div class="adv-controls">
+      <label class="adv-check">
+        <input type="checkbox" id="adv-show-metrics">
+        <span class="step-label">metrics</span>
+      </label>
+      <label class="adv-check">
+        <input type="checkbox" id="adv-show-outline">
+        <span class="step-label">outline</span>
+      </label>
+      <label class="adv-check">
+        <input type="checkbox" id="adv-show-approches">
+        <span class="step-label">approches</span>
+      </label>
+      <div class="slider-row">
+        <label for="adv-tracking-slider">tracking</label>
+        <input type="range" id="adv-tracking-slider" min="-30" max="30" step="1" value="0">
+        <span id="adv-tracking-value" contenteditable="true">0</span>
+      </div>
+    </div>
+  </details>
 
   </div><!-- /panels-left -->
 
@@ -197,6 +220,7 @@
   <script src="js/script-generator_DottFont.js"></script>
   <script src="js/offset.js"></script>
   <script src="js/export-otf.js"></script>
+  <script src="js/reglage_advance.js"></script>
 
 </body>
 </html>
