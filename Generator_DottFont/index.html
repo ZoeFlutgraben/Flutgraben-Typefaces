@@ -154,6 +154,43 @@
 
   </div>
 
+  
+
+    <details id="top-panel-advance">
+    <summary><span class="step-label">⬇ Advanced settings</span></summary>
+    <div class="adv-controls">
+      <label class="adv-check">
+        <input type="checkbox" id="adv-show-outline">
+        <span class="step-label">outline</span>
+      </label>
+      <label class="adv-check">
+        <input type="checkbox" id="adv-show-approches">
+        <span class="step-label">Tracking</span>
+      </label>
+      
+      <div class="slider-row">
+        <label for="adv-tracking-slider">tracking settings
+        </label>
+        <input type="range" id="adv-tracking-slider" min="-30" max="30" step="1" value="0">
+        <span id="adv-tracking-value" contenteditable="true">0</span>
+      </div>
+
+      <div class="slider-row">
+        <label for="adv-opacity-slider">shape opacity</label>
+        <input type="range" id="adv-opacity-slider" min="0" max="1" step="0.01" value="1">
+        <span id="adv-opacity-value" contenteditable="true">1</span>
+      </div>
+
+
+      <label class="adv-check">
+        <input type="checkbox" id="adv-no-union">
+        <span class="step-label">keep shapes separate on export 
+          <p class="documentation">Enable only if you want each component shape within a glyph to be exported as an individual path, rather than merged in to a single outline</p>
+        </span>
+      </label>
+    </div>
+  </details>
+
   <div id="top-panel-export">
         <!-- EXPORT -->
     <div class="flex">
@@ -165,36 +202,21 @@
 
   </div>
 
+  
+  </div><!-- /panels-left -->
+  
+  <div id="top-panel-info">
+    <!-- <span class="step-label">info</span> -->
+    <p class="info-description">A tool for generating typefaces based on the halftone screen principle. <!-- Characters are built from atomic dot patterns whose density and size vary with the underlying gradient. --></p>
+    <p class="info-ref">Reference typeface: <a href="https://github.com/playbeing/dinish" target="_blank" rel="noopener">DINish</a></p>
+    <p class="info-credit">Zoé Berthelot · Flutgraben e.V. · 2026</p>
+  </div>
+
+  
   <div id="top-panel-aleatoire">     
     <button id="btn-aleatoire">Flop it!</button>
   </div>
-    
-  <details id="top-panel-advance">
-    <summary><span class="step-label">réglages avancés</span></summary>
-    <div class="adv-controls">
-      <div class="flex">
-      <label class="adv-check">
-        <input type="checkbox" id="adv-show-outline">
-        <span class="step-label">outline</span>
-      </label>
-      <label class="adv-check">
-        <input type="checkbox" id="adv-show-approches">
-        <span class="step-label">approches</span>
-      </label>
-      <label class="adv-check">
-        <input type="checkbox" id="adv-no-union">
-        <span class="step-label">no union</span>
-      </label>
-      <div class="slider-row">
-        <label for="adv-tracking-slider">tracking</label>
-        <input type="range" id="adv-tracking-slider" min="-30" max="30" step="1" value="0">
-        <span id="adv-tracking-value" contenteditable="true">0</span>
-      </div>
-      </div>
-    </div>
-  </details>
 
-  </div><!-- /panels-left -->
 
 
   <!-- ===================== RIGHT PANEL — dot output ===================== -->

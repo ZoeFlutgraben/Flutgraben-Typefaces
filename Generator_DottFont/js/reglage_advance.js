@@ -349,6 +349,23 @@ document.getElementById('adv-show-outline' ).addEventListener('change', e => { s
 document.getElementById('adv-show-approches').addEventListener('change', e => { showApproches = e.target.checked; drawOverlay(); });
 document.getElementById('adv-no-union'      ).addEventListener('change', e => { skipUnion     = e.target.checked; });
 
+// --- Shape opacity slider ---
+// Updates shapeOpacity (read by shapeDotSVG in script-generator_DottFont.js) and
+// triggers a full re-render so every shape is regenerated with the new opacity value.
+const opacitySlider = document.getElementById('adv-opacity-slider');
+const opacityValue  = document.getElementById('adv-opacity-value');
+
+opacitySlider.addEventListener('input', () => {
+  shapeOpacity = parseFloat(opacitySlider.value);
+  opacityValue.textContent = shapeOpacity.toFixed(2);
+  if (lastCanvasW > 0) generate();
+});
+
+bindSpanEdit(opacityValue, opacitySlider, false, v => {
+  shapeOpacity = v;
+  if (lastCanvasW > 0) generate();
+});
+
 // --- Tracking (letter-spacing) slider ---
 // Writes letterSpacingPx to the canvas context and triggers a full re-render
 // so dot positions reflect the new inter-glyph spacing.

@@ -38,6 +38,9 @@ let presenceStrength = parseFloat(presenceSlider.value);
 // Size multiplier — scales dot radii only; 1.0 = default, grid spacing stays fixed
 let sizeMultiplier = parseFloat(sizeSlider.value);
 
+// Opacity applied to each individual shape element; 1.0 = fully opaque
+let shapeOpacity = 1;
+
 // Taille-generation multiplier — scales both dot radii AND grid spacing together;
 // 1.0 = default, preserves visual density across all sizes
 let tailleGenerationMultiplier = parseFloat(tailleGenerationSlider.value);
@@ -279,8 +282,11 @@ function shapeDotSVG(cx, cy, r) {
   const x    = cx - r;
   const y    = cy - r;
 
+  // Shared opacity attribute — applied per-shape so overlapping shapes accumulate visually
+  const op = shapeOpacity < 1 ? ` opacity="${shapeOpacity}"` : '';
+
   if (currentShape === 'square') {
-    return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" fill="#ff00ff"/>`;
+    return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" fill="#ff00ff"${op}/>`;
   }
 
   if (currentShape === 'trait_2') {
@@ -288,7 +294,7 @@ function shapeDotSVG(cx, cy, r) {
     // scale = size/3.614 → rendered height = 1.027 × scale, no rounded corners
     const h  = size * 1.027 / 3.614;
     const oy = (size - h) / 2;  // vertical centering offset
-    return `<rect x="${x.toFixed(2)}" y="${(y + oy).toFixed(2)}" width="${size.toFixed(2)}" height="${h.toFixed(2)}" fill="#000000"/>`;
+    return `<rect x="${x.toFixed(2)}" y="${(y + oy).toFixed(2)}" width="${size.toFixed(2)}" height="${h.toFixed(2)}" fill="#000000"${op}/>`;
   }
 
   if (currentShape === 'polygone') {
@@ -304,7 +310,7 @@ function shapeDotSVG(cx, cy, r) {
       `${(cx + hw).toFixed(2)},${(cy - h).toFixed(2)}`,    // top-right
       `${(cx + r).toFixed(2)},${(cy + vm).toFixed(2)}`     // right
     ].join(' ');
-    return `<polygon points="${pts}" fill="#000000"/>`;
+    return `<polygon points="${pts}" fill="#000000"${op}/>`;
   }
 
   if (currentShape === 'polygone8') {
@@ -315,23 +321,23 @@ function shapeDotSVG(cx, cy, r) {
       [ 0.701,  0.705], [ 0.991,  0.005], [ 0.701, -0.695], [ 0.001, -0.985]
     ];
     const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');
-    return `<polygon points="${pts}" fill="#000000"/>`;
+    return `<polygon points="${pts}" fill="#000000"${op}/>`;
   }
 
   if (currentShape === 'cross') {
       // viewBox 0 0 0.748 0.748 — square bounding box. scale = size/0.748
-      // 8-point cross star. Vertex ratios derived from normalized viewBox coords:                                                         
-      // ratio = (px - vbW/2) / (vbW/2) = (px - 0.374) / 0.374                                                                                              
-      const verts = [                                    
-        [-1.000, -1.000], [-0.001, -0.588], [ 0.997, -1.000], [ 0.584, -0.002],                                                      
-        [ 0.999,  0.999], [-0.001,  0.583], [-1.002,  0.999], [-0.587, -0.002]                                                          
-      ];                                                               
-      const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');                                             
-      return `<polygon points="${pts}" fill="#dc2828"/>`;                                                             
-    }       
+      // 8-point cross star. Vertex ratios derived from normalized viewBox coords:
+      // ratio = (px - vbW/2) / (vbW/2) = (px - 0.374) / 0.374
+      const verts = [
+        [-1.000, -1.000], [-0.001, -0.588], [ 0.997, -1.000], [ 0.584, -0.002],
+        [ 0.999,  0.999], [-0.001,  0.583], [-1.002,  0.999], [-0.587, -0.002]
+      ];
+      const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');
+      return `<polygon points="${pts}" fill="#dc2828"${op}/>`;
+    }
 
   // Default: circle
-  return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="#000000"/>`;
+  return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="#000000"${op}/>`;
 }
 
 // Samples the gradient canvas and returns an SVG markup string of native shape elements.

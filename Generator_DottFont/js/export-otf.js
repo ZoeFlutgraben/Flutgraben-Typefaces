@@ -403,30 +403,6 @@ async function exportOTF() {
     // Run the full render pipeline for this single character
     const { canvasW, canvasH } = renderTextMask(char);
 
-    // Compute per-character extraLsb: the fraction of letterSpacingPx added to
-    // the left side of this glyph (proportional to its original LSB/RSB ratio).
-    // Mirrors the logic in the ctx.fillText monkey-patch in reglage_advance.js.
-    // The canvas places this character at PADDING + extraLsb (not PADDING), so
-    // we subtract extraLsb when mapping canvas px → font units to recover the
-    // glyph-relative coordinate. Falls back to equal split if font is not loaded.
-    let extraLsb = 0;
-    if (letterSpacingPx !== 0 && dinishFont) {
-      extraLsb = letterSpacingPx / 2;  // fallback: equal split
-      try {
-        const charGlyph = dinishFont.stringToGlyphs(char)[0];
-        if (charGlyph) {
-          const fontScale = FONT_SIZE / dinishFont.unitsPerEm;
-          const bb        = charGlyph.getBoundingBox();
-          if (bb && bb.x2 > bb.x1) {
-            const lsbPx = bb.x1 * fontScale;
-            const rsbPx = ((charGlyph.advanceWidth || 0) - bb.x2) * fontScale;
-            const total = lsbPx + rsbPx;
-            if (total > 0) extraLsb = letterSpacingPx * (lsbPx / total);
-          }
-        }
-      } catch (e) {}
-    }
-
     // Always use gCtx (output of drawMeshGradientPreview) as the pixel source,
     // matching what samplePixelsToSVGString reads in the web render.
     //
@@ -470,10 +446,11 @@ async function exportOTF() {
         // a non-integer step (e.g. 4.8px → 32.77 font units) would otherwise cause
         // alternating 32/33-unit gaps, producing visible trembling in the exported OTF.
         //
-        // extraLsb accounts for the per-character left shift injected by the fillText
-        // monkey-patch: the character body sits at (PADDING + extraLsb) on the canvas,
-        // so subtracting extraLsb recovers the glyph-relative x coordinate.
-        const fx = Math.round((x - PADDING - extraLsb) * SCALE);
+        // The fillText monkey-patch draws each character at (PADDING + extraLsb), so the
+        // canvas pixel positions already embed the proportional left shift. We keep that
+        // shift by NOT subtracting extraLsb here, so the OTF LSB = original_lsb +
+        // extraLsb_units, matching what the overlay displays.
+        const fx = Math.round((x - PADDING) * SCALE);
         const fy = Math.round((BASELINE_Y - y) * SCALE);
         const fr = radius * SCALE;
 

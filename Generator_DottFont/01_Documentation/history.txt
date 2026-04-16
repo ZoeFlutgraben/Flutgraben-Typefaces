@@ -1194,3 +1194,51 @@ Modifications apportées :
    → Valeur affichée dans un <span contenteditable> (#adv-tracking-value).
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 16/04/2026
+------------------------------------------------------------
+
+BUG — APPROCHES LATÉRALES DÉCALÉES À L'EXPORT OTF AVEC TRACKING
+  Symptôme : les valeurs LSB/RSB visibles dans FontLab ne correspondaient
+             pas aux zones d'approches affichées dans l'overlay web
+             (checkbox "approches" du panneau avancé).
+             Exemple observé sur 'l' avec tracking > 0 :
+               overlay web  → LSB ≈ 168 u
+               FontLab OTF  → LSB = −31 u  (écart ~200 unités)
+
+  Cause racine :
+    Le monkey-patch ctx.fillText (reglage_advance.js) dessine chaque
+    caractère à (PADDING + extraLsb) sur le canvas — le corps du glyphe
+    est décalé à droite proportionnellement à son ratio LSB/RSB d'origine.
+
+    Dans export-otf.js, la conversion canvas px → font units soustrayait
+    ce même extraLsb :
+      fontX = (x − PADDING − extraLsb) × SCALE
+    Ce faisant, le décalage était annulé, plaçant le glyphe à son LSB
+    DINish original dans l'OTF — sans tenir compte du tracking gauche.
+    Parallèlement, tout le tracking allait au RSB (via advanceWidth élargi),
+    créant une distribution 0/100 au lieu de la distribution proportionnelle
+    montrée dans l'overlay.
+
+  Fix appliqué (export-otf.js) :
+    1. Suppression du bloc de calcul extraLsb (lignes ~406–428) :
+         let extraLsb = 0; if (letterSpacingPx !== 0 && dinishFont) { ... }
+       Ce calcul était inutile puisque la valeur n'est plus utilisée.
+
+    2. Correction de la formule fontX :
+         Avant : fontX = Math.round((x − PADDING − extraLsb) × SCALE)
+         Après : fontX = Math.round((x − PADDING) × SCALE)
+       Le canvas contient déjà le décalage proportionnel : en ne le
+       soustrayant plus, l'OTF reflète le même LSB que l'overlay web.
+
+  Résultat :
+    OTF LSB = original_lsb + extraLsb_units  (= valeur overlay)
+    OTF RSB = original_rsb + extraRsb_units  (= valeur overlay)
+    advanceWidth = original + tracking total  (inchangé)
+
+  Note : un LSB négatif dans FontLab avec size > ~2.0 et shapes anguleuses
+  (cross, polygone) reste attendu et correct — les formes débordent
+  physiquement du bounding box de la lettre vers la gauche.
+
+============================================================
