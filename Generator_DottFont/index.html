@@ -27,6 +27,9 @@
     </div>
 
     <!-- STEP 2 — bilinear mesh gradient clipped to text shape -->
+    <details id="top-panel-premier">
+      <summary><span class="step-label">⬇ Basics settings</span></summary>
+      <div class="adv-controls">
     <div class="stage" id="stage-gradient">
       <!-- <span class="step-label">step 2 — gradient</span> -->
       <div id="panel-gradient">
@@ -104,55 +107,62 @@
       <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
       <span id="presence-value" contenteditable="true">0.5</span>
     </div>
+      </div><!-- /adv-controls -->
+    </details>
   </div>
   
   <!-- ===================== OFFSET PANEL — contour controls ===================== -->
-  <div id="top-panel-offset">
+  <details id="top-panel-offset">
+    <summary><span class="step-label">⬇ Halo settings</span></summary>
 
-    <!-- STEP 3 — contour preview canvas (blurred halo visualization) -->
-    <div class="stage" id="stage-contour">
-      <!-- <span class="step-label">step 3 — contour</span> -->
-      <div id="panel-contour">
-        <canvas id="contour-canvas"></canvas>
+    <div class="adv-controls">
+
+      <!-- STEP 3 — contour preview canvas (blurred halo visualization) -->
+      <div class="stage" id="stage-contour">
+        <!-- <span class="step-label">step 3 — contour</span> -->
+        <div id="panel-contour">
+          <canvas id="contour-canvas"></canvas>
+        </div>
       </div>
-    </div>
 
-    <!-- CONTOUR MESH — bilinear checkerboard modulating contour dot presence (0 = solid) -->
-    <div class="slider-row">
-      <label for="contour-mesh-slider">Mesh</label>
-      <input type="range" id="contour-mesh-slider" min="0" max="4" step="1" value="0" />
-      <span id="contour-mesh-value" contenteditable="true">0</span>
-    </div>
+      <!-- CONTOUR MESH — bilinear checkerboard modulating contour dot presence (0 = solid) -->
+      <div class="slider-row">
+        <label for="contour-mesh-slider">Mesh</label>
+        <input type="range" id="contour-mesh-slider" min="0" max="4" step="1" value="0" />
+        <span id="contour-mesh-value" contenteditable="true">0</span>
+      </div>
 
-    <!-- HALO — Gaussian blur radius defining the contour zone width -->
-    <div class="slider-row">
-      <label for="outset-slider">Halo</label>
-      <input type="range" id="outset-slider" min="0" max="30" step="1" value="8" />
-      <span id="outset-value" contenteditable="true">8</span>
-    </div>
+      <!-- HALO — Gaussian blur radius defining the contour zone width -->
+      <div class="slider-row">
+        <label for="outset-slider">Halo</label>
+        <input type="range" id="outset-slider" min="0" max="30" step="1" value="8" />
+        <span id="outset-value" contenteditable="true">8</span>
+      </div>
 
-    <!-- CONTOUR HAZARD — probabilistic dot filter for the contour zone -->
-    <div class="slider-row">
-      <label for="contour-hazard-slider">Hazard</label>
-      <input type="range" id="contour-hazard-slider" min="0" max="1" step="0.01" value="0.5" />
-      <span id="contour-hazard-value" contenteditable="true">0.50</span>
-    </div>
+      <!-- CONTOUR HAZARD — probabilistic dot filter for the contour zone -->
+      <div class="slider-row">
+        <label for="contour-hazard-slider">Hazard</label>
+        <input type="range" id="contour-hazard-slider" min="0" max="1" step="0.01" value="0.5" />
+        <span id="contour-hazard-value" contenteditable="true">0.50</span>
+      </div>
 
-    <!-- CONTOUR SIZE PREGENERATION — scales dot radius and grid spacing together -->
-    <div class="slider-row">
-      <label for="contour-taille-generation-slider">Size pregeneration</label>
-      <input type="range" id="contour-taille-generation-slider" min="0.50" max="3" step="0.05" value="1" />
-      <span id="contour-taille-generation-value" contenteditable="true">1.00</span>
-    </div>
+      <!-- CONTOUR SIZE PREGENERATION — scales dot radius and grid spacing together -->
+      <div class="slider-row">
+        <label for="contour-taille-generation-slider">Size pregeneration</label>
+        <input type="range" id="contour-taille-generation-slider" min="0.50" max="3" step="0.05" value="1" />
+        <span id="contour-taille-generation-value" contenteditable="true">1.00</span>
+      </div>
 
-    <!-- CONTOUR SIZE POSTGENERATION — scales dot radius only -->
-    <div class="slider-row">
-      <label for="contour-size-slider">Size postgeneration</label>
-      <input type="range" id="contour-size-slider" min="0.50" max="3" step="0.05" value="1" />
-      <span id="contour-size-value" contenteditable="true">1.00</span>
-    </div>
+      <!-- CONTOUR SIZE POSTGENERATION — scales dot radius only -->
+      <div class="slider-row">
+        <label for="contour-size-slider">Size postgeneration</label>
+        <input type="range" id="contour-size-slider" min="0.50" max="3" step="0.05" value="1" />
+        <span id="contour-size-value" contenteditable="true">1.00</span>
+      </div>
 
-  </div>
+    </div><!-- /adv-controls -->
+
+  </details>
 
   
 
@@ -213,9 +223,9 @@
   </div>
 
   
-  <div id="top-panel-aleatoire">     
+   
     <button id="btn-aleatoire">Flop it!</button>
-  </div>
+
 
 
 

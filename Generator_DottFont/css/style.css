@@ -43,7 +43,6 @@
   background-color: rgb(255, 0, 225);
 }
 
-
 body {
   overflow: hidden;
 }
@@ -68,22 +67,27 @@ body {
   left: 0;
   z-index: 99;
   margin: 10px;
+  width: 23.5vw;
+  max-height: calc(100vh - 20px);
+  padding: 1px;
+  border-radius: 10px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: calc(100vh - 20px);
-  overflow-y: auto;
-  width: 23.5vw;
+  gap: 0;
+  color: var(--color-dark);
+  background-color: rgba(179, 179, 179, 0.54);
+  box-shadow: 0 0 5px rgba(179, 179, 179, 0.54), 0 0 10px rgba(179, 179, 179, 0.54);
 }
 
 /* === Shared panel base — all left-column panels === */
 #top-panel,
 #top-panel-offset,
 #top-panel-export,
-#top-panel-aleatoire,
 #top-panel-advance,
 #top-panel-info {
   padding: 15px;
+ /*  padding-bottom: 0px; */
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -91,39 +95,51 @@ body {
   color: var(--color-dark);
 }
 
-/* === Per-panel accent colors === */
-#top-panel          { background-color: rgba(255, 81,  228, 0.54); } /* pink   — main controls  */
-#top-panel-offset   { background-color: rgba(81,  190, 255, 0.54); } /* blue   — contour        */
-#top-panel-export   { background-color: rgba(81,  255, 125, 0.54); } /* green  — export         */
-#top-panel-aleatoire{
-   z-index: 99;
-  margin: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: calc(100vh - 20px);
-  overflow-y: auto;
-  width: 15vw;
+/* === Details panels — collapse gap so summary sits flush === */
+#top-panel-advance,
+#top-panel-offset,
+#top-panel-premier {
+  gap: 0;
+}
+
+/* === Randomize button — fixed bottom-right === */
+#btn-aleatoire {
   position: fixed;
   right: 0;
   bottom: 0;
-   background-color: rgba(136, 81, 255, 0.62); } /* purple — randomize  
-    */
-#top-panel-advance{ background-color: rgba(214, 142, 33, 0.54); 
-gap: 0px;}
-#top-panel-info{
   z-index: 99;
   margin: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: calc(100vh - 20px);
-  overflow-y: auto;
   width: 15vw;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: azure;
+  background-color: rgba(136, 81, 255, 0.62);
+  box-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
+  text-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+#btn-aleatoire:hover {
+  background-color: #39ff14;
+}
+
+#top-panel-info {
   position: fixed;
   right: 0;
   top: 0;
-  background-color: rgba(179, 179, 179, 0.54); }
+  z-index: 99;
+  margin: 10px;
+  width: 15vw;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  gap: 10px;
+  background-color: rgba(179, 179, 179, 0.54);
+  box-shadow: 0 0 5px rgba(179, 179, 179, 0.54), 0 0 10px rgba(179, 179, 179, 0.54);
+}
 
 /* === Info panel content === */
 .info-description {
@@ -132,7 +148,6 @@ gap: 0px;}
   font-weight: 400;
   line-height: 1.6;
   color: var(--color-label);
-  margin: 0;
 }
 
 .info-ref {
@@ -140,7 +155,6 @@ gap: 0px;}
   font-size: 0.6em;
   font-weight: 400;
   color: var(--color-label);
-  margin: 0;
 }
 
 .info-ref a {
@@ -163,11 +177,10 @@ gap: 0px;}
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-label);
-  margin: 0;
   opacity: 0.6;
 }
 
-/* === Shared small-caps label typography (DINish 700 10px uppercase) === */
+/* === Shared small-caps label typography (DINish 700 uppercase) === */
 .step-label,
 .slider-row label,
 #outset-value,
@@ -179,6 +192,8 @@ gap: 0px;}
 #contour-hazard-value,
 #contour-taille-generation-value,
 #contour-size-value,
+#adv-tracking-value,
+#adv-opacity-value,
 #export-btn,
 #export-otf-btn,
 #export-png-btn {
@@ -190,13 +205,25 @@ gap: 0px;}
 }
 
 /* === Step labels === */
+summary{
+ text-decoration: underline;
+ }
 .step-label {
   color: var(--color-label);
   display: block;
-  margin-bottom: 0.35rem;
+  margin-bottom: 14px;
 }
 
-.documentation{
+/* No bottom margin when details is closed, restore it when open */
+summary .step-label {
+  margin-bottom: 0;
+}
+
+details[open] summary .step-label {
+  margin-bottom: 14px;
+}
+
+.documentation {
   font-size: 0.9em;
   text-transform: lowercase;
 }
@@ -207,34 +234,24 @@ gap: 0px;}
   flex-direction: column;
 }
 
-/* Gradient panel height matches étape 1 via shared token */
-#panel-gradient {
-  height: var(--panel-height);
-}
-
-/* Canvas scales to panel height, width follows aspect ratio */
-#gradient-canvas {
-  display: block;
-  height: 100%;
-  width: auto;
-}
-
-/* Contour panel height matches étape 1 and étape 2 via shared token */
+/* Gradient and contour preview panels — shared height via token */
+#panel-gradient,
 #panel-contour {
   height: var(--panel-height);
 }
 
 /* Canvas scales to panel height, width follows aspect ratio */
+#gradient-canvas,
 #contour-canvas {
   display: block;
   height: 100%;
   width: auto;
 }
 
-/* Shared white background for étape 1 and étape 2 panels */
+/* Shared background for text input panel */
 .panel {
- background-color: var(--bg-btn);
- border-radius: var(--radius);
+  background-color: var(--bg-btn);
+  border-radius: var(--radius);
   line-height: 0;
   overflow: hidden;
 }
@@ -253,7 +270,7 @@ gap: 0px;}
   min-width: 60px;
 }
 
-.flex{
+.flex {
   display: flex;
   flex-direction: row;
   gap: 0.4rem;
@@ -317,6 +334,7 @@ gap: 0px;}
   min-width: 80px;
 }
 
+/* === All range sliders — shared track style === */
 #outset-slider,
 #presence-slider,
 #size-slider,
@@ -325,7 +343,9 @@ gap: 0px;}
 #contour-mesh-slider,
 #contour-hazard-slider,
 #contour-taille-generation-slider,
-#contour-size-slider {
+#contour-size-slider,
+#adv-tracking-slider,
+#adv-opacity-slider {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
@@ -343,7 +363,9 @@ gap: 0px;}
 #contour-mesh-slider::-webkit-slider-thumb,
 #contour-hazard-slider::-webkit-slider-thumb,
 #contour-taille-generation-slider::-webkit-slider-thumb,
-#contour-size-slider::-webkit-slider-thumb {
+#contour-size-slider::-webkit-slider-thumb,
+#adv-tracking-slider::-webkit-slider-thumb,
+#adv-opacity-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -361,7 +383,9 @@ gap: 0px;}
 #contour-mesh-slider::-moz-range-thumb,
 #contour-hazard-slider::-moz-range-thumb,
 #contour-taille-generation-slider::-moz-range-thumb,
-#contour-size-slider::-moz-range-thumb {
+#contour-size-slider::-moz-range-thumb,
+#adv-tracking-slider::-moz-range-thumb,
+#adv-opacity-slider::-moz-range-thumb {
   width: 12px;
   height: 12px;
   background: var(--color-dark);
@@ -370,6 +394,7 @@ gap: 0px;}
   cursor: pointer;
 }
 
+/* === All slider value spans === */
 #outset-value,
 #presence-value,
 #size-value,
@@ -378,86 +403,55 @@ gap: 0px;}
 #contour-mesh-value,
 #contour-hazard-value,
 #contour-taille-generation-value,
-#contour-size-value {
+#contour-size-value,
+#adv-tracking-value,
+#adv-opacity-value {
   color: var(--color-label);
   min-width: 2.5ch;
   text-align: right;
-  /* Not interactive at wide viewport — sliders handle input */
   pointer-events: none;
   outline: none;
 }
 
-/* === Export button === */
-
+/* === Export and randomize buttons === */
 #export-btn,
 #export-otf-btn,
-#export-png-btn,
-#btn-aleatoire {
+#export-png-btn {
   background-color: var(--bg-btn);
   padding: 5px 10px;
   border-radius: var(--radius);
   border: none;
   color: var(--color-label);
   cursor: pointer;
-
 }
-
 
 #export-btn:hover,
 #export-otf-btn:hover,
-#export-png-btn:hover,
-#btn-aleatoire:hover {
+#export-png-btn:hover {
   background-color: var(--bg-btn-hover);
 }
 
-/* === Responsive — narrow viewport (≤ 1200px) === */
-/* Sliders are hidden; value spans become editable inputs */
-@media (max-width: 1300px) {
-  /* Hide all range sliders in the left panel */
-  #panels-left input[type="range"] {
-    display: none;
-  }
-
-  /* Label expands to fill the space left by the hidden slider */
-  #panels-left .slider-row label {
-    flex: 1;
-    font-size: 0.5em;
-  }
-
-  /* Value spans become the editable input — show a subtle underline cue */
-  #panels-left #outset-value,
-  #panels-left #presence-value,
-  #panels-left #size-value,
-  #panels-left #taille-generation-value,
-  #panels-left #mesh-value,
-  #panels-left #contour-mesh-value,
-  #panels-left #contour-hazard-value,
-  #panels-left #contour-taille-generation-value,
-  #panels-left #contour-size-value {
-    pointer-events: auto;
-    cursor: text;
-    border-bottom: 1px solid var(--color-label);
-    min-width: 3ch;
-  }
-}
-
-/* === Advanced panel — details/summary toggle === */
-#top-panel-advance summary {
+/* === Details panels — summary toggle === */
+#top-panel-advance summary,
+#top-panel-offset summary,
+#top-panel-premier summary {
   cursor: pointer;
   list-style: none;        /* Firefox */
   user-select: none;
 }
 
 /* Hide the default disclosure triangle in WebKit/Blink */
-#top-panel-advance summary::-webkit-details-marker {
+#top-panel-advance summary::-webkit-details-marker,
+#top-panel-offset summary::-webkit-details-marker,
+#top-panel-premier summary::-webkit-details-marker {
   display: none;
 }
 
-/* Checkbox rows inside the advanced panel */
+/* === Expandable content inside details panels === */
 .adv-controls {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
 }
 
 /* Each row: checkbox + label side by side */
@@ -482,55 +476,27 @@ gap: 0px;}
   flex-shrink: 0;
 }
 
-/* === Tracking slider — same look as the main panel sliders === */
-#adv-tracking-slider,
-#adv-opacity-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  flex: 1;
-  height: 2px;
-  background: var(--color-dark);
-  outline: none;
-  cursor: pointer;
-}
-
-#adv-tracking-slider::-webkit-slider-thumb,
-#adv-opacity-slider::-webkit-slider-thumb{
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  background: var(--color-dark);
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-#adv-tracking-slider::-moz-range-thumb,
-#adv-opacity-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  background: var(--color-dark);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-/* Tracking value span — same typography as the other value labels */
-#adv-tracking-value,
-#adv-opacity-value {
-  font-family: 'DINish', sans-serif;
-  font-weight: 700;
-  font-size: 0.6em;
-  letter-spacing: 0.12em;
-  color: var(--color-label);
-  min-width: 2.5ch;
-  text-align: right;
-  pointer-events: none;
-  outline: none;
-}
-
-/* Narrow viewport: make the tracking and opacity value spans editable (mirrors other sliders) */
+/* === Responsive — narrow viewport (≤ 1300px) === */
+/* Sliders hidden; value spans become editable inputs */
 @media (max-width: 1300px) {
+  #panels-left input[type="range"] {
+    display: none;
+  }
+
+  #panels-left .slider-row label {
+    flex: 1;
+    font-size: 0.5em;
+  }
+
+  #panels-left #outset-value,
+  #panels-left #presence-value,
+  #panels-left #size-value,
+  #panels-left #taille-generation-value,
+  #panels-left #mesh-value,
+  #panels-left #contour-mesh-value,
+  #panels-left #contour-hazard-value,
+  #panels-left #contour-taille-generation-value,
+  #panels-left #contour-size-value,
   #panels-left #adv-tracking-value,
   #panels-left #adv-opacity-value {
     pointer-events: auto;
@@ -538,16 +504,10 @@ gap: 0px;}
     border-bottom: 1px solid var(--color-label);
     min-width: 3ch;
   }
-
-  #panels-left #adv-tracking-slider,
-  #panels-left #adv-opacity-slider {
-    display: none;
-  }
 }
 
 @media (max-width: 650px) {
-  /* Hide all range sliders in the left panel */
   #panels-left {
     font-size: 0.5em;
   }
- }
+}
