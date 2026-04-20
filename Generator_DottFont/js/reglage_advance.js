@@ -153,7 +153,7 @@ function drawOverlay() {
       const go = svgEl('g', { id: 'overlay-outline' });
       go.appendChild(svgEl('path', {
         d: pathData, fill: 'none',
-        stroke: '#0055ff', 'stroke-width': 1, opacity: 0.5
+        stroke: '#0055ff', 'stroke-width': 0.5, opacity: 0.5
       }));
       overlay.appendChild(go);
     }
@@ -215,14 +215,14 @@ function drawOverlay() {
           ga.appendChild(svgEl('rect', {
             x: d.x.toFixed(1), y: zoneY.toFixed(1),
             width: dispLsbPx.toFixed(1), height: zoneH.toFixed(1),
-            fill: '#0077ff', opacity: 0.18
+            fill: 'rgba(136, 81, 255)', opacity: 0.3
           }));
           // Label below baseline, centered on the zone
           const lbl = svgEl('text', {
             x: (d.x + dispLsbPx / 2).toFixed(1), y: lblY,
-            fill: '#0055cc', 'font-size': 5,
-            'font-family': 'DINish, sans-serif', 'font-weight': 700,
-            'text-anchor': 'middle', opacity: 0.9
+            fill: 'rgba(136, 81, 255)', 'font-size': 4,
+            'font-family': 'DINish, sans-serif', 'font-weight': 700, 
+            'text-anchor': 'middle', opacity: 1
           });
           lbl.textContent = Math.round(dispLsbPx / scale);
           ga.appendChild(lbl);
@@ -234,14 +234,14 @@ function drawOverlay() {
           ga.appendChild(svgEl('rect', {
             x: rsbStartX.toFixed(1), y: zoneY.toFixed(1),
             width: dispRsbPx.toFixed(1), height: zoneH.toFixed(1),
-            fill: '#ff6600', opacity: 0.18
+            fill: '#39ff14', opacity: 0.3
           }));
           // Label below baseline, centered on the zone
           const lbl = svgEl('text', {
             x: (rsbStartX + dispRsbPx / 2).toFixed(1), y: lblY,
-            fill: '#cc4400', 'font-size': 5,
+            fill: '#39ff14', 'font-size': 4,
             'font-family': 'DINish, sans-serif', 'font-weight': 700,
-            'text-anchor': 'middle', opacity: 0.9
+            'text-anchor': 'middle', opacity: 1
           });
           lbl.textContent = Math.round(dispRsbPx / scale);
           ga.appendChild(lbl);
@@ -255,7 +255,7 @@ function drawOverlay() {
       ga.appendChild(svgEl('line', {
         x1: (last.x + lastDispAdv).toFixed(1), y1: zoneY.toFixed(1),
         x2: (last.x + lastDispAdv).toFixed(1), y2: m.baselineY.toFixed(1),
-        stroke: '#999', 'stroke-width': 0.6, 'stroke-dasharray': '3 2', opacity: 0.55
+        stroke: '#878787', 'stroke-width': 0.5, 'stroke-dasharray': '3 2', opacity: 0.55
       }));
 
       overlay.appendChild(ga);

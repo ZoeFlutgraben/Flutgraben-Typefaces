@@ -1242,3 +1242,80 @@ BUG — APPROCHES LATÉRALES DÉCALÉES À L'EXPORT OTF AVEC TRACKING
   physiquement du bounding box de la lettre vers la gauche.
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 17–20/04/2026
+------------------------------------------------------------
+
+FINALISATION DU PANNEAU RÉGLAGES AVANCÉS (#top-panel-advance)
+
+  Checkboxes retenus dans la version finale :
+    adv-show-outline   → contour vectoriel DINish
+    adv-show-approches → zones sidebearing LSB/RSB
+    adv-no-union       → bypass Clipper à l'export OTF
+
+  Slider tracking : range confirmé -30/+30, step 1, default 0.
+  Slider shape opacity : #adv-opacity-slider (min=0, max=1, step=0.01, value=1)
+    Contrôle l'opacité globale des formes sur le SVG de sortie.
+    Lié à la variable shapeOpacity, appliqué dans samplePixelsToSVGString()
+    et generateContourSVGString() via l'attribut opacity du groupe SVG.
+
+  Suppression du checkbox "metrics" (adv-show-metrics) — retiré définitivement.
+
+  reglage_advance.js :
+    bindSpanEdit intégré pour #adv-tracking-value et #adv-opacity-value,
+    même comportement que les autres spans éditables (focus/blur/flèches).
+
+
+AFFINAGE CSS — index.html + CSS/style.css
+
+  Corrections visuelles diverses sur le panneau de contrôle :
+    - Fond, espacement et typographie du panneau #top-panel-advance affinés.
+    - Panel info (#top-panel-info) stylisé : fond semi-transparent, position
+      fixe en haut à droite, même rayon et shadow que les autres panels.
+    - Bouton #btn-aleatoire : positionnement bas-droite, couleur violet
+      semi-transparent, hover en vert fluo (#39ff14).
+    - Regroupement des règles partagées #top-panel* en sélecteur combiné.
+
+
+------------------------------------------------------------
+SESSION 20/04/2026
+------------------------------------------------------------
+
+BUG CSS — SUPERPOSITION SLIDER / TEXTE LABEL
+
+  Symptôme : dans la section Basics settings, les sliders
+    "SIZE PREGENERATION" et "SIZE POSTGENERATION" débordaient
+    sur le texte du label (chevauchement visible).
+
+  Cause : .slider-row est un flex row. Sans flex-shrink: 0,
+    le label pouvait être compressé par le slider (flex: 1),
+    provoquant le chevauchement même avec white-space: nowrap.
+
+  Fix (CSS/style.css) :
+    .slider-row label { flex-shrink: 0; }
+
+
+NETTOYAGE CSS — style.css (519 → 272 lignes)
+
+  Suppressions :
+    - gap: 0 sur #panels-left (valeur par défaut, inutile)
+    - Commentaire mort /* padding-bottom: 0px; */
+    - #shape-selector .step-label (le label est commenté dans le HTML)
+    - 33 sélecteurs d'IDs de sliders → remplacés par 3 règles :
+        #panels-left input[type="range"]
+        #panels-left input[type="range"]::-webkit-slider-thumb
+        #panels-left input[type="range"]::-moz-range-thumb
+    - 11 IDs de spans de valeur (#outset-value, etc.) → remplacés par :
+        .slider-row span (règle unique)
+
+  Consolidations :
+    - .info-description + .info-ref partagent font-size: 0.6em et font-weight: 400
+    - font-family et color des éléments info hissés sur #top-panel-info
+    - Responsive @media 1300px : 11 IDs de spans → .slider-row span
+
+  Correction :
+    - *::selection : rgba(136, 81, 255) (3 args, CSS invalide) → rgb(136, 81, 255)
+      + background-color: #000 ajouté (requis pour que color soit appliqué)
+
+============================================================

@@ -5,12 +5,12 @@
   --text-padding:     0.75rem;
   --text-line-height: 1.1;
 
-  /* Computed panel height — shared between étape 1 and étape 2 */
+  /* Computed panel height — shared between text input and gradient preview */
   --panel-height: calc(var(--text-font-size) * var(--text-line-height) + var(--text-padding) * 2);
 
   /* Colors */
-  --color-dark:     #202020;
-  --color-label:    #606060;
+  --color-dark:  #202020;
+  --color-label: #606060;
 
   /* Button backgrounds */
   --bg-btn:       rgba(255, 255, 255, 0.54);
@@ -39,8 +39,9 @@
 }
 
 *::selection {
-  color: rgb(0, 60, 255);
-  background-color: rgb(255, 0, 225);
+  color: rgb(136, 81, 255);
+  background-color: #000;
+  text-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
 }
 
 body {
@@ -66,7 +67,7 @@ body {
   top: 0;
   left: 0;
   z-index: 99;
-  margin: 10px;
+  margin: 15px;
   width: 23.5vw;
   max-height: calc(100vh - 20px);
   padding: 1px;
@@ -74,10 +75,9 @@ body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0;
   color: var(--color-dark);
-  background-color: rgba(179, 179, 179, 0.54);
-  box-shadow: 0 0 5px rgba(179, 179, 179, 0.54), 0 0 10px rgba(179, 179, 179, 0.54);
+  background-color: rgba(179, 179, 179, 0.90);
+  box-shadow: 0 0 5px rgba(179, 179, 179, 0.90), 0 0 10px rgba(179, 179, 179, 0.90);
 }
 
 /* === Shared panel base — all left-column panels === */
@@ -87,7 +87,6 @@ body {
 #top-panel-advance,
 #top-panel-info {
   padding: 15px;
- /*  padding-bottom: 0px; */
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -95,7 +94,7 @@ body {
   color: var(--color-dark);
 }
 
-/* === Details panels — collapse gap so summary sits flush === */
+/* Details panels: collapse gap so summary sits flush with its content */
 #top-panel-advance,
 #top-panel-offset,
 #top-panel-premier {
@@ -108,7 +107,7 @@ body {
   right: 0;
   bottom: 0;
   z-index: 99;
-  margin: 10px;
+  margin: 15px;
   width: 15vw;
   padding: 10px;
   border: none;
@@ -127,34 +126,32 @@ body {
   background-color: #39ff14;
 }
 
+/* === Info panel — fixed top-right === */
 #top-panel-info {
   position: fixed;
   right: 0;
   top: 0;
   z-index: 99;
-  margin: 10px;
+  margin: 15px;
   width: 15vw;
   max-height: calc(100vh - 20px);
   overflow-y: auto;
   gap: 10px;
+  font-family: 'DINish', sans-serif;
+  color: var(--color-label);
   background-color: rgba(179, 179, 179, 0.54);
   box-shadow: 0 0 5px rgba(179, 179, 179, 0.54), 0 0 10px rgba(179, 179, 179, 0.54);
 }
 
-/* === Info panel content === */
-.info-description {
-  font-family: 'DINish', sans-serif;
+/* Shared base for description and reference lines */
+.info-description,
+.info-ref {
   font-size: 0.6em;
   font-weight: 400;
-  line-height: 1.6;
-  color: var(--color-label);
 }
 
-.info-ref {
-  font-family: 'DINish', sans-serif;
-  font-size: 0.6em;
-  font-weight: 400;
-  color: var(--color-label);
+.info-description {
+  line-height: 1.6;
 }
 
 .info-ref a {
@@ -171,29 +168,17 @@ body {
 }
 
 .info-credit {
-  font-family: 'DINish', sans-serif;
   font-size: 0.4em;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--color-label);
   opacity: 0.6;
 }
 
-/* === Shared small-caps label typography (DINish 700 uppercase) === */
+/* === Shared DINish label typography (700 uppercase) === */
 .step-label,
 .slider-row label,
-#outset-value,
-#presence-value,
-#size-value,
-#taille-generation-value,
-#mesh-value,
-#contour-mesh-value,
-#contour-hazard-value,
-#contour-taille-generation-value,
-#contour-size-value,
-#adv-tracking-value,
-#adv-opacity-value,
+.slider-row span,
 #export-btn,
 #export-otf-btn,
 #export-png-btn {
@@ -205,18 +190,20 @@ body {
 }
 
 /* === Step labels === */
-summary{
- text-decoration: underline;
- }
 .step-label {
   color: var(--color-label);
   display: block;
   margin-bottom: 14px;
 }
 
-/* No bottom margin when details is closed, restore it when open */
+/* Summary label: no bottom margin when closed, restore when open */
 summary .step-label {
   margin-bottom: 0;
+  text-decoration: underline;
+}
+
+summary .step-label::before {
+  content: '🙦 ';
 }
 
 details[open] summary .step-label {
@@ -228,13 +215,13 @@ details[open] summary .step-label {
   text-transform: lowercase;
 }
 
-/* === Stage: label on top, panel below === */
+/* === Stage: stacks label above canvas === */
 .stage {
   display: flex;
   flex-direction: column;
 }
 
-/* Gradient and contour preview panels — shared height via token */
+/* Gradient and contour preview panels — height from token */
 #panel-gradient,
 #panel-contour {
   height: var(--panel-height);
@@ -256,7 +243,7 @@ details[open] summary .step-label {
   overflow: hidden;
 }
 
-/* === Étape 1 — editable text === */
+/* === Step 1 — editable text input === */
 #text-input {
   display: inline-block;
   font-family: 'DINish', sans-serif;
@@ -270,6 +257,7 @@ details[open] summary .step-label {
   min-width: 60px;
 }
 
+/* === Flex utility === */
 .flex {
   display: flex;
   flex-direction: row;
@@ -282,10 +270,6 @@ details[open] summary .step-label {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-}
-
-#shape-selector .step-label {
-  margin-bottom: 0;
 }
 
 .shape-btns {
@@ -332,20 +316,11 @@ details[open] summary .step-label {
   color: var(--color-label);
   white-space: nowrap;
   min-width: 80px;
+  flex-shrink: 0;
 }
 
-/* === All range sliders — shared track style === */
-#outset-slider,
-#presence-slider,
-#size-slider,
-#taille-generation-slider,
-#mesh-slider,
-#contour-mesh-slider,
-#contour-hazard-slider,
-#contour-taille-generation-slider,
-#contour-size-slider,
-#adv-tracking-slider,
-#adv-opacity-slider {
+/* === Range sliders — shared track style === */
+#panels-left input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
@@ -355,17 +330,7 @@ details[open] summary .step-label {
   cursor: pointer;
 }
 
-#outset-slider::-webkit-slider-thumb,
-#presence-slider::-webkit-slider-thumb,
-#size-slider::-webkit-slider-thumb,
-#taille-generation-slider::-webkit-slider-thumb,
-#mesh-slider::-webkit-slider-thumb,
-#contour-mesh-slider::-webkit-slider-thumb,
-#contour-hazard-slider::-webkit-slider-thumb,
-#contour-taille-generation-slider::-webkit-slider-thumb,
-#contour-size-slider::-webkit-slider-thumb,
-#adv-tracking-slider::-webkit-slider-thumb,
-#adv-opacity-slider::-webkit-slider-thumb {
+#panels-left input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -375,17 +340,7 @@ details[open] summary .step-label {
   cursor: pointer;
 }
 
-#outset-slider::-moz-range-thumb,
-#presence-slider::-moz-range-thumb,
-#size-slider::-moz-range-thumb,
-#taille-generation-slider::-moz-range-thumb,
-#mesh-slider::-moz-range-thumb,
-#contour-mesh-slider::-moz-range-thumb,
-#contour-hazard-slider::-moz-range-thumb,
-#contour-taille-generation-slider::-moz-range-thumb,
-#contour-size-slider::-moz-range-thumb,
-#adv-tracking-slider::-moz-range-thumb,
-#adv-opacity-slider::-moz-range-thumb {
+#panels-left input[type="range"]::-moz-range-thumb {
   width: 12px;
   height: 12px;
   background: var(--color-dark);
@@ -394,18 +349,8 @@ details[open] summary .step-label {
   cursor: pointer;
 }
 
-/* === All slider value spans === */
-#outset-value,
-#presence-value,
-#size-value,
-#taille-generation-value,
-#mesh-value,
-#contour-mesh-value,
-#contour-hazard-value,
-#contour-taille-generation-value,
-#contour-size-value,
-#adv-tracking-value,
-#adv-opacity-value {
+/* === Slider value spans === */
+.slider-row span {
   color: var(--color-label);
   min-width: 2.5ch;
   text-align: right;
@@ -413,7 +358,7 @@ details[open] summary .step-label {
   outline: none;
 }
 
-/* === Export and randomize buttons === */
+/* === Export buttons === */
 #export-btn,
 #export-otf-btn,
 #export-png-btn {
@@ -440,14 +385,14 @@ details[open] summary .step-label {
   user-select: none;
 }
 
-/* Hide the default disclosure triangle in WebKit/Blink */
+/* Hide default disclosure triangle in WebKit/Blink */
 #top-panel-advance summary::-webkit-details-marker,
 #top-panel-offset summary::-webkit-details-marker,
 #top-panel-premier summary::-webkit-details-marker {
   display: none;
 }
 
-/* === Expandable content inside details panels === */
+/* === Expandable panel content === */
 .adv-controls {
   display: flex;
   flex-direction: column;
@@ -462,7 +407,7 @@ details[open] summary .step-label {
   cursor: pointer;
 }
 
-/* Override the block display and bottom margin that .step-label normally has */
+/* Override block display and bottom margin from .step-label default */
 .adv-check .step-label {
   display: inline;
   margin-bottom: 0;
@@ -488,17 +433,7 @@ details[open] summary .step-label {
     font-size: 0.5em;
   }
 
-  #panels-left #outset-value,
-  #panels-left #presence-value,
-  #panels-left #size-value,
-  #panels-left #taille-generation-value,
-  #panels-left #mesh-value,
-  #panels-left #contour-mesh-value,
-  #panels-left #contour-hazard-value,
-  #panels-left #contour-taille-generation-value,
-  #panels-left #contour-size-value,
-  #panels-left #adv-tracking-value,
-  #panels-left #adv-opacity-value {
+  #panels-left .slider-row span {
     pointer-events: auto;
     cursor: text;
     border-bottom: 1px solid var(--color-label);
