@@ -327,8 +327,45 @@ async function exportOTF() {
   const BASELINE_Y = PADDING + measured.actualBoundingBoxDescent;
   const SCALE      = UPM / FONT_SIZE;  // canvas px → font units
 
-  // Charset is driven by the JSON — only characters with defined metrics are exported.
-  const CHARSET = Object.keys(metrics.glyphs);
+  // Build charset from selected checkboxes.
+  // Each checked option maps to a JSON file listing the chars for that block.
+  // The final CHARSET is the union of all selected blocks, filtered to chars
+  // that actually have metrics defined in dinish-bold-metrics.json.
+  const charsetCheckboxes = [
+    { id: 'charset-basic-latin', file: 'source_export_otf/charset-basic-latin.json' },
+    { id: 'charset-west-europe', file: 'source_export_otf/charset-west-europe.json' },
+    { id: 'charset-nordic',      file: 'source_export_otf/charset-nordic.json' },
+    { id: 'charset-east-europe', file: 'source_export_otf/charset-east-europe.json' },
+    { id: 'charset-cyrillic',         file: 'source_export_otf/charset-cyrillic.json' },
+    { id: 'charset-mongolian',        file: 'source_export_otf/charset-mongolian.json' },
+    { id: 'charset-turkish-maltese',  file: 'source_export_otf/charset-turkish-maltese.json' },
+    { id: 'charset-punctuation',      file: 'source_export_otf/charset-punctuation.json' },
+    { id: 'charset-esperanto',        file: 'source_export_otf/charset-esperanto.json' },
+    { id: 'charset-transliteration',  file: 'source_export_otf/charset-transliteration.json' },
+    { id: 'charset-pinyin',           file: 'source_export_otf/charset-pinyin.json' },
+  ];
+  const selectedFiles = charsetCheckboxes
+    .filter(({ id }) => document.getElementById(id)?.checked)
+    .map(({ file }) => file);
+
+  let CHARSET;
+  if (selectedFiles.length === 0) {
+    // Nothing checked — export the full glyph set
+    CHARSET = Object.keys(metrics.glyphs);
+  } else {
+    const selectedChars = new Set();
+    for (const file of selectedFiles) {
+      try {
+        const res = await fetch(file);
+        const data = await res.json();
+        data.chars.forEach(c => selectedChars.add(c));
+      } catch (e) {
+        console.warn(`Failed to load charset file: ${file}`, e);
+      }
+    }
+    // Keep only chars that are both selected and have metrics defined
+    CHARSET = Object.keys(metrics.glyphs).filter(c => selectedChars.has(c));
+  }
 
   // PostScript glyph names must be ASCII-only identifiers (Adobe Glyph List).
   // Using a Unicode character as a PS name (e.g. 'É' instead of 'Eacute') produces
@@ -342,7 +379,57 @@ async function exportOTF() {
     '!':'exclam',      '#':'numbersign',  '$':'dollar',     '%':'percent',   '&':'ampersand',
     "'": 'quotesingle','(':'parenleft',   ')':'parenright', '+':'plus',      '*':'asterisk',
     '-':'hyphen',      '_':'underscore',  '/':'slash',      '\\':'backslash','ß':'germandbls',
+    '·':'periodcentered',
+    '¡':'exclamdown',  '¿':'questiondown',
+    '«':'guillemotleft', '»':'guillemotright',
+    'Æ':'AE',  'æ':'ae',  'Œ':'OE',  'œ':'oe',
+    'Ø':'Oslash', 'ø':'oslash',
+    'Ð':'Eth',    'ð':'eth',    'Þ':'Thorn',  'þ':'thorn',
+    'Ŵ':'Wcircumflex', 'ŵ':'wcircumflex', 'Ŷ':'Ycircumflex', 'ŷ':'ycircumflex',
+    // Turkish
+    'Ğ':'Gbreve',     'ğ':'gbreve',     'İ':'Idotaccent', 'ı':'dotlessi',
+    'Ş':'Scedilla',   'ş':'scedilla',
+    // Maltese
+    'Ħ':'Hbar',       'ħ':'hbar',       'Ġ':'Gdotaccent', 'ġ':'gdotaccent',
+    'Ċ':'Cdotaccent', 'ċ':'cdotaccent',
+    // Mongolian extra (Cyrillic Straight U + Barred O)
+    'Ү':'uni04AE', 'ү':'uni04AF', 'Ө':'uni04E8', 'ө':'uni04E9',
+    // Dutch
+    'Ĳ':'IJ',         'ĳ':'ij',
+    // German (capital sharp S)
+    'ẞ':'uni1E9E',
+    // Northern Sami
+    'Ŋ':'Eng',        'ŋ':'eng',       'Ŧ':'Tbar',      'ŧ':'tbar',
+    // Cyrillic extra
+    'Ѐ':'uni0400',    'ѐ':'uni0450',
+    // Pinyin (caron vowels)
+    'Ǎ':'uni01CD',    'ǎ':'uni01CE',   'Ǐ':'uni01CF',   'ǐ':'uni01D0',
+    'Ǒ':'uni01D1',    'ǒ':'uni01D2',   'Ǔ':'uni01D3',   'ǔ':'uni01D4',
+    // Extended punctuation — Latin-1 Supplement
+    '¢':'cent',       '£':'sterling',  '¤':'currency',  '¥':'yen',
+    '¦':'brokenbar',  '§':'section',   '¨':'dieresis',  '©':'copyright',
+    'ª':'ordfeminine','¬':'logicalnot','®':'registered','¯':'macron',
+    '°':'degree',     '±':'plusminus', '²':'twosuperior','³':'threesuperior',
+    '´':'acute',      'µ':'mu',        '¶':'paragraph', '¸':'cedilla',
+    '¹':'onesuperior','º':'ordmasculine',
+    '¼':'onequarter', '½':'onehalf',   '¾':'threequarters',
+    '×':'multiply',   '÷':'divide',
+    // Extended punctuation — General Punctuation + Currency
+    '‐':'uni2010',    '–':'endash',    '—':'emdash',
+    '‘':'quoteleft',  '’':'quoteright','‚':'quotesinglbase',
+    '“':'quotedblleft','”':'quotedblright','„':'quotedblbase',
+    '†':'dagger',     '‡':'daggerdbl', '•':'bullet',    '…':'ellipsis',
+    '‰':'perthousand','′':'minute',    '″':'second',
+    '‹':'guilsinglleft','›':'guilsinglright','⁄':'fraction',
+    '€':'Euro',       '™':'trademark', '−':'minus',
+    '∕':'uni2215',    '◌':'uni25CC',   '⸗':'uni2E17',
+    // Extended punctuation — Spacing Modifiers
+    'ʼ':'uni02BC',    'ˆ':'circumflex','ˇ':'caron',     '˘':'breve',
+    '˙':'dotaccent',  '˚':'ring',      '˛':'ogonek',    '˜':'tilde',
+    '˝':'hungarumlaut',
     '@':'at',          '<':'less',        '>':'greater',    '"':'quotedbl',
+    '=':'equal',       '[':'bracketleft', ']':'bracketright','^':'asciicircum',
+    '`':'grave',       '{':'braceleft',   '|':'bar',         '}':'braceright', '~':'asciitilde',
     // Accented uppercase — required for valid PS names (Windows rejects non-ASCII names)
     'À':'Agrave',      'Á':'Aacute',      'Â':'Acircumflex','Ã':'Atilde',
     'Ä':'Adieresis',   'Å':'Aring',       'Ç':'Ccedilla',   'È':'Egrave',
@@ -359,6 +446,78 @@ async function exportOTF() {
     'ò':'ograve',      'ó':'oacute',      'ô':'ocircumflex','õ':'otilde',
     'ö':'odieresis',   'ù':'ugrave',      'ú':'uacute',     'û':'ucircumflex',
     'ü':'udieresis',   'ÿ':'ydieresis',
+    // Latin Extended — East Europe
+    'Ý':'uni00DD',  'ý':'uni00FD',
+    'Ě':'Ecaron',    'ě':'ecaron',
+    'Ā':'uni0100',  'ā':'uni0101',  'Ă':'uni0102',  'ă':'uni0103',
+    'Ą':'uni0104',  'ą':'uni0105',  'Ć':'uni0106',  'ć':'uni0107',
+    'Č':'uni010C',  'č':'uni010D',  'Ď':'uni010E',  'ď':'uni010F',
+    'Đ':'uni0110',  'đ':'uni0111',  'Ē':'uni0112',  'ē':'uni0113',
+    'Ė':'uni0116',  'ė':'uni0117',  'Ę':'uni0118',  'ę':'uni0119',
+    'Ģ':'uni0122',  'ģ':'uni0123',  'Ī':'uni012A',  'ī':'uni012B',
+    'Į':'uni012E',  'į':'uni012F',  'Ķ':'uni0136',  'ķ':'uni0137',
+    'Ĺ':'uni0139',  'ĺ':'uni013A',  'Ļ':'uni013B',  'ļ':'uni013C',
+    'Ľ':'uni013D',  'ľ':'uni013E',  'Ł':'uni0141',  'ł':'uni0142',
+    'Ń':'uni0143',  'ń':'uni0144',  'Ņ':'uni0145',  'ņ':'uni0146',
+    'Ň':'uni0147',  'ň':'uni0148',  'Ő':'uni0150',  'ő':'uni0151',
+    'Ŕ':'uni0154',  'ŕ':'uni0155',  'Ř':'uni0158',  'ř':'uni0159',
+    'Ś':'uni015A',  'ś':'uni015B',  'Š':'uni0160',  'š':'uni0161',
+    'Ť':'uni0164',  'ť':'uni0165',  'Ū':'uni016A',  'ū':'uni016B',
+    'Ů':'uni016E',  'ů':'uni016F',  'Ű':'uni0170',  'ű':'uni0171',
+    'Ų':'uni0172',  'ų':'uni0173',  'Ź':'uni0179',  'ź':'uni017A',
+    'Ż':'uni017B',  'ż':'uni017C',  'Ž':'uni017D',  'ž':'uni017E',
+    'Ș':'uni0218',  'ș':'uni0219',  'Ț':'uni021A',  'ț':'uni021B',
+    // Cyrillic — Bulgarian
+    // Cyrillic extra — Russian + Ukrainian
+    'Ё':'uni0401',  'Є':'uni0404',  'І':'uni0406',  'Ї':'uni0407',
+    'Ы':'uni042B',  'Э':'uni042D',  'ё':'uni0451',  'є':'uni0454',
+    'і':'uni0456',  'ї':'uni0457',  'Ґ':'uni0490',  'ґ':'uni0491',
+    'ы':'uni044B',  'э':'uni044D',
+    // Cyrillic extra — Belarusian + Macedonian
+    'Ў':'uni040E',  'ў':'uni045E',
+    'Ќ':'uni040C',  'ќ':'uni045C',  'Ѓ':'uni0403',  'ѓ':'uni0453',
+    'Ј':'uni0408',  'ј':'uni0458',  'Ѕ':'uni0405',  'ѕ':'uni0455',
+    // Cyrillic extra — Serbian
+    'Ђ':'uni0402',  'Љ':'uni0409',  'Њ':'uni040A',  'Ћ':'uni040B',
+    'Џ':'uni040F',  'Ѝ':'uni040D',
+    'ђ':'uni0452',  'љ':'uni0459',  'њ':'uni045A',  'ћ':'uni045B',
+    'џ':'uni045F',  'ѝ':'uni045D',
+    'А':'uni0410',  'Б':'uni0411',  'В':'uni0412',  'Г':'uni0413',
+    'Д':'uni0414',  'Е':'uni0415',  'Ж':'uni0416',  'З':'uni0417',
+    'И':'uni0418',  'Й':'uni0419',  'К':'uni041A',  'Л':'uni041B',
+    'М':'uni041C',  'Н':'uni041D',  'О':'uni041E',  'П':'uni041F',
+    'Р':'uni0420',  'С':'uni0421',  'Т':'uni0422',  'У':'uni0423',
+    'Ф':'uni0424',  'Х':'uni0425',  'Ц':'uni0426',  'Ч':'uni0427',
+    'Ш':'uni0428',  'Щ':'uni0429',  'Ъ':'uni042A',  'Ь':'uni042C',
+    'Ю':'uni042E',  'Я':'uni042F',
+    'а':'uni0430',  'б':'uni0431',  'в':'uni0432',  'г':'uni0433',
+    'д':'uni0434',  'е':'uni0435',  'ж':'uni0436',  'з':'uni0437',
+    'и':'uni0438',  'й':'uni0439',  'к':'uni043A',  'л':'uni043B',
+    'м':'uni043C',  'н':'uni043D',  'о':'uni043E',  'п':'uni043F',
+    'р':'uni0440',  'с':'uni0441',  'т':'uni0442',  'у':'uni0443',
+    'ф':'uni0444',  'х':'uni0445',  'ц':'uni0446',  'ч':'uni0447',
+    'ш':'uni0448',  'щ':'uni0449',  'ъ':'uni044A',  'ь':'uni044C',
+    'ю':'uni044E',  'я':'uni044F',
+    // Esperanto
+    'Ĉ':'Ccircumflex', 'ĉ':'ccircumflex', 'Ĝ':'Gcircumflex', 'ĝ':'gcircumflex',
+    'Ĥ':'Hcircumflex', 'ĥ':'hcircumflex', 'Ĵ':'Jcircumflex', 'ĵ':'jcircumflex',
+    'Ŝ':'Scircumflex', 'ŝ':'scircumflex', 'Ŭ':'Ubreve',       'ŭ':'ubreve',
+    // O macron (East Europe extended)
+    'Ō':'Omacron',     'ō':'omacron',
+    // Sami extended (Nordic)
+    'Ǧ':'uni01E6',     'ǧ':'uni01E7',     'Ǩ':'uni01E8',     'ǩ':'uni01E9',
+    'Ǫ':'uni01EA',     'ǫ':'uni01EB',     'Ǭ':'uni01EC',     'ǭ':'uni01ED',
+    // Transliteration (Latin Extended Additional)
+    'Ḍ':'uni1E0C', 'ḍ':'uni1E0D', 'Ḥ':'uni1E24', 'ḥ':'uni1E25',
+    'Ḱ':'uni1E30', 'ḱ':'uni1E31', 'Ḷ':'uni1E36', 'ḷ':'uni1E37',
+    'Ḿ':'uni1E3E', 'ḿ':'uni1E3F', 'Ṕ':'uni1E54', 'ṕ':'uni1E55',
+    'Ṛ':'uni1E5A', 'ṛ':'uni1E5B', 'Ṣ':'uni1E62', 'ṣ':'uni1E63',
+    'Ṭ':'uni1E6C', 'ṭ':'uni1E6D', 'Ẓ':'uni1E92', 'ẓ':'uni1E93',
+    // Welsh W accents (West Europe)
+    'Ẁ':'Wgrave',      'ẁ':'wgrave',      'Ẃ':'Wacute',      'ẃ':'wacute',
+    'Ẅ':'Wdieresis',   'ẅ':'wdieresis',
+    // Ligatures (Basic Latin)
+    'ﬁ':'fi',          'ﬂ':'fl',
   };
 
   const glyphs = [];
@@ -542,7 +701,31 @@ async function exportOTF() {
 
   // Build filename from current settings: shape_mesh_tailleGeneration_size_presence
   const filename = `FLUTGRABEN_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
-  font.download(filename);
+
+  // opentype.js builds OS/2 and post tables lazily during toArrayBuffer().
+  // We must serialize first, re-parse the result, then patch the table values
+  // before the final download — direct property access before serialization crashes.
+  //
+  // Patches applied:
+  //   OS/2 usWinAscent / usWinDescent → DINish reference values (1050 / 248).
+  //     opentype.js auto-calculates these from actual glyph bounding boxes, so they
+  //     vary with dot size (e.g. size=3.0 gives 753 instead of 1050), causing
+  //     inconsistent line spacing and clipping across exports.
+  //   post underlinePosition / underlineThickness → DINish Bold values (-153 / 51).
+  //     opentype.js defaults to 0/0 for created fonts, placing underlines on the baseline.
+  const rawBuffer   = font.toArrayBuffer();
+  const patchedFont = opentype.parse(rawBuffer);
+
+  if (patchedFont.tables.os2 && metrics.otfTables && metrics.otfTables.OS2) {
+    patchedFont.tables.os2.usWinAscent  = metrics.otfTables.OS2.usWinAscent;
+    patchedFont.tables.os2.usWinDescent = metrics.otfTables.OS2.usWinDescent;
+  }
+  if (patchedFont.tables.post) {
+    patchedFont.tables.post.underlinePosition  = -153;
+    patchedFont.tables.post.underlineThickness = 51;
+  }
+
+  patchedFont.download(filename);
 
   // Restore the display to the current text input after processing
   generate();

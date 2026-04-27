@@ -1319,3 +1319,323 @@ NETTOYAGE CSS — style.css (519 → 272 lignes)
       + background-color: #000 ajouté (requis pour que color soit appliqué)
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 27/04/2026
+------------------------------------------------------------
+
+CORRECTION MÉTRIQUE — ascender dans dinish-bold-metrics.json
+  Problème : la valeur `ascender` était fixée à 1050 dans plusieurs
+             champs du JSON, alors que l'ascender typographique réel
+             de DINish Bold est 1024 (= UPM).
+             1050 correspond à usWinAscent (valeur OS/2 Windows),
+             pas à l'ascender typographique (sTypoAscender).
+
+  Fix appliqué (4 champs corrigés) :
+    fontMetrics.ascender             1050 → 1024
+    fontMetrics.normalized.ascender  1.0254 → 1.0
+    otfTables.OS2.sTypoAscender      1050 → 1024
+    otfTables.hhea.ascender          1050 → 1024
+
+  Note : usWinAscent (otfTables.OS2.usWinAscent) conservé à 1050 —
+         c'est la valeur correcte pour ce champ.
+
+
+CHARSET SÉLECTIONNABLE À L'EXPORT OTF
+  Objectif : permettre d'exporter un sous-ensemble du charset
+             pour réduire le poids de l'OTF (cf. piste session 09/04/2026).
+             L'utilisatrice peut cocher plusieurs blocs pour composer
+             un charset personnalisé.
+
+  Nouveaux fichiers JSON dans source_export_otf/ :
+    charset-ascii.json      — 83 caractères :
+                               A–Z, a–z, 0–9,
+                               ponctuation et symboles de base
+                               (. ? : , ; ! # $ % & ' ( ) + * - _ / \ @ < > ")
+    charset-latin-west.json — 53 caractères :
+                               accents Europe de l'Ouest uniquement (delta) :
+                               À Á Â Ã Ä Å Ç È É Ê Ë Ì Í Î Ï Ñ Ò Ó Ô Õ Ö Ù Ú Û Ü Ÿ
+                               + équivalents minuscules
+                               + ß (germandbls)
+
+  index.html — <details id="top-panel-charset"> :
+    Remplacement des boutons placeholder par 2 checkboxes :
+      id="charset-ascii"      label="ASCII"        coché par défaut
+      id="charset-latin-west" label="Latin Ouest"  décoché par défaut
+    Encadrés dans <div class="adv-controls"> (cohérence avec les autres panels).
+
+  export-otf.js — ligne 331 (ancienne : const CHARSET = Object.keys(metrics.glyphs)) :
+    Remplacée par une logique de sélection dynamique :
+      - Lit les checkboxes cochées
+      - Charge les JSON charset correspondants via fetch()
+      - Construit un Set de caractères sélectionnés
+      - CHARSET = Object.keys(metrics.glyphs).filter(c => selectedChars.has(c))
+      - Fallback : si aucune checkbox cochée → export du charset complet (138 glyphes)
+
+  Comportements résultants :
+    ASCII seul       → 83 glyphes
+    Latin Ouest seul → 53 glyphes
+    Les deux         → 136 glyphes (union)
+    Rien coché       → 138 glyphes (charset complet, fallback)
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (27/04/2026 — après-midi)
+------------------------------------------------------------
+
+export-otf.js
+  Charset    : 7 blocs sélectionnables via checkboxes ✓
+  Métriques  : UPM=1024, ascender=1024, descender=-248 depuis JSON ✓ (corrigé)
+  Advance W  : depuis JSON + Math.round(letterSpacingPx x SCALE) (tracking)
+  BASELINE_Y : PADDING + actualBoundingBoxDescent('A', textBaseline='top') ✓
+  SCALE      : UPM / FONT_SIZE (= 1024 / 150)
+  Coord map  : fontX = round((canvasX - PADDING) x SCALE)
+               fontY = round((BASELINE_Y - canvasY) x SCALE)
+  Pixels     : toujours depuis gCtx (drawMeshGradientPreview) ✓
+  Shapes     : circle, square, trait_2, polygone, polygone8, cross ✓
+  Mode no-overlap : Bezier direct ✓
+  Mode overlap    : polygones N-gon + Clipper.js union pftNonZero ✓
+  Hazard     : formule adaptée meshSize=0 ✓
+  GLYPH_NAMES : · (periodcentered) + Turc + Maltais + Mongol ajoutés ✓
+
+source_export_otf/
+  dinish-bold-metrics.json : 352 glyphes, ascender=1024 ✓
+  charset-basic-latin.json      : Basic Latin (A-Z, a-z, 0-9, ponctuation) ✓
+  charset-west-europe.json      : Europe Ouest + punt volat (·) ✓
+  charset-nordic.json           : Europe Nord ✓
+  charset-east-europe.json      : Europe Est ✓
+  charset-cyrillic.json         : Cyrillique ✓
+  charset-mongolian.json        : Mongol — Ü ü Ő ő (U+04AE/AF/E8/E9) ✓  [NOUVEAU]
+  charset-turkish-maltese.json  : Turc + Maltais — 12 caractères ✓  [NOUVEAU]
+
+index.html
+  <details #top-panel-charset> : 7 checkboxes (7 blocs langue) ✓
+    IDs corrigés (plus de doublons charset-cyrillic)
+
+============================================================
+
+------------------------------------------------------------
+SESSION 27/04/2026 — suite
+------------------------------------------------------------
+
+EXTENSION DU CHARSET — punt volat, turc, maltais, mongol
+
+  PUNT VOLAT (·, U+00B7)
+    Déjà présent dans dinish-bold-metrics.json (336 glyphes).
+    Ajouté à charset-west-europe.json et au data-chars HTML.
+    GLYPH_NAMES : '·':'periodcentered' (AGL standard).
+
+  TURC + MALTAIS — nouveau bloc
+    DINish Bold supporte les 12 caractères (vérifié via fonttools) :
+      Turc   : Ğ/ğ (Gbreve), İ/ı (Idotaccent/dotlessi), Ş/ş (Scedilla)
+      Maltais: Ħ/ħ (Hbar), Ġ/ġ (Gdotaccent), Ċ/ċ (Cdotaccent)
+    Métriques extraites depuis DINish-Bold.woff → ajoutées à dinish-bold-metrics.json.
+    Fichier créé : source_export_otf/charset-turkish-maltese.json (12 chars).
+    GLYPH_NAMES : noms AGL standard pour tous.
+
+  MONGOL — nouveau bloc
+    DINish Bold supporte les 4 caractères supplémentaires :
+      Ü/ü (U+04AE/04AF — Cyrillic Straight U)
+      Ő/ő (U+04E8/04E9 — Cyrillic Barred O)
+    Note : le reste du mongol écrit cyrillique est couvert par charset-cyrillic.
+    Métriques extraites depuis DINish-Bold.woff → ajoutées à dinish-bold-metrics.json.
+    Fichier créé : source_export_otf/charset-mongolian.json (4 chars).
+    GLYPH_NAMES : 'Ü':'uni04AE', 'ü':'uni04AF', 'Ő':'uni04E8', 'ő':'uni04E9'.
+    Attention : U+04AE/AF/E8/E9 sont des cyrilliques, à ne pas confondre avec
+    leurs sosies latins Ü (U+00DC), ü (U+00FC), Ő (U+0150), ő (U+0151).
+
+  VIETNAMIEN — non supporté
+    DINish Bold ne couvre pas les caractères vietnamiens (Ơ ơ Ư ư +
+    précompositions avec tons). Le label "Asiatique (mn, vn)" a été
+    corrigé en "Mongol (mn)".
+
+  BUGS HTML CORRIGÉS
+    Les deux placeholders avaient id="charset-cyrillic" (doublon).
+    Corrigés en id="charset-mongolian" et id="charset-turkish-maltese".
+    Les data-charset-file pointaient vers charset-.json (inexistant) → corrigés.
+
+============================================================
+
+------------------------------------------------------------
+SESSION 27/04/2026 — suite (2)
+------------------------------------------------------------
+
+EXTENSION CHARSET — ponctuation, néerlandais, sami, cyrillique, pinyin
+
+  PONCTUATION ÉTENDUE — nouveau bloc (61 chars)
+    Chars inclus (hors ligatures ﬁ ﬂ et exposants ⁰⁴–⁹) :
+      Latin-1 Supplement : ¢ £ ¤ ¥ ¦ § ¨ © ª ¬ ® ¯ ° ± ² ³ ´ µ ¶ ¸ ¹ º ¼ ½ ¾ × ÷
+      Ponctuation générale: ‐ – — ' ' ‚ " " „ † ‡ • … ‰ ′ ″ ‹ › ⁄ € ™ − ∕ ◌ ⸗
+      Modificateurs espac.: ʼ ˆ ˇ ˘ ˙ ˚ ˛ ˜ ˝
+    Fichier créé : charset-punctuation.json
+
+  NÉERLANDAIS + ẞ → Europe Ouest
+    Ajoutés à charset-west-europe.json : Ĳ ĳ (IJ ligature) + ẞ (capital sharp S)
+    Label HTML mis à jour : ajout de "(nl)"
+    GLYPH_NAMES : Ĳ→IJ, ĳ→ij, ẞ→uni1E9E
+
+  SAMI DU NORD → Europe Nord
+    Ajoutés à charset-nordic.json : Ŋ ŋ Ŧ ŧ
+    GLYPH_NAMES : Ŋ→Eng, ŋ→eng, Ŧ→Tbar, ŧ→tbar
+    (Label HTML inchangé)
+
+  CYRILLIQUE ADDITIONNEL
+    Ajoutés à charset-cyrillic.json : Ѐ ѐ (U+0400/0450)
+    GLYPH_NAMES : uni0400 / uni0450
+
+  PINYIN — nouveau bloc (8 chars)
+    Ǎ ǎ Ǐ ǐ Ǒ ǒ Ǔ ǔ (U+01CD–01D4 — voyelles avec caron, tons 3 du mandarin)
+    Note : tons 1/2/4 déjà couverts par blocs existants (macron, aigu, grave)
+    Ü avec tons (ǖ ǘ ǚ ǜ) absent de DINish Bold
+    Fichier créé : charset-pinyin.json
+    GLYPH_NAMES : uni01CD … uni01D4
+
+  MÉTRIQUES
+    352 → 430 glyphes dans dinish-bold-metrics.json (+78)
+    Extraits depuis DINish-Bold.woff via fonttools
+
+------------------------------------------------------------
+SESSION 27/04/2026 — suite (3)
+------------------------------------------------------------
+
+LIGATURES ﬁ ﬂ → Basic Latin
+  ﬁ (U+FB01) et ﬂ (U+FB02) ajoutées à charset-basic-latin.json.
+  Métriques extraites depuis DINish-Bold.woff (advW: ﬁ=588, ﬂ=635).
+  GLYPH_NAMES : ﬁ→fi, ﬂ→fl (noms AGL standard).
+  metrics: 480 → 482 glyphes.
+
+SESSION 27/04/2026 — suite (2) — résumé complet
+  Ě ě : bug corrigé (absents de charset-east-europe.json ET des métriques).
+  Ẁ ẁ Ẃ ẃ Ẅ ẅ : ajoutés à Europe Ouest (gallois complet).
+  Ō ō : ajouté à Europe Est (letton, maori).
+  Ǧ ǧ Ǩ ǩ Ǫ ǫ Ǭ ǭ : ajoutés à Europe Nord (Sami Skolt/Inari/Lule).
+  charset-esperanto.json : Ĉ ĉ Ĝ ĝ Ĥ ĥ Ĵ ĵ Ŝ ŝ Ŭ ŭ (12 chars).
+  charset-transliteration.json : 20 chars (arabe, indologique, berbère).
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (27/04/2026 — fin de journée)
+------------------------------------------------------------
+
+source_export_otf/
+  dinish-bold-metrics.json     : 482 glyphes ✓
+  charset-basic-latin.json     : Basic Latin + ﬁ ﬂ (99 chars) ✓
+  charset-west-europe.json     : Europe Ouest (73 chars) ✓
+  charset-nordic.json          : Europe Nord + Sami étendu (26 chars) ✓
+  charset-east-europe.json     : Europe Est (100 chars) ✓
+  charset-cyrillic.json        : Cyrillique (98 chars) ✓
+  charset-mongolian.json       : Mongol (4 chars) ✓
+  charset-turkish-maltese.json : Turc + Maltais (12 chars) ✓
+  charset-punctuation.json     : Ponctuation étendue (61 chars) ✓
+  charset-esperanto.json       : Espéranto (12 chars) ✓
+  charset-transliteration.json : Translittération (20 chars) ✓
+  charset-pinyin.json          : Pinyin (8 chars) ✓
+
+export-otf.js
+  charsetCheckboxes : 12 blocs ✓
+  GLYPH_NAMES       : 482 entrées ✓
+
+index.html
+  <details #top-panel-charset> : 12 checkboxes ✓
+
+DINish Bold couverture : 482 / 546 glyphes intégrés
+  Exclusions volontaires (64) :
+    Exposants ⁰⁴–⁹ (7), diacritiques combinants (16),
+    grec partiel Α α (2), vietnamien partiel sans tons (10),
+    latin divers non cohérent (∼29)
+
+============================================================
+
+------------------------------------------------------------
+SESSION 27/04/2026 — suite (4)
+------------------------------------------------------------
+
+BUG — OTF VIDE (charset autre que basic-latin / europe-ouest)
+  Symptôme : l'export OTF ne contenait qu'un seul glyphe (espace) quand un
+             bloc autre que basic-latin ou europe-ouest était sélectionné.
+             CHARSET était vide malgré les checkboxes cochées.
+
+  Cause : cache navigateur servant une ancienne version de
+          dinish-bold-metrics.json (état intermédiaire de la session,
+          ~336 glyphes). Les caractères basic-latin et europe-ouest
+          étaient présents dans cette version mise en cache ; les autres
+          blocs (espéranto, nordique étendu, etc.) avaient été ajoutés
+          après — absents du cache → filtrage produisait CHARSET=[].
+
+  Résolution : hard-reload navigateur (Ctrl+Shift+R) — confirmé par l'utilisatrice.
+  Note : aucune modification de code requise pour ce bug spécifique.
+
+
+BUG — OTF REJETÉ PAR WINDOWS (noms PS non-ASCII)
+  Symptôme : les OTF exportés avec les nouveaux blocs charset (espéranto,
+             translittération, gallois, Sami étendu, ligatures, Ō ō) n'étaient
+             pas lisibles sous Windows.
+
+  Cause : 50 caractères présents dans dinish-bold-metrics.json n'avaient
+          pas d'entrée dans GLYPH_NAMES. Le fallback
+            const name = GLYPH_NAMES[char] || char;
+          utilisait le caractère lui-même comme nom PostScript — un nom
+          non-ASCII invalide que Windows rejette (même bug que session 08/04).
+
+  Caractères manquants :
+    Espéranto       : Ĉ ĉ Ĝ ĝ Ĥ ĥ Ĵ ĵ Ŝ ŝ Ŭ ŭ
+    O macron        : Ō ō
+    Sami étendu     : Ǧ ǧ Ǩ ǩ Ǫ ǫ Ǭ ǭ
+    Translittération: Ḍ ḍ Ḥ ḥ Ḱ ḱ Ḷ ḷ Ḿ ḿ Ṕ ṕ Ṛ ṛ Ṣ ṣ Ṭ ṭ Ẓ ẓ
+    W gallois       : Ẁ ẁ Ẃ ẃ Ẅ ẅ
+    Ligatures       : ﬁ ﬂ
+
+  Fix : 50 entrées ajoutées à GLYPH_NAMES dans export-otf.js.
+    Noms AGL standard pour les caractères Unicode standard
+    (ex. Ccircumflex, Omacron, Wgrave…),
+    noms uniXXXX pour les autres (ex. uni01E6, uni1E0C…).
+  Vérification : script Python — aucun char non-ASCII sans entrée GLYPH_NAMES.
+
+
+BUG — MÉTRIQUES VERTICALES OS/2 INCOHÉRENTES ENTRE EXPORTS
+  Symptôme : usWinAscent / usWinDescent variaient selon les paramètres
+             d'export (ex. size=3.0 → usWinAscent=753 au lieu de 1050).
+
+  Cause : opentype.js calcule usWinAscent / usWinDescent depuis les
+          bounding boxes réelles des glyphes exportés. Avec size=3.0
+          les dots sont petits en hauteur → yMax réduit → valeur tronquée.
+          Les applications Windows utilisent usWinAscent pour le clipping
+          vertical → comportement incohérent d'un export à l'autre.
+
+  Fix (export-otf.js) :
+    Après la sérialisation du font (toArrayBuffer), re-parsing via
+    opentype.parse(), puis forçage des valeurs depuis dinish-bold-metrics.json :
+      patchedFont.tables.os2.usWinAscent  = metrics.otfTables.OS2.usWinAscent  (1050)
+      patchedFont.tables.os2.usWinDescent = metrics.otfTables.OS2.usWinDescent (248)
+
+  Note technique : font.tables.os2 n'existe pas avant la sérialisation
+    (opentype.js construit les tables lazily). L'accès direct avant
+    toArrayBuffer() provoque un crash. Le flux correct est :
+      font.toArrayBuffer() → opentype.parse() → patch → patchedFont.download()
+
+
+BUG — UNDERLINE À ZÉRO
+  Symptôme : underlinePosition=0 et underlineThickness=0 dans la table post.
+             Le soulignement s'affichait sur la baseline au lieu d'en dessous.
+
+  Cause : opentype.js ne fixe pas ces valeurs pour les fonts créés ex nihilo.
+
+  Fix (export-otf.js) :
+    Dans le même bloc de patch post-sérialisation :
+      patchedFont.tables.post.underlinePosition  = -153
+      patchedFont.tables.post.underlineThickness = 51
+    Valeurs extraites de DINish-Bold.woff via fonttools.
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (27/04/2026 — fin de session 4)
+------------------------------------------------------------
+
+export-otf.js
+  charsetCheckboxes : 12 blocs ✓
+  GLYPH_NAMES       : 482 entrées, tous chars non-ASCII couverts ✓
+  Sérialisation     : toArrayBuffer() → parse() → patch OS/2 + post → download() ✓
+  OS/2 usWinAscent  : forcé à 1050 (DINish ref) ✓
+  OS/2 usWinDescent : forcé à 248 (DINish ref) ✓
+  post underlinePos : -153 (DINish Bold) ✓
+  post underlineThck: 51 (DINish Bold) ✓
+
+============================================================

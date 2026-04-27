@@ -116,7 +116,6 @@
     <summary><span class="step-label">Halo settings</span></summary>
 
     <div class="adv-controls">
-
       <!-- STEP 3 — contour preview canvas (blurred halo visualization) -->
       <div class="stage" id="stage-contour">
         <!-- <span class="step-label">step 3 — contour</span> -->
@@ -166,7 +165,7 @@
 
   
 
-    <details id="top-panel-advance">
+  <details id="top-panel-advance">
     <summary><span class="step-label">Advanced settings</span></summary>
     <div class="adv-controls">
       <label class="adv-check">
@@ -197,6 +196,67 @@
         <span class="step-label">keep shapes separate on export 
           <p class="documentation">Enable only if you want each component shape within a glyph to be exported as an individual path, rather than merged in to a single outline</p>
         </span>
+      </label>
+    </div>
+  </details>
+
+  <details id="top-panel-charset">
+    <summary><span class="step-label">Charset export</span></summary>
+    <div class="adv-controls">
+      <label class="adv-check" data-charset-file="source_export_otf/charset-basic-latin.json" data-chars="  !  &quot;  #  $  %  &amp;  &#x27;  (  )  *  +  ,  -  .  /  0  1  2  3  4  5  6  7  8  9  :  ;  &lt;  =  &gt;  ?  @  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z  [  \  ]  ^  _  `  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  p  q  r  s  t  u  v  w  x  y  z  {  |  }  ~  ﬁ  ﬂ">
+        <input type="checkbox" id="charset-basic-latin" checked>
+        <span class="step-label">Basic Latin</span>
+        <span class="charset-tooltip"></span>
+      </label>
+      <label class="adv-check" data-charset-file="source_export_otf/charset-west-europe.json" data-chars="¡  «  »  ¿  À  Á  Â  Ã  Ä  Æ  Ç  È  É  Ê  Ë  Ì  Í  Î  Ï  Ñ  Ò  Ó  Ô  Õ  Ö  Ù  Ú  Û  Ü  ß  à  á  â  ã  ä  æ  ç  è  é  ê  ë  ì  í  î  ï  ñ  ò  ó  ô  õ  ö  ù  ú  û  ü  ÿ  Œ  œ  Ÿ  Ŵ  ŵ  Ŷ  ŷ  ·  Ĳ  ĳ  ẞ  Ẁ  ẁ  Ẃ  ẃ  Ẅ  ẅ">
+        <input type="checkbox" id="charset-west-europe">
+        <span class="step-label">Europe Ouest (fr, sp, pt, gb, all, ch, it, cy, nl)</span>
+        <span class="charset-tooltip"></span>
+      </label>
+      <label class="adv-check" data-charset-file="source_export_otf/charset-nordic.json" data-chars="Ä  Å  Æ  Ö  Ø  Ð  Þ  ä  å  æ  ö  ø  ð  þ  Ŋ  ŋ  Ŧ  ŧ  Ǧ  ǧ  Ǩ  ǩ  Ǫ  ǫ  Ǭ  ǭ">
+        <input type="checkbox" id="charset-nordic">
+        <span class="step-label">Europe Nord (se, dk, fi, no, is, fo)</span>
+        <span class="charset-tooltip"></span>
+      </label>
+      <label class="adv-check" data-charset-file="source_export_otf/charset-east-europe.json" data-chars="Á  Â  Ä  É  Í  Î  Ó  Õ  Ö  Ú  Ü  Ý  á  â  ä  é  í  î  ó  õ  ö  ú  ü  ý  Ā  ā  Ă  ă  Ą  ą  Ć  ć  Č  č  Ď  ď  Đ  đ  Ē  ē  Ė  ė  Ę  ę  Ģ  ģ  Ī  ī  Į  į  Ķ  ķ  Ĺ  ĺ  Ļ  ļ  Ľ  ľ  Ł  ł  Ń  ń  Ņ  ņ  Ň  ň  Ő  ő  Ŕ  ŕ  Ř  ř  Ś  ś  Š  š  Ť  ť  Ū  ū  Ů  ů  Ű  ű  Ų  ų  Ź  ź  Ż  ż  Ž  ž  Ș  ș  Ț  ț  Ě  ě  Ō  ō">
+        <input type="checkbox" id="charset-east-europe">
+        <span class="step-label">Europe Est (pl, cz, sk, ee, lv, lt, hu, ro, si, hr)</span>
+        <span class="charset-tooltip"></span>
+      </label>
+      <label class="adv-check" data-charset-file="source_export_otf/charset-cyrillic.json" data-chars="Ё  Є  І  Ї  А  Б  В  Г  Д  Е  Ж  З  И  Й  К  Л  М  Н  О  П  Р  С  Т  У  Ф  Х  Ц  Ч  Ш  Щ  Ъ  Ы  Ь  Э  Ю  Я  а  б  в  г  д  е  ж  з  и  й  к  л  м  н  о  п  р  с  т  у  ф  х  ц  ч  ш  щ  ъ  ы  ь  э  ю  я  ё  є  і  ї  Ґ  ґ  Ў  ў  Ќ  Ѓ  Ј  Ѕ  ќ  ѓ  ј  ѕ  Ђ  Љ  Њ  Ћ  Џ  Ѝ  ђ  љ  њ  ћ  џ  ѝ  Ѐ  ѐ">
+        <input type="checkbox" id="charset-cyrillic">
+        <span class="step-label">Cyrillique (bg, ru, uk, sr, by, mk)</span>
+        <span class="charset-tooltip"></span>
+      </label>
+      <label class="adv-check" data-charset-file="source_export_otf/charset-mongolian.json" data-chars="Ү  ү  Ө  ө">
+        <input type="checkbox" id="charset-mongolian">
+        <span class="step-label">Mongol (mn)</span>
+        <span class="charset-tooltip"></span>
+      </label>
+      <label class="adv-check" data-charset-file="source_export_otf/charset-turkish-maltese.json" data-chars="Ğ  ğ  İ  ı  Ş  ş  Ħ  ħ  Ġ  ġ  Ċ  ċ">
+        <input type="checkbox" id="charset-turkish-maltese">
+        <span class="step-label">Turc + Maltais (tr, mt)</span>
+        <span class="charset-tooltip"></span>
+      </label>
+      <label class="adv-check" data-charset-file="source_export_otf/charset-punctuation.json" data-chars="¢  £  ¤  ¥  ¦  §  ¨  ©  ª  ¬  ®  ¯  °  ±  ²  ³  ´  µ  ¶  ¸  ¹  º  ¼  ½  ¾  ×  ÷  ‐  –  —  ‘  ’  ‚  “  ”  „  †  ‡  •  …  ‰  ′  ″  ‹  ›  ⁄  €  ™  −  ∕  ◌  ⸗  ʼ  ˆ  ˇ  ˘  ˙  ˚  ˛  ˜  ˝">
+        <input type="checkbox" id="charset-punctuation">
+        <span class="step-label">Ponctuation &eacute;tendue</span>
+        <span class="charset-tooltip"></span>
+      </label>
+      <label class="adv-check" data-charset-file="source_export_otf/charset-esperanto.json" data-chars="Ĉ  ĉ  Ĝ  ĝ  Ĥ  ĥ  Ĵ  ĵ  Ŝ  ŝ  Ŭ  ŭ">
+        <input type="checkbox" id="charset-esperanto">
+        <span class="step-label">Esp&eacute;ranto (eo)</span>
+        <span class="charset-tooltip"></span>
+      </label>
+      <label class="adv-check" data-charset-file="source_export_otf/charset-transliteration.json" data-chars="Ḍ  ḍ  Ḥ  ḥ  Ḱ  ḱ  Ḷ  ḷ  Ḿ  ḿ  Ṕ  ṕ  Ṛ  ṛ  Ṣ  ṣ  Ṭ  ṭ  Ẓ  ẓ">
+        <input type="checkbox" id="charset-transliteration">
+        <span class="step-label">Translitt&eacute;ration</span>
+        <span class="charset-tooltip"></span>
+      </label>
+            <label class="adv-check" data-charset-file="source_export_otf/charset-pinyin.json" data-chars="Ǎ  ǎ  Ǐ  ǐ  Ǒ  ǒ  Ǔ  ǔ">
+        <input type="checkbox" id="charset-pinyin">
+        <span class="step-label">Pinyin (zh)</span>
+        <span class="charset-tooltip"></span>
       </label>
     </div>
   </details>

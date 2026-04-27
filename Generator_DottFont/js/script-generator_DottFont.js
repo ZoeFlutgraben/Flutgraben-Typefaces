@@ -684,3 +684,10 @@ bindSpanEdit(presenceValue, presenceSlider, false, (v) => {
 
 // Initial render once DINish font is loaded
 document.fonts.ready.then(() => generate());
+
+// Populate charset tooltips from data-chars attribute — no fetch needed
+// Each .adv-check with data-chars gets its characters injected into the tooltip span
+document.querySelectorAll('.adv-check[data-chars]').forEach(label => {
+  const tooltip = label.querySelector('.charset-tooltip');
+  if (tooltip) tooltip.textContent = label.dataset.chars;
+});

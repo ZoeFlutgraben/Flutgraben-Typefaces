@@ -31,6 +31,16 @@
   line-gap-override: 0%;
 }
 
+@font-face {
+  font-family: 'DINish';
+  src: url('../DINish/DINish-BoldItalic.woff') format('woff');
+  font-weight: 700;
+  font-style: italic;
+  ascent-override:   102.54%;   /* 1050 / 1024 */
+  descent-override:  24.22%;    /* 248  / 1024 */
+  line-gap-override: 0%;
+}
+
 /* === Reset === */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -40,7 +50,6 @@
 
 *::selection {
   color: rgb(136, 81, 255);
-  background-color: #000;
   text-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
 }
 
@@ -85,7 +94,8 @@ body {
 #top-panel-offset,
 #top-panel-export,
 #top-panel-advance,
-#top-panel-info {
+#top-panel-info,
+#top-panel-charset {
   padding: 15px;
   border-radius: 10px;
   display: flex;
@@ -97,7 +107,8 @@ body {
 /* Details panels: collapse gap so summary sits flush with its content */
 #top-panel-advance,
 #top-panel-offset,
-#top-panel-premier {
+#top-panel-premier,
+#top-panel-charset {
   gap: 0;
 }
 
@@ -194,6 +205,10 @@ body {
   color: var(--color-label);
   display: block;
   margin-bottom: 14px;
+}
+
+summary .step-label:hover {
+  font-style: italic;
 }
 
 /* Summary label: no bottom margin when closed, restore when open */
@@ -379,7 +394,8 @@ details[open] summary .step-label {
 /* === Details panels — summary toggle === */
 #top-panel-advance summary,
 #top-panel-offset summary,
-#top-panel-premier summary {
+#top-panel-premier summary,
+#top-panel-charset summary {
   cursor: pointer;
   list-style: none;        /* Firefox */
   user-select: none;
@@ -388,7 +404,8 @@ details[open] summary .step-label {
 /* Hide default disclosure triangle in WebKit/Blink */
 #top-panel-advance summary::-webkit-details-marker,
 #top-panel-offset summary::-webkit-details-marker,
-#top-panel-premier summary::-webkit-details-marker {
+#top-panel-premier summary::-webkit-details-marker,
+#top-panel-charset summary::-webkit-details-marker {
   display: none;
 }
 
@@ -401,10 +418,39 @@ details[open] summary .step-label {
 
 /* Each row: checkbox + label side by side */
 .adv-check {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
+}
+
+/* === Charset tooltip — appears on label hover === */
+.charset-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 999;
+  background: var(--color-dark);
+  color: #f9f9f9;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  font-family: 'DINish', monospace;
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1.8;
+  text-transform: none;
+  width: max-content;
+  max-width: 240px;
+  word-break: break-all;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.adv-check:hover .charset-tooltip {
+  display: block;
 }
 
 /* Override block display and bottom margin from .step-label default */
