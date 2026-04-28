@@ -2,16 +2,17 @@
 // DottFont Generator
 //
 // Pipeline:
-//   step 1 — user types in contenteditable div (DINish Bold)
-//   step 2 — text shape filled with bilinear mesh gradient
+//   step 1 — logo.svg loaded onto hidden canvas as a binary mask
+//   step 2 — logo shape filled with bilinear mesh gradient
 //             (4×4 grid, alternating black/grey from mesh.svg)
 //   step 3 — gradient canvas pixels sampled on a regular grid;
-//             each in-text pixel spawns a native SVG shape element
+//             each in-logo pixel spawns a native SVG shape element
 //             (circle, rect, ellipse, etc.) sized by pixel darkness,
 //             with probabilistic presence filter driven by the presence slider
 // ============================================================
-
-const textInput              = document.getElementById('text-input');
+const imageDropZone          = document.getElementById('image-drop-zone');
+const imageFileInput         = document.getElementById('image-file-input');
+const imageDropLabel         = document.getElementById('image-drop-label');
 const gradientCanvas         = document.getElementById('gradient-canvas');
 const gCtx                   = gradientCanvas.getContext('2d');
 const contourCanvas          = document.getElementById('contour-canvas');
@@ -27,10 +28,20 @@ const tailleGenerationSlider = document.getElementById('taille-generation-slider
 const tailleGenerationValue  = document.getElementById('taille-generation-value');
 const meshSlider             = document.getElementById('mesh-slider');
 const meshValue              = document.getElementById('mesh-value');
+const shapeColorInput        = document.getElementById('shape-color-input');
 const ctx                    = hiddenCanvas.getContext('2d');
 
-// Current text — stored so generateAllDots can be called from contour sliders
+// Kept as empty string so reglage_advance.js references remain safe (dinishFont=null guards all uses)
 let currentText = '';
+
+// Current image source fed into the tramage pipeline — defaults to logo.svg
+let currentImageSrc = 'logo.svg';
+
+// Fill color applied to all generated shapes
+let currentColor = '#000000';
+
+// Object URL created for the last user-supplied file — revoked after each load
+let lastObjectURL = null;
 
 // Presence strength — controls dot disappearance (0 = all present, 1 = dark zones only)
 let presenceStrength = parseFloat(presenceSlider.value);
@@ -87,7 +98,7 @@ const SHAPES = {
   // Filled pink square — clone/pink_square.svg
   square: {
     viewBox: '0 0 2 2',
-    content: '<rect x="0" y="0" width="2" height="2" fill="#ff00ff"/>'
+    content: '<rect x="0" y="0" width="2" height="2" fill="#000000"/>'
   },
   // Thin flat rectangle (no rounded corners) — clone/trait_2.svg
   // viewBox 0 0 3.614 1.027 — width-constrained by meet
@@ -110,7 +121,7 @@ const SHAPES = {
 
   cross:{
     viewBox: '0 0 0.748 0.748',
-    content: '<polygon points="0,0 0.373447,0.154202 0.746893,0 0.592326,0.373081 0.747624,0.747624 0.373447,0.59196 -7.31e-4,0.747624 0.154568,0.373081" fill="#dc2828"/>'
+    content: '<polygon points="0,0 0.373447,0.154202 0.746893,0 0.592326,0.373081 0.747624,0.747624 0.373447,0.59196 -7.31e-4,0.747624 0.154568,0.373081" fill="#000000"/>'
   }
 };
 
@@ -128,7 +139,8 @@ function updateBaseShape(shapeKey) {
   symbol.setAttribute('id', 'base-dot');
   symbol.setAttribute('viewBox', shape.viewBox);
   symbol.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  symbol.innerHTML = shape.content;
+  // Inject currentColor so the symbol preview matches the generated dots
+  symbol.innerHTML = shape.content.replace(/fill="[^"]*"/g, `fill="${currentColor}"`);
 
   if (oldSym) {
     defs.replaceChild(symbol, oldSym);
@@ -150,6 +162,54 @@ function computeBlurData(canvasW, canvasH) {
   blurCtx.filter = `blur(${outsetRadius}px)`;
   blurCtx.drawImage(hiddenCanvas, 0, 0);
   return blurCtx.getImageData(0, 0, canvasW, canvasH);
+}
+
+// Loads any image (URL or object URL) onto the hidden canvas as a white-background mask.
+// The image is rendered at its natural pixel size + PADDING margin on all sides.
+// Dark pixels (any color with brightness < THRESHOLD) register as inside-mask.
+// Returns a Promise resolving to { canvasW, canvasH, blurData }.
+function renderImageMask(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const imgW    = img.naturalWidth  || img.width;
+      const imgH    = img.naturalHeight || img.height;
+      const canvasW = imgW + PADDING * 2;
+      const canvasH = imgH + PADDING * 2;
+
+      hiddenCanvas.width  = canvasW;
+      hiddenCanvas.height = canvasH;
+
+      // White background so pixels outside the image register as background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.drawImage(img, PADDING, PADDING, imgW, imgH);
+
+      // Revoke the object URL now that the image is drawn — avoids memory leaks
+      if (lastObjectURL) {
+        URL.revokeObjectURL(lastObjectURL);
+        lastObjectURL = null;
+      }
+
+      resolve({ canvasW, canvasH, blurData: computeBlurData(canvasW, canvasH) });
+    };
+
+    img.onerror = () => reject(new Error(`renderImageMask: failed to load "${src}"`));
+    img.src = src;
+  });
+}
+
+// Sets a new image source from a File object, updates the drop zone label, and re-renders.
+// Revokes any previously created object URL before creating the new one.
+function loadImageFile(file) {
+  if (lastObjectURL) {
+    URL.revokeObjectURL(lastObjectURL);
+  }
+  lastObjectURL   = URL.createObjectURL(file);
+  currentImageSrc = lastObjectURL;
+  imageDropLabel.textContent = file.name;
+  generate();
 }
 
 // Renders the text to the hidden canvas as a solid black mask on white.
@@ -286,7 +346,7 @@ function shapeDotSVG(cx, cy, r) {
   const op = shapeOpacity < 1 ? ` opacity="${shapeOpacity}"` : '';
 
   if (currentShape === 'square') {
-    return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" fill="#ff00ff"${op}/>`;
+    return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" fill="${currentColor}"${op}/>`;
   }
 
   if (currentShape === 'trait_2') {
@@ -294,7 +354,7 @@ function shapeDotSVG(cx, cy, r) {
     // scale = size/3.614 → rendered height = 1.027 × scale, no rounded corners
     const h  = size * 1.027 / 3.614;
     const oy = (size - h) / 2;  // vertical centering offset
-    return `<rect x="${x.toFixed(2)}" y="${(y + oy).toFixed(2)}" width="${size.toFixed(2)}" height="${h.toFixed(2)}" fill="#000000"${op}/>`;
+    return `<rect x="${x.toFixed(2)}" y="${(y + oy).toFixed(2)}" width="${size.toFixed(2)}" height="${h.toFixed(2)}" fill="${currentColor}"${op}/>`;
   }
 
   if (currentShape === 'polygone') {
@@ -310,7 +370,7 @@ function shapeDotSVG(cx, cy, r) {
       `${(cx + hw).toFixed(2)},${(cy - h).toFixed(2)}`,    // top-right
       `${(cx + r).toFixed(2)},${(cy + vm).toFixed(2)}`     // right
     ].join(' ');
-    return `<polygon points="${pts}" fill="#000000"${op}/>`;
+    return `<polygon points="${pts}" fill="${currentColor}"${op}/>`;
   }
 
   if (currentShape === 'polygone8') {
@@ -321,7 +381,7 @@ function shapeDotSVG(cx, cy, r) {
       [ 0.701,  0.705], [ 0.991,  0.005], [ 0.701, -0.695], [ 0.001, -0.985]
     ];
     const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');
-    return `<polygon points="${pts}" fill="#000000"${op}/>`;
+    return `<polygon points="${pts}" fill="${currentColor}"${op}/>`;
   }
 
   if (currentShape === 'cross') {
@@ -333,11 +393,11 @@ function shapeDotSVG(cx, cy, r) {
         [ 0.999,  0.999], [-0.001,  0.583], [-1.002,  0.999], [-0.587, -0.002]
       ];
       const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');
-      return `<polygon points="${pts}" fill="#dc2828"${op}/>`;
+      return `<polygon points="${pts}" fill="${currentColor}"${op}/>`;
     }
 
   // Default: circle
-  return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="#000000"${op}/>`;
+  return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="${currentColor}"${op}/>`;
 }
 
 // Samples the gradient canvas and returns an SVG markup string of native shape elements.
@@ -384,28 +444,19 @@ function samplePixelsToSVGString(canvasW, canvasH) {
   return svgStr;
 }
 
-// Main generation function — called on text change, shape change, or size slider change.
-function generate() {
-  const text = textInput.value.trim();
-
-  // Store for use by generateDots when called from sliders
-  currentText = text;
-
-  if (!text) {
-    clearOutputs();
-    return;
-  }
-
+// Main generation function — called on page load, shape change, or size slider change.
+// Async because renderLogoMask() loads an image via Promise.
+async function generate() {
   // Update the base clone shape in SVG defs
   updateBaseShape(currentShape);
 
-  // Step 2a — render solid text mask + blurred halo for contour zone
-  const { canvasW, canvasH, blurData } = renderTextMask(text);
+  // Step 1 — load current image as binary mask on hidden canvas
+  const { canvasW, canvasH, blurData } = await renderImageMask(currentImageSrc);
 
   // Store blurData so contour sliders can regenerate without re-running the full pipeline
   lastBlurData = blurData;
 
-  // Step 2b — draw mesh gradient (text interior only; contour handled by offset.js)
+  // Step 2 — draw mesh gradient (logo interior only; contour handled by offset.js)
   drawMeshGradientPreview(canvasW, canvasH);
 
   // Step 3 — show blurred mask as contour preview in the outline panel
@@ -436,9 +487,8 @@ function generateAllDots(canvasW, canvasH) {
   lastContourSVGString = generateContourSVGString(canvasW, canvasH, lastBlurData);
   lastTextSVGString    = samplePixelsToSVGString(canvasW, canvasH);
 
-  // Background + contour dots (behind) + main dots (in front) — single DOM insertion
+  // Contour dots (behind) + main dots (in front) — no background rect, export is transparent
   outputSvg.insertAdjacentHTML('beforeend',
-    `<rect width="${canvasW}" height="${canvasH}" fill="#f9f9f9"/>` +
     lastContourSVGString +
     lastTextSVGString
   );
@@ -457,7 +507,6 @@ function generateContourOnly() {
   }
   lastContourSVGString = generateContourSVGString(lastCanvasW, lastCanvasH, lastBlurData);
   outputSvg.insertAdjacentHTML('beforeend',
-    `<rect width="${lastCanvasW}" height="${lastCanvasH}" fill="#f9f9f9"/>` +
     lastContourSVGString +
     lastTextSVGString
   );
@@ -473,7 +522,6 @@ function generateTextOnly() {
     outputSvg.removeChild(outputSvg.lastChild);
   }
   outputSvg.insertAdjacentHTML('beforeend',
-    `<rect width="${lastCanvasW}" height="${lastCanvasH}" fill="#f9f9f9"/>` +
     lastContourSVGString +
     lastTextSVGString
   );
@@ -516,12 +564,6 @@ document.querySelectorAll('.shape-btn').forEach(btn => {
     currentShape = btn.dataset.shape;
     generate();
   });
-});
-
-// Debounced regeneration on text input
-textInput.addEventListener('input', () => {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(generate, 180);
 });
 
 // Presence slider — text layer only, contour preserved
@@ -682,8 +724,38 @@ bindSpanEdit(presenceValue, presenceSlider, false, (v) => {
   if (lastCanvasW > 0) generateTextOnly();
 });
 
-// Initial render once DINish font is loaded
-document.fonts.ready.then(() => generate());
+// Color input — updates currentColor and redraws the text layer only (no mask re-render needed)
+shapeColorInput.addEventListener('input', () => {
+  currentColor = shapeColorInput.value;
+  updateBaseShape(currentShape);
+  if (lastCanvasW > 0) generateTextOnly();
+});
+
+// File input — triggers when the user browses and selects a file
+imageFileInput.addEventListener('change', () => {
+  const file = imageFileInput.files[0];
+  if (file) loadImageFile(file);
+  // Reset so selecting the same file again still fires 'change'
+  imageFileInput.value = '';
+});
+
+// Drag & drop — visual feedback
+imageDropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  imageDropZone.classList.add('drag-over');
+});
+imageDropZone.addEventListener('dragleave', () => {
+  imageDropZone.classList.remove('drag-over');
+});
+imageDropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  imageDropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadImageFile(file);
+});
+
+// Initial render on page load
+generate();
 
 // Populate charset tooltips from data-chars attribute — no fetch needed
 // Each .adv-check with data-chars gets its characters injected into the tooltip span

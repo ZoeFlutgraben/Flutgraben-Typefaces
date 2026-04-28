@@ -258,19 +258,45 @@ details[open] summary .step-label {
   overflow: hidden;
 }
 
-/* === Step 1 — editable text input === */
-#text-input {
-  display: inline-block;
+/* === Step 1 — image drop zone === */
+#image-drop-zone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: var(--text-padding);
+  width: 100%;
+  cursor: pointer;
+  border: 1.5px dashed transparent;
+  border-radius: var(--radius);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+#image-drop-zone:hover,
+#image-drop-zone.drag-over {
+  border-color: var(--color-label);
+  background: var(--bg-btn-hover);
+}
+
+/* Hidden native file input — covers the whole zone so clicking anywhere triggers it */
+#image-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+#image-drop-label {
   font-family: 'DINish', sans-serif;
   font-weight: 700;
   font-size: var(--text-font-size);
   color: var(--color-label);
-  padding: var(--text-padding);
-  outline: none;
+  pointer-events: none;
   white-space: nowrap;
-  border: none;
-  background: transparent;
-  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* === Flex utility === */

@@ -27,17 +27,7 @@ let skipUnion = false;
 // Additional letter-spacing added to each inter-glyph gap, in canvas pixels (default 0)
 let letterSpacingPx = 0;
 
-// Load DINish Bold for path extraction and kerning data.
-// The .woff is already on disk served from DINish/ alongside the page.
-opentype.load('DINish/DINish-Bold.woff', (err, font) => {
-  if (err) {
-    console.warn('reglage_advance: failed to load DINish-Bold.woff:', err);
-    return;
-  }
-  dinishFont = font;
-  // Redraw if an overlay is already active and canvas is ready
-  if ((showOutline || showApproches) && lastCanvasW > 0) drawOverlay();
-});
+// opentype.js removed — dinishFont stays null; all font-dependent overlays are silently disabled.
 
 // Measures typographic line positions in canvas pixel space.
 // Uses ctx.measureText with textBaseline='top' — same setup as renderTextMask().
