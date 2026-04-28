@@ -268,8 +268,9 @@ details[open] summary .step-label {
   padding: var(--text-padding);
   outline: none;
   white-space: nowrap;
-  cursor: text;
-  min-width: 60px;
+  border: none;
+  background: transparent;
+  width: 100%;
 }
 
 /* === Flex utility === */

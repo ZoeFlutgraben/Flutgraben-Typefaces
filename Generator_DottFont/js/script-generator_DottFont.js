@@ -386,7 +386,7 @@ function samplePixelsToSVGString(canvasW, canvasH) {
 
 // Main generation function — called on text change, shape change, or size slider change.
 function generate() {
-  const text = textInput.innerText.trim();
+  const text = textInput.value.trim();
 
   // Store for use by generateDots when called from sliders
   currentText = text;
