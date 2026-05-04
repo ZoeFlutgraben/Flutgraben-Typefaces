@@ -234,6 +234,11 @@ function randomizeAll() {
   pickedBtn.classList.add('active');
   currentShape = pickedBtn.dataset.shape;
 
+  // Pick a random fill color and sync the color input
+  const randomHex = '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+  currentColor = randomHex;
+  shapeColorInput.value = randomHex;
+
   // Full re-run — outset change requires new blur data
   generate();
 }

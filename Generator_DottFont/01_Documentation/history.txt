@@ -1639,3 +1639,242 @@ export-otf.js
   post underlineThck: 51 (DINish Bold) ✓
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 04/05/2026
+------------------------------------------------------------
+
+REMPLACEMENT INPUT TEXTE → INPUT IMAGE
+  L'entrée principale du générateur n'est plus un champ texte mais une image.
+  Le pipeline lit désormais n'importe quelle image (logo, illustration, etc.)
+  comme masque binaire à la place du texte DINish rendu sur canvas.
+
+  Nouveaux composants dans script-generator_DottFont.js :
+    currentImageSrc   : URL courante de l'image source (défaut : 'logo.svg')
+    lastObjectURL     : Object URL du dernier fichier utilisateur (révoqué après chargement)
+    renderImageMask(src) : charge l'image via new Image(), dimensionne le canvas
+                           à imgW+PADDING*2 × imgH+PADDING*2, dessine sur fond blanc.
+                           Remplace renderTextMask() pour le pipeline principal.
+    loadImageFile(file)  : crée un Object URL, met à jour currentImageSrc, appelle generate().
+
+  Drag & drop + browse : zone #image-drop-zone dans index.html.
+    Clic → <input type="file" accept="image/*"> natif.
+    Drop → file.type.startsWith('image/') → loadImageFile().
+    Label #image-drop-label affiche le nom du fichier courant.
+
+
+COULEUR PERSONNALISABLE (#shape-color-input)
+  Ajout d'un <input type="color"> dans le panneau Basics settings.
+  Variable currentColor (défaut '#000000') appliquée dans shapeDotSVG()
+  et updateBaseShape().
+  Listener : met à jour currentColor + updateBaseShape() + generateTextOnly().
+
+
+LIMITE DE TAILLE IMAGE — MAX_IMAGE_SIZE = 2000 px
+  Problème : une image très grande (> 2000 px) pouvait bloquer le thread
+             principal (boucle pixel non paginée sur canvasW × canvasH).
+
+  Fix (script-generator_DottFont.js) :
+    Constante ajoutée : MAX_IMAGE_SIZE = 2000
+    Dans renderImageMask(), après lecture de naturalWidth/naturalHeight :
+      scale = Math.min(1, MAX_IMAGE_SIZE / Math.max(rawW, rawH))
+      imgW  = Math.round(rawW * scale)
+      imgH  = Math.round(rawH * scale)
+    → Réduction proportionnelle si l'une des dimensions dépasse 2000 px.
+    → Images ≤ 2000 px : scale = 1, aucun changement.
+    ctx.drawImage() reçoit déjà imgW/imgH, aucune autre ligne modifiée.
+
+
+TOOLTIP "IMAGE HINTS" AU SURVOL
+  Critères requis pour l'image affichés au survol du drop zone,
+  sur le même modèle que les tooltips charset.
+
+  index.html :
+    <ul id="image-hints"> ajouté à l'intérieur de .panel (drop zone) :
+      - PNG, JPG, WebP, or self-contained SVG
+      - Dark content on white or transparent background
+      - SVG : explicit width / height required
+      - Images > 2000 px are scaled down automatically
+
+  CSS/style.css :
+    .panel : position: relative ajouté (pour ancrage absolu du tooltip).
+    overflow: hidden retiré de .panel général → déplacé sur #panel-gradient
+      et #panel-contour uniquement (évite que le tooltip soit coupé).
+    #image-hints : display: none par défaut, position: absolute sous .panel,
+      même style que .charset-tooltip (fond sombre, texte blanc, border-radius,
+      box-shadow, pointer-events: none).
+    .panel:hover #image-hints : display: block.
+
+
+COULEUR ALÉATOIRE DANS "FLOP IT!"
+  randomizeAll() (offset.js) : ajout de 3 lignes après le tirage de shape :
+    const randomHex = '#' + Math.floor(Math.random() * 0xffffff)
+                            .toString(16).padStart(6, '0');
+    currentColor = randomHex;
+    shapeColorInput.value = randomHex;
+  → generate() reçoit la nouvelle couleur via currentColor dans shapeDotSVG().
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (04/05/2026)
+------------------------------------------------------------
+
+script-generator_DottFont.js
+  Input         : image (renderImageMask) au lieu de texte ✓
+  MAX_IMAGE_SIZE: 2000 px, scale-down proportionnel ✓
+  currentColor  : variable + listener shapeColorInput ✓
+  Drag & drop   : loadImageFile(), Object URL, révocation mémoire ✓
+
+index.html
+  #image-drop-zone  : input file + label nom fichier ✓
+  #image-hints      : tooltip hover, 4 critères image ✓
+  #shape-color-input: <input type="color"> dans Basics settings ✓
+
+CSS/style.css
+  .panel            : position: relative, overflow: hidden retiré ✓
+  #panel-gradient, #panel-contour : overflow: hidden conservé ✓
+  #image-hints      : tooltip style (même pattern .charset-tooltip) ✓
+
+offset.js
+  randomizeAll()    : couleur aléatoire + sync shapeColorInput ✓
+
+============================================================
+
+------------------------------------------------------------
+SESSION 04/05/2026 — suite
+------------------------------------------------------------
+
+DOUBLE INPUT — MODE IMAGE + MODE TEXTE
+  Objectif : conserver les deux modes d'entrée (image et texte DINish)
+             accessibles depuis un même toggle, sans perdre l'export OTF.
+
+  Mode toggle (index.html) :
+    <div id="input-mode-toggle"> avec deux .mode-btn (data-mode="image" / "text").
+    Par défaut : mode image (classe .mode-image sur #panels-left).
+
+  script-generator_DottFont.js :
+    let inputMode = 'image'
+    generate() branche sur inputMode :
+      'text'  → renderTextMask(textInput.value)
+      'image' → renderImageMask(currentImageSrc)
+    Listener mode-btn : toggle inputPanelImage/inputPanelText visibility,
+      toggle classe .mode-image sur #panels-left, appel generate().
+
+  Panneaux cachés en mode image (CSS .mode-image) :
+    #top-panel-charset, #export-otf-btn, #export-woff-btn, #top-panel-advance
+    → tout le panneau Advanced settings masqué (règle unique, pas par contrôle)
+
+  index.html :
+    #input-panel-image : div.panel existant, height: var(--panel-height)
+    #input-panel-text  : div.panel flex, même hauteur, display: none par défaut,
+                         input#text-input centré (text-align: center)
+    Hover style identique pour les deux panels (border dashed + bg-btn-hover)
+
+
+BUG — TEXTE NON ÉDITABLE (mode texte)
+  Cause : inputPanelText.style.display = '' revenait au display: none du CSS.
+  Fix : utiliser 'flex' explicitement (valeur définie dans le CSS pour ce panel).
+
+
+BUG — TOOLTIP IMAGE-HINTS INVISIBLE
+  Cause : overflow: hidden sur #input-panel-image clippait le tooltip
+          position: absolute qui déborde vers le bas.
+  Fix : suppression de overflow: hidden sur #input-panel-image.
+
+
+BUG — IMAGE NON RENDUE AU CHARGEMENT
+  Cause : id="image-drop-label" absent du HTML après restructuration.
+          loadImageFile() crashait sur imageDropLabel.textContent avant generate().
+  Fix : ajout de id="image-drop-label" sur le <label for="image-file-input"> existant.
+
+
+OPACITÉ DES FORMES — DÉPLACEMENT VERS BASICS SETTINGS
+  Avant : slider #adv-opacity-slider dans Advanced settings (reglage_advance.js).
+  Après : checkbox #adv-opacity-check dans Basics settings, inline à droite
+          du color picker.
+    Cochée → shapeOpacity = 0.5
+    Décochée → shapeOpacity = 1
+  Listener déplacé dans script-generator_DottFont.js (generateTextOnly).
+  CSS : .slider-row .adv-check .step-label { font-size: 1em }
+    → évite la double réduction 0.6em × 0.6em dans ce contexte imbriqué.
+
+
+RESTAURATION opentype.load() — reglage_advance.js
+  dinishFont était null (opentype.load retiré lors d'une session précédente).
+  Conséquence : outline et tracking inopérants en mode texte.
+  Fix : ajout de opentype.load('DINish/DINish-Bold.woff', ...) au début
+        de reglage_advance.js, juste après la déclaration let dinishFont = null.
+
+
+EXPORT WOFF
+  Objectif : générer un fichier .woff depuis le même pipeline que l'OTF,
+             sans dépendance externe.
+
+  Architecture :
+    buildFont(progressBtn) — extrait de l'ancienne exportOTF().
+      Contient tout le pipeline (Clipper, métriques, glyphes, patch OS/2 + post).
+      Retourne { buffer: ArrayBuffer, filename } ou null sur erreur.
+      progressBtn.textContent mis à jour avec la progression ("42 / 250").
+
+    exportOTF() — wrapper mince : appelle buildFont, télécharge en .otf.
+    exportWOFF() — wrapper mince : appelle buildFont, convertit via sfntToWoff(),
+      télécharge en .woff.
+
+  deflateCompress(data) :
+    Compression zlib (RFC 1950) via CompressionStream('deflate') natif navigateur.
+    Retourne Promise<Uint8Array>.
+
+  sfntToWoff(sfntBuffer) :
+    Lit la structure sfnt (header 12 octets + records 16 octets × numTables).
+    Compresse chaque table individuellement ; garde la version non compressée
+      si elle est plus petite.
+    Construit le fichier WOFF :
+      Header 44 octets (signature 'wOFF', flavor, totalSize, numTables,
+        totalSfntSize, version, meta/priv à zéro).
+      Table directory : 20 octets × numTables (tag, offset, compLength,
+        origLength, origChecksum).
+      Données tables compressées, chacune paddée à 4 octets.
+    Retourne Promise<ArrayBuffer>.
+
+  index.html : bouton #export-woff-btn ajouté à côté de OTF.
+  CSS : #export-woff-btn ajouté aux règles de style et hover des boutons export,
+        caché en mode image (.mode-image).
+
+  Bug corrigé : la progression "gi / total" s'affichait sur le bouton OTF même
+    lors d'un export WOFF — exportOtfBtn.textContent → progressBtn.textContent.
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (04/05/2026 — suite)
+------------------------------------------------------------
+
+script-generator_DottFont.js
+  inputMode           : 'image' | 'text', toggle par .mode-btn ✓
+  generate()          : branche renderImageMask / renderTextMask ✓
+  #adv-opacity-check  : checkbox shapeOpacity 0.5/1.0 ✓
+  id="image-drop-label": présent sur le <label> du drop zone ✓
+
+index.html
+  #input-mode-toggle  : boutons Image / Text ✓
+  #input-panel-image  : drop zone, même hauteur que text panel ✓
+  #input-panel-text   : input DINish centré, hover style identique ✓
+  #adv-opacity-check  : checkbox inline à droite du color picker ✓
+  #export-woff-btn    : bouton WOFF dans la section Export ✓
+
+CSS/style.css
+  .mode-image         : cache charset, OTF, WOFF, Advanced settings ✓
+  overflow: hidden    : retiré de #input-panel-image (tooltip libéré) ✓
+  .slider-row .adv-check .step-label : font-size: 1em (double shrink corrigé) ✓
+
+js/reglage_advance.js
+  opentype.load()     : restauré → dinishFont chargé → outline + tracking OK ✓
+
+js/export-otf.js
+  buildFont(progressBtn) : pipeline partagé OTF + WOFF ✓
+  exportOTF()            : wrapper mince ✓
+  exportWOFF()           : wrapper mince + sfntToWoff() ✓
+  deflateCompress()      : zlib via CompressionStream natif ✓
+  sfntToWoff()           : WOFF header + directory + tables compressées ✓
+  progressBtn            : progression sur le bon bouton ✓
+
+============================================================

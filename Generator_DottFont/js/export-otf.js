@@ -1,5 +1,5 @@
 // ============================================================
-// OTF Export — DottFont Generator
+// OTF / WOFF Export — DottFont Generator
 //
 // Builds and downloads a .otf font file containing all characters
 // defined in dinish-bold-metrics.json, using opentype.js.
@@ -272,23 +272,122 @@ function clipperToOpentypePath(clipperPaths) {
   return path;
 }
 
-// Builds and downloads an OTF font for all characters defined in
-// dinish-bold-metrics.json. Font metrics and advance widths come from
-// the JSON; BASELINE_Y is measured from the canvas at runtime.
-// All dot shapes within each glyph are merged via boolean union before export.
-async function exportOTF() {
-  exportOtfBtn.textContent = 'En cours...';
-  exportOtfBtn.disabled = true;
+// Compresses data using zlib-wrapped deflate (RFC 1950) via the native CompressionStream API.
+// Returns a Promise<Uint8Array> with the compressed bytes.
+// Used by sfntToWoff to compress individual font tables.
+async function deflateCompress(data) {
+  const cs     = new CompressionStream('deflate');
+  const writer = cs.writable.getWriter();
+  writer.write(data);
+  writer.close();
+  const chunks = [];
+  const reader = cs.readable.getReader();
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const out   = new Uint8Array(total);
+  let   off   = 0;
+  for (const chunk of chunks) { out.set(chunk, off); off += chunk.length; }
+  return out;
+}
 
+// Converts an sfnt (OTF/CFF) ArrayBuffer to WOFF format.
+// Each table is compressed independently with zlib deflate.
+// If compression does not reduce a table's size, it is stored uncompressed.
+// Returns a Promise<ArrayBuffer> with the complete WOFF file.
+async function sfntToWoff(sfntBuffer) {
+  const view  = new DataView(sfntBuffer);
+  const u8    = new Uint8Array(sfntBuffer);
+  const flavor    = view.getUint32(0);   // 'OTTO' for CFF-based OTF
+  const numTables = view.getUint16(4);
+
+  // Parse sfnt table records (12-byte sfnt header + 16 bytes per record)
+  const records = [];
+  for (let i = 0; i < numTables; i++) {
+    const base = 12 + i * 16;
+    records.push({
+      tag:      u8.slice(base, base + 4),
+      checksum: view.getUint32(base + 4),
+      offset:   view.getUint32(base + 8),
+      length:   view.getUint32(base + 12),
+    });
+  }
+
+  // Compress each table; fall back to uncompressed if smaller
+  const tables = await Promise.all(records.map(async rec => {
+    const orig = u8.slice(rec.offset, rec.offset + rec.length);
+    const comp = await deflateCompress(orig);
+    return comp.length < orig.length
+      ? { ...rec, data: comp, compLength: comp.length }
+      : { ...rec, data: orig, compLength: rec.length  };
+  }));
+
+  // Assign per-table offsets — tables start after the 44-byte header + directory
+  const directoryEnd = 44 + numTables * 20;
+  let pos = directoryEnd;
+  const offsets = tables.map(t => {
+    const o = pos;
+    pos += Math.ceil(t.compLength / 4) * 4;  // each table padded to 4-byte boundary
+    return o;
+  });
+  const totalSize = pos;
+
+  // Build WOFF buffer
+  const woff = new ArrayBuffer(totalSize);
+  const dv   = new DataView(woff);
+  const wu8  = new Uint8Array(woff);
+
+  // WOFF header (44 bytes, W3C WOFF spec §4)
+  dv.setUint32( 0, 0x774F4646);             // 'wOFF' signature
+  dv.setUint32( 4, flavor);                 // sfnt version (flavor)
+  dv.setUint32( 8, totalSize);              // total WOFF file length
+  dv.setUint16(12, numTables);              // number of tables
+  dv.setUint16(14, 0);                      // reserved — must be 0
+  dv.setUint32(16, sfntBuffer.byteLength);  // uncompressed sfnt size
+  dv.setUint16(20, 1);                      // font majorVersion
+  dv.setUint16(22, 0);                      // font minorVersion
+  dv.setUint32(24, 0);                      // metaOffset  (no metadata block)
+  dv.setUint32(28, 0);                      // metaLength
+  dv.setUint32(32, 0);                      // metaOrigLength
+  dv.setUint32(36, 0);                      // privOffset  (no private data)
+  dv.setUint32(40, 0);                      // privLength
+
+  // WOFF table directory (20 bytes per entry)
+  for (let i = 0; i < tables.length; i++) {
+    const base = 44 + i * 20;
+    wu8.set(tables[i].tag, base);
+    dv.setUint32(base +  4, offsets[i]);           // offset from start of WOFF
+    dv.setUint32(base +  8, tables[i].compLength); // compressed length
+    dv.setUint32(base + 12, tables[i].length);     // original (uncompressed) length
+    dv.setUint32(base + 16, tables[i].checksum);   // checksum from sfnt record
+  }
+
+  // Table data
+  for (let i = 0; i < tables.length; i++) {
+    wu8.set(tables[i].data, offsets[i]);
+  }
+
+  return woff;
+}
+
+// Runs the full glyph-generation pipeline and returns the patched font ArrayBuffer.
+// Shared by exportOTF and exportWOFF — only the download step differs.
+//
+// progressBtn: button whose textContent is updated with per-glyph progress ("42 / 250").
+// Returns { buffer: ArrayBuffer, filename: string }, or null on error
+// (in which case progressBtn.textContent is set to the error label).
+async function buildFont(progressBtn) {
   // Load Clipper.js for polygon boolean union — skipped when skipUnion is active.
   if (!skipUnion) {
     try {
       await loadClipper();
     } catch (e) {
       console.error('Failed to load Clipper.js:', e);
-      exportOtfBtn.textContent = 'Erreur Clipper';
-      exportOtfBtn.disabled = false;
-      return;
+      progressBtn.textContent = 'Erreur Clipper';
+      return null;
     }
   }
 
@@ -300,9 +399,8 @@ async function exportOTF() {
     metrics = await res.json();
   } catch (e) {
     console.error('Failed to load dinish-bold-metrics.json:', e);
-    exportOtfBtn.textContent = 'Erreur JSON';
-    exportOtfBtn.disabled = false;
-    return;
+    progressBtn.textContent = 'Erreur JSON';
+    return null;
   }
 
   const UPM       = metrics.units.upm;
@@ -555,7 +653,7 @@ async function exportOTF() {
     // Yield to the browser every 10 glyphs: allows repaints and prevents
     // the "page unresponsive" dialog on large charsets.
     if (gi % 10 === 0) {
-      exportOtfBtn.textContent = `${gi} / ${CHARSET.length}`;
+      progressBtn.textContent = `${gi} / ${CHARSET.length}`;
       await new Promise(r => setTimeout(r, 0));
     }
 
@@ -725,13 +823,44 @@ async function exportOTF() {
     patchedFont.tables.post.underlineThickness = 51;
   }
 
-  patchedFont.download(filename);
-
-  // Restore the display to the current text input after processing
-  generate();
-  exportOtfBtn.textContent = 'OTF';
-  exportOtfBtn.disabled = false;
+  // Return the final serialized buffer and filename — callers handle the download
+  return { buffer: patchedFont.toArrayBuffer(), filename };
 }
 
-// OTF export button — builds the font on click
-exportOtfBtn.addEventListener('click', exportOTF);
+// Downloads the font as an OTF file.
+async function exportOTF() {
+  exportOtfBtn.textContent = 'En cours...';
+  exportOtfBtn.disabled    = true;
+  const result = await buildFont(exportOtfBtn);
+  if (!result) { exportOtfBtn.disabled = false; return; }
+  const a = document.createElement('a');
+  a.href     = URL.createObjectURL(new Blob([result.buffer], { type: 'font/otf' }));
+  a.download = result.filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  generate();
+  exportOtfBtn.textContent = 'OTF';
+  exportOtfBtn.disabled    = false;
+}
+
+// Downloads the font as a WOFF file.
+// Reuses the same glyph pipeline as exportOTF; only the wrapping differs.
+async function exportWOFF() {
+  exportWoffBtn.textContent = 'En cours...';
+  exportWoffBtn.disabled    = true;
+  const result = await buildFont(exportWoffBtn);
+  if (!result) { exportWoffBtn.disabled = false; return; }
+  const woffBuffer = await sfntToWoff(result.buffer);
+  const a = document.createElement('a');
+  a.href     = URL.createObjectURL(new Blob([woffBuffer], { type: 'font/woff' }));
+  a.download = result.filename.replace('.otf', '.woff');
+  a.click();
+  URL.revokeObjectURL(a.href);
+  generate();
+  exportWoffBtn.textContent = 'WOFF';
+  exportWoffBtn.disabled    = false;
+}
+
+const exportWoffBtn = document.getElementById('export-woff-btn');
+exportOtfBtn.addEventListener('click',  exportOTF);
+exportWoffBtn.addEventListener('click', exportWOFF);

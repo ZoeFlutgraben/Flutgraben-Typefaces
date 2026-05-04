@@ -91,13 +91,14 @@ body {
 
 /* === Shared panel base — all left-column panels === */
 #top-panel,
+#top-panel-premier,
 #top-panel-offset,
 #top-panel-export,
 #top-panel-advance,
 #top-panel-info,
 #top-panel-charset {
   padding: 15px;
-  border-radius: 10px;
+  /* border-radius: 10px; */
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -190,9 +191,11 @@ body {
 .step-label,
 .slider-row label,
 .slider-row span,
+.panel label,
 #export-btn,
 #export-otf-btn,
-#export-png-btn {
+#export-png-btn,
+#export-woff-btn {
   font-family: 'DINish', sans-serif;
   font-weight: 700;
   font-size: 0.6em;
@@ -234,12 +237,15 @@ details[open] summary .step-label {
 .stage {
   display: flex;
   flex-direction: column;
+  padding: 15px;
+  gap: 5px;
 }
 
-/* Gradient and contour preview panels — height from token */
+/* Gradient and contour preview panels — fixed height + clipped overflow */
 #panel-gradient,
 #panel-contour {
   height: var(--panel-height);
+  overflow: hidden;
 }
 
 /* Canvas scales to panel height, width follows aspect ratio */
@@ -250,12 +256,74 @@ details[open] summary .step-label {
   width: auto;
 }
 
-/* Shared background for text input panel */
+/* Input panel base — background, radius, tooltip anchor */
 .panel {
+  position: relative;
   background-color: var(--bg-btn);
   border-radius: var(--radius);
   line-height: 0;
+}
+
+/* === Step 1 — input mode toggle === */
+#input-mode-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 4px 0;
+  background: var(--bg-btn);
+  color: var(--color-label);
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'DINish', sans-serif;
+  font-size: 0.6em;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-transform: uppercase;
+}
+
+.mode-btn.active {
+  background: var(--color-dark);
+  color: #f9f9f9;
+}
+
+/* Input panels — shared fixed height matching gradient/contour previews */
+#input-panel-image {
+  height: var(--panel-height);
+}
+
+#input-panel-text {
+  height: var(--panel-height);
   overflow: hidden;
+  display: none; /* hidden by default — image mode is default */
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed transparent;
+  border-radius: var(--radius);
+  transition: border-color 0.15s, background 0.15s;
+  cursor: text;
+}
+
+#input-panel-text:hover {
+  border-color: var(--color-label);
+  background: var(--bg-btn-hover);
+}
+
+/* Text input field */
+#text-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: 'DINish', sans-serif;
+  font-weight: 700;
+  font-size: var(--text-font-size);
+  color: var(--color-label);
+  text-align: center;
 }
 
 /* === Step 1 — image drop zone === */
@@ -263,6 +331,8 @@ details[open] summary .step-label {
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
+  height: 100%;
   padding: var(--text-padding);
   width: 100%;
   cursor: pointer;
@@ -283,8 +353,6 @@ details[open] summary .step-label {
   inset: 0;
   opacity: 0;
   cursor: pointer;
-  width: 100%;
-  height: 100%;
 }
 
 #image-drop-label {
@@ -299,26 +367,51 @@ details[open] summary .step-label {
   max-width: 100%;
 }
 
-/* === Flex utility === */
-.flex {
-  display: flex;
-  flex-direction: row;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+/* === Image input hints — tooltip on hover === */
+#image-hints {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 999;
+  margin: 0;
+  padding: 8px 10px;
+  list-style: none;
+  background: var(--color-dark);
+  color: #f9f9f9;
+  border-radius: var(--radius);
+  font-family: 'DINish', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.8;
+  width: max-content;
+  max-width: 240px;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-/* === Shape selector === */
-#shape-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+#image-hints code {
+  font-family: monospace;
 }
 
+.panel:hover #image-hints {
+  display: block;
+}
+
+/* === Flex utility and shape button row — identical layout === */
+.flex,
 .shape-btns {
   display: flex;
   flex-direction: row;
   gap: 0.4rem;
   flex-wrap: wrap;
+}
+
+/* === Shape selector — column layout wrapping button row + color input === */
+#shape-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .shape-btn {
@@ -354,7 +447,8 @@ details[open] summary .step-label {
   gap: 10px;
 }
 
-.slider-row label {
+.slider-row label,
+.panel label {
   color: var(--color-label);
   white-space: nowrap;
   min-width: 80px;
@@ -403,7 +497,8 @@ details[open] summary .step-label {
 /* === Export buttons === */
 #export-btn,
 #export-otf-btn,
-#export-png-btn {
+#export-png-btn,
+#export-woff-btn {
   background-color: var(--bg-btn);
   padding: 5px 10px;
   border-radius: var(--radius);
@@ -414,25 +509,20 @@ details[open] summary .step-label {
 
 #export-btn:hover,
 #export-otf-btn:hover,
-#export-png-btn:hover {
+#export-png-btn:hover,
+#export-woff-btn:hover {
   background-color: var(--bg-btn-hover);
 }
 
 /* === Details panels — summary toggle === */
-#top-panel-advance summary,
-#top-panel-offset summary,
-#top-panel-premier summary,
-#top-panel-charset summary {
+#panels-left details summary {
   cursor: pointer;
   list-style: none;        /* Firefox */
   user-select: none;
 }
 
 /* Hide default disclosure triangle in WebKit/Blink */
-#top-panel-advance summary::-webkit-details-marker,
-#top-panel-offset summary::-webkit-details-marker,
-#top-panel-premier summary::-webkit-details-marker,
-#top-panel-charset summary::-webkit-details-marker {
+#panels-left details summary::-webkit-details-marker {
   display: none;
 }
 
@@ -486,12 +576,26 @@ details[open] summary .step-label {
   margin-bottom: 0;
 }
 
+/* When .adv-check sits inside a .slider-row, the outer label already inherits
+   0.6em — prevent the inner .step-label from shrinking a second time */
+.slider-row .adv-check .step-label {
+  font-size: 1em;
+}
+
 .adv-check input[type="checkbox"] {
   width: 14px;
   height: 14px;
   cursor: pointer;
   accent-color: var(--color-dark);
   flex-shrink: 0;
+}
+
+/* === Image mode — hide text-only panels === */
+#panels-left.mode-image #top-panel-charset,
+#panels-left.mode-image #export-otf-btn,
+#panels-left.mode-image #export-woff-btn,
+#panels-left.mode-image #top-panel-advance {
+  display: none;
 }
 
 /* === Responsive — narrow viewport (≤ 1300px) === */

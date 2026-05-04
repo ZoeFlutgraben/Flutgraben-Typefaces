@@ -16,108 +16,129 @@
   <div id="panels-left">
 
   <!-- ===================== MAIN PANEL — controls sidebar ===================== -->
-    <div id="top-panel">
+  
       
-    <!-- STEP 1 — image source (default: logo.svg, drag & drop or browse to replace) -->
-    <div class="stage">
-      <div class="panel">
-        <div id="image-drop-zone">
-          <input type="file" id="image-file-input" accept="image/*" tabindex="-1">
-          <span id="image-drop-label">logo.svg</span>
-        </div>
+    <!-- STEP 1 — input mode toggle + image/text source -->
+  <div class="stage">
+
+      <!-- Mode toggle — switches between image and text input -->
+      <div id="input-mode-toggle">
+        <button class="mode-btn active" data-mode="image">Image</button>
+        <button class="mode-btn" data-mode="text">Text</button>
       </div>
-    </div>
+
+      <!-- Image input (visible in image mode) -->
+      <div class="panel" id="input-panel-image">
+        <div id="image-drop-zone">
+          <input type="file" id="image-file-input" accept="image/*"  tabindex="-1">
+          <label for="image-file-input" id="image-drop-label">Choose images to upload</label>
+        </div>
+        <!-- Image format and content requirements — visible on hover -->
+        <ul id="image-hints">
+          <li>PNG, JPG, WebP, or self-contained SVG</li>
+          <li>Dark content on white background</li>
+          <li>SVG: explicit <code>width</code> / <code>height</code> required</li>
+          <li>Images &gt; 2000 px are scaled down</li>
+        </ul>
+      </div>
+
+      <!-- Text input (visible in text mode) -->
+      <div class="panel" id="input-panel-text">
+        <input id="text-input" type="text" value="Flut" maxlength="20" spellcheck="false">
+      </div>
+
+  </div>
 
     <!-- STEP 2 — bilinear mesh gradient clipped to image shape -->
-    <details id="top-panel-premier">
+  <details id="top-panel-premier">
       <summary><span class="step-label">Basics settings</span></summary>
       <div class="adv-controls">
-    <div class="stage" id="stage-gradient">
-      <!-- <span class="step-label">step 2 — gradient</span> -->
-      <div id="panel-gradient">
-        <canvas id="gradient-canvas"></canvas>
-      </div>
-    </div>
-    <!-- SHAPE — selector -->
-    <div id="shape-selector">
-      <!-- <span class="step-label">shape</span> -->
-      <div class="shape-btns">
+        <div class="stage" id="stage-gradient">
+        <!-- <span class="step-label">step 2 — gradient</span> -->
+          <div id="panel-gradient">
+            <canvas id="gradient-canvas"></canvas>
+          </div>
+        </div>
+          
+        <!-- SHAPE — selector -->
+        <div class="shape-btns">
+            <button class="shape-btn active" data-shape="circle" title="Circle">
+              <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="1" cy="1" r="1" fill="#000000" />
+              </svg>
+            </button>
 
-        <button class="shape-btn active" data-shape="circle" title="Circle">
-          <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="1" cy="1" r="1" fill="#000000" />
-          </svg>
-        </button>
+            <button class="shape-btn" data-shape="square" title="Square">
+              <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0" y="0" width="2" height="2" fill="#000000" />
+              </svg>
+            </button>
 
-        <button class="shape-btn" data-shape="square" title="Square">
-          <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
-            <rect x="0" y="0" width="2" height="2" fill="#000000" />
-          </svg>
-        </button>
+            <button class="shape-btn" data-shape="polygone" title="Polygone">
+              <svg viewBox="0 0 2.829 2.691" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="1.415,2.691 0,1.663 0.540,0 2.289,0 2.829,1.663" fill="#000000" />
+              </svg>
+            </button>
 
-        <button class="shape-btn" data-shape="polygone" title="Polygone">
-          <svg viewBox="0 0 2.829 2.691" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="1.415,2.691 0,1.663 0.540,0 2.289,0 2.829,1.663" fill="#000000" />
-          </svg>
-        </button>
+            <button class="shape-btn" data-shape="polygone8" title="Polygone 8">
+              <svg viewBox="0 0 2.314 2.314" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="0.348,0.353 0.012,1.163 0.348,1.973 1.158,2.309 1.968,1.973 2.304,1.163 1.968,0.353 1.158,0.017" fill="#000000" />
+              </svg>
+            </button>
 
-        <button class="shape-btn" data-shape="polygone8" title="Polygone 8">
-          <svg viewBox="0 0 2.314 2.314" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="0.348,0.353 0.012,1.163 0.348,1.973 1.158,2.309 1.968,1.973 2.304,1.163 1.968,0.353 1.158,0.017" fill="#000000" />
-          </svg>
-        </button>
+            <button class="shape-btn" data-shape="trait_2" title="Trait 2">
+              <svg viewBox="0 0 3.614 1.027" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0" y="0" width="3.614" height="1.027" fill="#000000" />
+              </svg>
+            </button>
 
-        <button class="shape-btn" data-shape="trait_2" title="Trait 2">
-          <svg viewBox="0 0 3.614 1.027" xmlns="http://www.w3.org/2000/svg">
-            <rect x="0" y="0" width="3.614" height="1.027" fill="#000000" />
-          </svg>
-        </button>
+            <button class="shape-btn" data-shape="cross" title="cross">
+              <svg viewBox="0 0 0.748 0.748" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="0,0 0.373447,0.154202 0.746893,0 0.592326,0.373081 0.747624,0.747624 0.373447,0.59196 -7.31e-4,0.747624 0.154568,0.373081" fill="#000000"/>
+              </svg>
+            </button>
+        </div>
 
-        <button class="shape-btn" data-shape="cross" title="cross">
-          <svg viewBox="0 0 0.748 0.748" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="0,0 0.373447,0.154202 0.746893,0 0.592326,0.373081 0.747624,0.747624 0.373447,0.59196 -7.31e-4,0.747624 0.154568,0.373081" fill="#000000"/>
-          </svg>
-        </button>
+        <!-- COLOR — fill color + opacity toggle on one row -->
+        <div class="slider-row">
+            <label for="shape-color-input">Color</label>
+            <input type="color" id="shape-color-input" value="#000000">
+            <label class="adv-check" style="margin-left:auto">
+              <input type="checkbox" id="adv-opacity-check">
+              <span class="step-label">Opacity</span>
+            </label>
+        </div>
+        
+        <!-- MESH — grid size for bilinear gradient (0 = solid black, no mesh) -->
+        <div class="slider-row">
+          <label for="mesh-slider">Mesh</label>
+          <input type="range" id="mesh-slider" min="0" max="4" step="1" value="0" />
+          <span id="mesh-value" contenteditable="true">0</span>
+        </div>
 
-      </div>
+        <!-- SIZE PREGENERATION — scales dot radius and grid spacing together -->
+        <div class="slider-row">
+          <label for="taille-generation-slider">Size pregeneration</label>
+          <input type="range" id="taille-generation-slider" min="0.50" max="3" step="0.05" value="1" />
+          <span id="taille-generation-value" contenteditable="true">1.00</span>
+        </div>
 
-      <!-- COLOR — fill color applied to all generated shapes -->
-      <div class="slider-row">
-        <label for="shape-color-input">Color</label>
-        <input type="color" id="shape-color-input" value="#000000">
-      </div>
-    </div>
+        <!-- SIZE POSTGENERATION — scales dot radius only -->
+        <div class="slider-row">
+          <label for="size-slider">Size postgeneration</label>
+          <input type="range" id="size-slider" min="0.50" max="3" step="0.05" value="1" />
+          <span id="size-value" contenteditable="true">1.00</span>
+        </div>
 
-    <!-- MESH — grid size for bilinear gradient (0 = solid black, no mesh) -->
-    <div class="slider-row">
-      <label for="mesh-slider">Mesh</label>
-      <input type="range" id="mesh-slider" min="0" max="4" step="1" value="0" />
-      <span id="mesh-value" contenteditable="true">0</span>
-    </div>
+        <!-- PRESENCE — probabilistic dot filter -->
+        <div class="slider-row">
+          <label for="presence-slider">Hazard</label>
+          <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
+          <span id="presence-value" contenteditable="true">0.5</span>
+        </div>
 
-    <!-- SIZE PREGENERATION — scales dot radius and grid spacing together -->
-    <div class="slider-row">
-      <label for="taille-generation-slider">Size pregeneration</label>
-      <input type="range" id="taille-generation-slider" min="0.50" max="3" step="0.05" value="1" />
-      <span id="taille-generation-value" contenteditable="true">1.00</span>
-    </div>
-
-    <!-- SIZE POSTGENERATION — scales dot radius only -->
-    <div class="slider-row">
-      <label for="size-slider">Size postgeneration</label>
-      <input type="range" id="size-slider" min="0.50" max="3" step="0.05" value="1" />
-      <span id="size-value" contenteditable="true">1.00</span>
-    </div>
-
-    <!-- PRESENCE — probabilistic dot filter -->
-    <div class="slider-row">
-      <label for="presence-slider">Hazard</label>
-      <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
-      <span id="presence-value" contenteditable="true">0.5</span>
-    </div>
       </div><!-- /adv-controls -->
-    </details>
-  </div>
+  </details>
   
   <!-- ===================== OFFSET PANEL — contour controls ===================== -->
   <details id="top-panel-offset">
@@ -191,13 +212,6 @@
         <input type="range" id="adv-tracking-slider" min="-30" max="30" step="1" value="0">
         <span id="adv-tracking-value" contenteditable="true">0</span>
       </div>
-
-      <div class="slider-row">
-        <label for="adv-opacity-slider">shape opacity</label>
-        <input type="range" id="adv-opacity-slider" min="0" max="1" step="0.01" value="1">
-        <span id="adv-opacity-value" contenteditable="true">1</span>
-      </div>
-
 
       <label class="adv-check">
         <input type="checkbox" id="adv-no-union">
@@ -275,6 +289,8 @@
       <span class="step-label">Export</span>
       <button id="export-btn">SVG</button>
       <button id="export-png-btn">PNG</button>
+      <button id="export-otf-btn">OTF</button>
+      <button id="export-woff-btn">WOFF</button>
     </div>
 
   </div>
@@ -317,8 +333,10 @@
   -->
   <canvas id="hidden-canvas" style="display:none;"></canvas>
 
+  <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
   <script src="js/script-generator_DottFont.js"></script>
   <script src="js/offset.js"></script>
+  <script src="js/export-otf.js"></script>
   <script src="js/reglage_advance.js"></script>
 
 </body>

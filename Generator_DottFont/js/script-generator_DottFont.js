@@ -13,6 +13,9 @@
 const imageDropZone          = document.getElementById('image-drop-zone');
 const imageFileInput         = document.getElementById('image-file-input');
 const imageDropLabel         = document.getElementById('image-drop-label');
+const textInput              = document.getElementById('text-input');
+const inputPanelImage        = document.getElementById('input-panel-image');
+const inputPanelText         = document.getElementById('input-panel-text');
 const gradientCanvas         = document.getElementById('gradient-canvas');
 const gCtx                   = gradientCanvas.getContext('2d');
 const contourCanvas          = document.getElementById('contour-canvas');
@@ -33,6 +36,9 @@ const ctx                    = hiddenCanvas.getContext('2d');
 
 // Kept as empty string so reglage_advance.js references remain safe (dinishFont=null guards all uses)
 let currentText = '';
+
+// Current input mode — 'image' uses renderImageMask, 'text' uses renderTextMask
+let inputMode = 'image';
 
 // Current image source fed into the tramage pipeline — defaults to logo.svg
 let currentImageSrc = 'logo.svg';
@@ -77,8 +83,9 @@ const FONT_SIZE   = 150;  // px — text render size
 const DOT_SPACING = 6;    // px — grid step between dot centers
 const MAX_RADIUS  = 3.0;  // px — half-size of dot at full black
 const MIN_RADIUS  = 0.5;  // px — half-size of dot at lightest grey
-const THRESHOLD   = 240;  // brightness cutoff for text mask (0=black, 255=white)
-const PADDING     = 30;   // px — margin around text on canvas
+const THRESHOLD      = 240;  // brightness cutoff for text mask (0=black, 255=white)
+const PADDING        = 30;   // px — margin around text on canvas
+const MAX_IMAGE_SIZE = 2000; // px — maximum width or height before downscaling
 
 // --- Mesh gradient size ---
 // Number of patches along each axis. 0 = solid black (no mesh).
@@ -173,8 +180,14 @@ function renderImageMask(src) {
     const img = new Image();
 
     img.onload = () => {
-      const imgW    = img.naturalWidth  || img.width;
-      const imgH    = img.naturalHeight || img.height;
+      const rawW  = img.naturalWidth  || img.width;
+      const rawH  = img.naturalHeight || img.height;
+
+      // Scale down proportionally if either dimension exceeds MAX_IMAGE_SIZE
+      const scale = Math.min(1, MAX_IMAGE_SIZE / Math.max(rawW, rawH));
+      const imgW  = Math.round(rawW * scale);
+      const imgH  = Math.round(rawH * scale);
+
       const canvasW = imgW + PADDING * 2;
       const canvasH = imgH + PADDING * 2;
 
@@ -445,13 +458,21 @@ function samplePixelsToSVGString(canvasW, canvasH) {
 }
 
 // Main generation function — called on page load, shape change, or size slider change.
-// Async because renderLogoMask() loads an image via Promise.
+// Async because renderImageMask() loads an image via Promise.
 async function generate() {
   // Update the base clone shape in SVG defs
   updateBaseShape(currentShape);
 
-  // Step 1 — load current image as binary mask on hidden canvas
-  const { canvasW, canvasH, blurData } = await renderImageMask(currentImageSrc);
+  // Step 1 — build binary mask depending on active input mode
+  let canvasW, canvasH, blurData;
+  if (inputMode === 'text') {
+    const text = textInput.value.trim();
+    currentText = text;
+    if (!text) { clearOutputs(); return; }
+    ({ canvasW, canvasH, blurData } = renderTextMask(text));
+  } else {
+    ({ canvasW, canvasH, blurData } = await renderImageMask(currentImageSrc));
+  }
 
   // Store blurData so contour sliders can regenerate without re-running the full pipeline
   lastBlurData = blurData;
@@ -731,6 +752,33 @@ shapeColorInput.addEventListener('input', () => {
   if (lastCanvasW > 0) generateTextOnly();
 });
 
+// Shape opacity checkbox — sets opacity to 0.5 when checked, 1 when unchecked
+document.getElementById('adv-opacity-check').addEventListener('change', e => {
+  shapeOpacity = e.target.checked ? 0.5 : 1;
+  if (lastCanvasW > 0) generateTextOnly();
+});
+
+// Mode toggle — switches between image and text input
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    inputMode = btn.dataset.mode;
+    inputPanelImage.style.display = inputMode === 'image' ? 'block' : 'none';
+    inputPanelText.style.display  = inputMode === 'text'  ? 'flex'  : 'none';
+    // Show/hide text-only panels (charset selector and OTF export)
+    document.getElementById('panels-left').classList.toggle('mode-image', inputMode === 'image');
+    generate();
+  });
+});
+
+// Text input — debounced re-render on keystroke
+textInput.addEventListener('input', () => {
+  if (inputMode !== 'text') return;
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(generate, 120);
+});
+
 // File input — triggers when the user browses and selects a file
 imageFileInput.addEventListener('change', () => {
   const file = imageFileInput.files[0];
@@ -754,7 +802,8 @@ imageDropZone.addEventListener('drop', (e) => {
   if (file && file.type.startsWith('image/')) loadImageFile(file);
 });
 
-// Initial render on page load
+// Initial render on page load — set mode-image class since image is the default mode
+document.getElementById('panels-left').classList.add('mode-image');
 generate();
 
 // Populate charset tooltips from data-chars attribute — no fetch needed

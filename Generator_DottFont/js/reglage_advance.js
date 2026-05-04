@@ -16,6 +16,10 @@
 // Loaded DINish Bold font (opentype.Font instance), null until async load completes
 let dinishFont = null;
 
+opentype.load('DINish/DINish-Bold.woff', function(err, font) {
+  if (!err) dinishFont = font;
+});
+
 // Overlay toggle state
 let showOutline   = false;
 let showApproches = false;
@@ -26,8 +30,6 @@ let skipUnion = false;
 
 // Additional letter-spacing added to each inter-glyph gap, in canvas pixels (default 0)
 let letterSpacingPx = 0;
-
-// opentype.js removed — dinishFont stays null; all font-dependent overlays are silently disabled.
 
 // Measures typographic line positions in canvas pixel space.
 // Uses ctx.measureText with textBaseline='top' — same setup as renderTextMask().
@@ -338,23 +340,6 @@ generateTextOnly    = function()     { _origGenerateTextOnly();     drawOverlay(
 document.getElementById('adv-show-outline' ).addEventListener('change', e => { showOutline   = e.target.checked; drawOverlay(); });
 document.getElementById('adv-show-approches').addEventListener('change', e => { showApproches = e.target.checked; drawOverlay(); });
 document.getElementById('adv-no-union'      ).addEventListener('change', e => { skipUnion     = e.target.checked; });
-
-// --- Shape opacity slider ---
-// Updates shapeOpacity (read by shapeDotSVG in script-generator_DottFont.js) and
-// triggers a full re-render so every shape is regenerated with the new opacity value.
-const opacitySlider = document.getElementById('adv-opacity-slider');
-const opacityValue  = document.getElementById('adv-opacity-value');
-
-opacitySlider.addEventListener('input', () => {
-  shapeOpacity = parseFloat(opacitySlider.value);
-  opacityValue.textContent = shapeOpacity.toFixed(2);
-  if (lastCanvasW > 0) generate();
-});
-
-bindSpanEdit(opacityValue, opacitySlider, false, v => {
-  shapeOpacity = v;
-  if (lastCanvasW > 0) generate();
-});
 
 // --- Tracking (letter-spacing) slider ---
 // Writes letterSpacingPx to the canvas context and triggers a full re-render
