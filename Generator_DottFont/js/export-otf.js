@@ -818,13 +818,35 @@ async function buildFont(progressBtn) {
     patchedFont.tables.os2.usWinAscent  = metrics.otfTables.OS2.usWinAscent;
     patchedFont.tables.os2.usWinDescent = metrics.otfTables.OS2.usWinDescent;
   }
-  if (patchedFont.tables.post) {
-    patchedFont.tables.post.underlinePosition  = -153;
-    patchedFont.tables.post.underlineThickness = 51;
+  // Binary-patch the post table — opentype.js v1.3.4 caches the raw table bytes
+  // after parse() and recopies them in toArrayBuffer(), so assigning to
+  // patchedFont.tables.post.underlinePosition has no effect on the output.
+  // We locate the post record in the sfnt table directory and write the values
+  // directly into the serialized buffer, then recalculate the table checksum.
+  const finalBuf = patchedFont.toArrayBuffer();
+  const patchDV  = new DataView(finalBuf);
+  const patchU8  = new Uint8Array(finalBuf);
+  const sfntNumTables = patchDV.getUint16(4);
+  for (let t = 0; t < sfntNumTables; t++) {
+    const rec = 12 + t * 16;
+    const tag = String.fromCharCode(patchU8[rec], patchU8[rec + 1], patchU8[rec + 2], patchU8[rec + 3]);
+    if (tag === 'post') {
+      const postOff = patchDV.getUint32(rec + 8);
+      patchDV.setInt16(postOff + 8,  -153);  // underlinePosition  (DINish Bold ref)
+      patchDV.setInt16(postOff + 10,   51);  // underlineThickness (DINish Bold ref)
+      // Recalculate the post table checksum so the sfnt directory stays consistent
+      const postLen = patchDV.getUint32(rec + 12);
+      let chk = 0;
+      for (let i = 0; i < Math.ceil(postLen / 4); i++) {
+        chk = (chk + patchDV.getUint32(postOff + i * 4)) >>> 0;
+      }
+      patchDV.setUint32(rec + 4, chk);
+      break;
+    }
   }
 
   // Return the final serialized buffer and filename — callers handle the download
-  return { buffer: patchedFont.toArrayBuffer(), filename };
+  return { buffer: finalBuf, filename };
 }
 
 // Downloads the font as an OTF file.

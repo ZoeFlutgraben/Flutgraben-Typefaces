@@ -1878,3 +1878,88 @@ js/export-otf.js
   progressBtn            : progression sur le bon bouton ✓
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 05/05/2026
+------------------------------------------------------------
+
+BUG — POST TABLE : underlinePosition=0, underlineThickness=0
+  Symptôme : les exports OTF et WOFF avaient underlinePosition=0 et
+             underlineThickness=0 dans la table post.
+             Le soulignement CSS s'affichait sur la baseline au lieu
+             d'en dessous (position correcte : -153 u, épaisseur : 51 u).
+
+  Analyse préalable (issue.txt du 05/05) :
+    Le fichier issue.txt présent dans correction-otf/05-05/ contenait
+    une analyse incorrecte des WOFF — il confondait origLen (taille
+    non compressée) avec compLen (taille compressée), et signalait à
+    tort une corruption du table directory.
+    Vérification binaire + fonttools : les 4 fichiers WOFF sont
+    structurellement valides, toutes les tables se décompressent
+    correctement, aucune corruption réelle.
+
+  Cause racine du bug underline :
+    Le bloc de patch post-sérialisation dans buildFont() assignait :
+      patchedFont.tables.post.underlinePosition  = -153
+      patchedFont.tables.post.underlineThickness = 51
+    opentype.js v1.3.4 recopie les bytes bruts mis en cache lors du
+    parse() dans toArrayBuffer(), sans re-sérialiser les champs JS
+    modifiés. L'assignation était silencieusement ignorée.
+    (Le patch OS/2 fonctionne car opentype.js re-génère cette table
+    explicitement ; le patch post ne fonctionnait pas pour la même
+    raison inverse.)
+    Ce bug affectait les deux formats d'export (OTF et WOFF) puisqu'ils
+    partagent le même buildFont().
+
+  Fix appliqué (export-otf.js) :
+    Suppression du bloc d'assignation JS sur patchedFont.tables.post.
+    Remplacement par un patch binaire direct après toArrayBuffer() :
+      1. Parcourir le répertoire sfnt (12 + t*16 par table)
+      2. Localiser l'entrée tag='post'
+      3. Lire l'offset de la table dans le buffer
+      4. setInt16(postOff + 8,  -153)   underlinePosition
+         setInt16(postOff + 10,   51)   underlineThickness
+      5. Recalculer le checksum de la table post (somme des uint32
+         big-endian, mod 2^32) et l'écrire dans le répertoire sfnt.
+
+  Résultat :
+    post.underlinePosition  = -153 ✓
+    post.underlineThickness =   51 ✓
+    Checksum post = 0xFF6A0033 (recalculé) ✓
+
+
+NOTE — FIABILITÉ DE L'ANALYSE WOFF PAR CLAUDE APP
+  Le fichier FLUTGRABEN_polygone8_0_0.75_1.65_0.08.woff exporté après
+  le fix a été soumis à Claude app pour vérification. Claude app a
+  renvoyé les mêmes "problèmes" que issue.txt.
+
+  Vérification binaire Python + fonttools : le fichier est valide.
+    POST bytes 8-11 : ff 67 00 33
+    underlinePosition  = -153 ✓
+    underlineThickness =   51 ✓
+    OS/2 usWinAscent   = 1050 ✓
+    Toutes les tables se décompressent correctement.
+
+  Erreur systématique de Claude app sur les WOFF :
+    Claude app lit le champ origLen (taille NON compressée d'une table)
+    et le signale comme compLen en le comparant à la taille totale du
+    fichier. Exemple : table CFF origLen=83 132, fichier=11 952 bytes —
+    Claude app conclut "impossible, compLen > fileSize". C'est faux :
+    83 132 est la taille avant compression, 11 952 est la taille après.
+    C'est exactement le but de la compression.
+
+  Conclusion : ne pas utiliser Claude app pour valider des fichiers WOFF.
+    Utiliser à la place : fonttools (Python), fc-validate, ots-sanitize,
+    ou un validateur de fonte en ligne (FontDrop, Wakamai Fondue).
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (05/05/2026)
+------------------------------------------------------------
+
+js/export-otf.js
+  post underlinePos   : -153 (DINish Bold) via patch binaire ✓
+  post underlineThick :   51 (DINish Bold) via patch binaire ✓
+  Checksum post       : recalculé après patch ✓
+
+============================================================
