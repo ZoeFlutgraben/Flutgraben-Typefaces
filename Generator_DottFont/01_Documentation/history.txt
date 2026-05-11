@@ -1963,3 +1963,31 @@ js/export-otf.js
   Checksum post       : recalculé après patch ✓
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 11/05/2026
+------------------------------------------------------------
+
+IMAGE PAR DÉFAUT — remplacement de logo.svg par js/sleeping-cat.png
+  Contexte : logo.svg n'existait pas dans le dépôt git et ne devait
+             pas y figurer. Au chargement, renderImageMask() rejetait
+             silencieusement la promesse et la page démarrait à blanc.
+
+  Fix :
+    script-generator_DottFont.js ligne 44 :
+      Avant : let currentImageSrc = 'logo.svg';
+      Après : let currentImageSrc = 'js/sleeping-cat.png';
+    Commentaire ligne 5 mis à jour en conséquence.
+
+  Fichier modifié : js/script-generator_DottFont.js
+
+
+PRÉPARATION DÉPÔT PUBLIC (GitHub)
+  README.md créé à la racine du projet.
+  Contenu : description du projet, instructions de démarrage (HTTP server),
+            détail des modes d'entrée (image / texte), tableau des contrôles
+            (Basic settings, Halo settings, Advanced settings, Charset export),
+            formats d'export (SVG, PNG, OTF, WOFF), dépendances CDN épinglées,
+            fonte de référence (DINish), crédits.
+
+============================================================

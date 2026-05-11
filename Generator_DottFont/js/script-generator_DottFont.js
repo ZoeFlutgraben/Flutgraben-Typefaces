@@ -2,7 +2,7 @@
 // DottFont Generator
 //
 // Pipeline:
-//   step 1 — logo.svg loaded onto hidden canvas as a binary mask
+//   step 1 — js/sleeping-cat.png loaded onto hidden canvas as a binary mask
 //   step 2 — logo shape filled with bilinear mesh gradient
 //             (4×4 grid, alternating black/grey from mesh.svg)
 //   step 3 — gradient canvas pixels sampled on a regular grid;
@@ -41,7 +41,7 @@ let currentText = '';
 let inputMode = 'image';
 
 // Current image source fed into the tramage pipeline — defaults to logo.svg
-let currentImageSrc = 'logo.svg';
+let currentImageSrc = 'js/sleeping-cat.png';
 
 // Fill color applied to all generated shapes
 let currentColor = '#000000';

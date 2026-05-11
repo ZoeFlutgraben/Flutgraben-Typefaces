@@ -1,6 +1,3 @@
-Dingbats-pictogramme/01_photos-flutgraben/*
-Dingbats-pictogramme/02_plan-flutgraben/*
-
 Generator_DottFont/correction-otf/*
 Generator_DottFont/cool_export_otf/*
 Generator_DottFont/cool_export_svg/*
@@ -12,6 +9,6 @@ Generator_DottFont/clone/archives/*
 
 Generator_DottFont/CSS/correction*
 Generator_DottFont/source_export_otf/00_archives/*
+Generator_DottFont/ico/recherche.svg
 
-
-website/
+image_archives/*
