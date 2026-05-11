@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flutgraben Graffitis</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===================== HEADER ===================== -->
+  <header>
+    <h1>Graffitis Flutgraben</h1>
+    <nav>
+      <button class="tab-btn active" data-tab="catalogue">Catalogue</button>
+      <!-- <button class="tab-btn" data-tab="plan">Plan du bâtiment</button> -->
+    </nav>
+  </header>
+
+  <!-- ===================== CATALOGUE VIEW ===================== -->
+  <main id="view-catalogue" class="view active">
+
+    <div class="filters">
+      <select id="filter-categorie">
+        <option value="">Toutes catégories</option>
+        <option value="texte">Texte</option>
+        <option value="animal">Animal / Créature</option>
+        <option value="humain">Humain</option>
+        <option value="decoration">Décoration</option>
+        <option value="autre">Autre</option>
+      </select>
+      <select id="filter-technique">
+        <option value="">Toutes techniques</option>
+        <option value="crayon">Crayon</option>
+        <option value="bombe">Bombe</option>
+        <option value="feutre">Feutre</option>
+        <option value="autre">Autre</option>
+      </select>
+      <span class="count" id="count"></span>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+  </main>
+
+  <!-- ===================== PLAN VIEW ===================== -->
+  <main id="view-plan" class="view">
+   <!--  <p class="plan-hint">Les marqueurs apparaissent une fois les coordonnées renseignées dans <code>data/graffitis.js</code>.</p> -->
+    <div class="floor-selector">
+      <button class="floor-btn active" data-floor="floor_01">Niveau 1</button>
+      <button class="floor-btn" data-floor="floor_02">Niveau 2</button>
+      <button class="floor-btn" data-floor="floor_03">Niveau 3</button>
+    </div>
+    <div class="plan-wrap">
+      <img src="plan_batiment/floor_01.png" alt="Plan niveau 1" id="plan-img">
+      <div id="plan-markers"></div>
+    </div>
+  </main>
+
+  <!-- ===================== FICHE DETAIL ===================== -->
+  <aside id="fiche" class="fiche closed">
+    <button id="fiche-close" aria-label="Fermer">×</button>
+    <div id="fiche-content"></div>
+  </aside>
+
+  <!-- Data must be loaded before script.js -->
+  <script src="data/graffitis.js"></script>
+  <script src="script.js"></script>
+
+</body>
+</html>

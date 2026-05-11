@@ -1,7 +1,7 @@
 /* === Design tokens === */
 :root {
   /* Typography */
-  --text-font-size:   15px;
+  --text-font-size:   0.8em;
   --text-padding:     0.75rem;
   --text-line-height: 1.1;
 
@@ -356,6 +356,7 @@ details[open] summary .step-label {
 }
 
 #image-drop-label {
+  line-height: normal; /* override the inherited line-height: 0 from .panel — prevents text from being clipped by overflow: hidden */
   font-family: 'DINish', sans-serif;
   font-weight: 700;
   font-size: var(--text-font-size);

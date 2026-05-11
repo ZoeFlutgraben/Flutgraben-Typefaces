@@ -1,0 +1,17 @@
+Base de donnees repertoriant les grafittis present dans le batiment (01_photos-flutgraben)
+
+interface html permettant de naviguer entre les differentes element
+
+carte pour chaque grafitti contenant:
+identifiant
+surnom
+auteur
+date
+categorie : texte - animal/creature - humain - decoration - autre
+couleur
+technique : crayon - bombe- feutre - autre
+description
+commentaire
+photo du plan pour son emplacement 
+telecharger le svg 
+
