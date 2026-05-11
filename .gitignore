@@ -1,11 +1,14 @@
-Dingbats-pictogramme/01_photos-flutgraben/
-Dingbats-pictogramme/02_plan-flutgraben/
+Dingbats-pictogramme/01_photos-flutgraben/*
+Dingbats-pictogramme/02_plan-flutgraben/*
 
-Generator_DottFont/correction-otf/
-Generator_DottFont/bac-a-sable
-Generator_DottFont/00_concept/
+Generator_DottFont/correction-otf/*
+Generator_DottFont/cool_export_otf/*
+Generator_DottFont/cool_export_svg/*
+Generator_DottFont/bac-a-sable/*
+Generator_DottFont/00_concept/*
 Generator_DottFont/liste-a-regler.txt
-Generator_DottFont/source_export_otf/Dinish-Bold.ufo/
+Generator_DottFont/source_export_otf/Dinish-Bold.ufo/*
+Generator_DottFont/clone/archives/*
 
 Generator_DottFont/CSS/correction*
 Generator_DottFont/source_export_otf/00_archives/*
