@@ -13,12 +13,23 @@
 //   generate, generateAllDots, generateContourOnly, generateTextOnly, bindSpanEdit
 // ============================================================
 
-// Loaded DINish Bold font (opentype.Font instance), null until async load completes
-let dinishFont = null;
+// Loaded DINish Bold and BoldItalic fonts (opentype.Font instances), null until async load completes
+let dinishFont       = null;
+let dinishFontItalic = null;
 
 opentype.load('DINish/DINish-Bold.woff', function(err, font) {
   if (!err) dinishFont = font;
 });
+
+opentype.load('DINish/DINish-BoldItalic.woff', function(err, font) {
+  if (!err) dinishFontItalic = font;
+});
+
+// Returns the active opentype font based on the italic checkbox state
+function getActiveFont() {
+  const isItalic = document.getElementById('adv-italique')?.checked;
+  return (isItalic && dinishFontItalic) ? dinishFontItalic : dinishFont;
+}
 
 // Overlay toggle state
 let showOutline   = false;
@@ -37,7 +48,8 @@ let letterSpacingPx = 0;
 //   actualBoundingBoxDescent  → positive (below reference) → PADDING + value = canvas y
 //   actualBoundingBoxAscent   → negative (glyph sits below ref) → PADDING - value = canvas y
 function computeMetricYPositions() {
-  ctx.font         = `700 ${FONT_SIZE}px DINish, sans-serif`;
+  const isItalic = document.getElementById('adv-italique')?.checked;
+  ctx.font       = `${isItalic ? 'italic ' : ''}700 ${FONT_SIZE}px DINish, sans-serif`;
   ctx.textBaseline = 'top';
   return {
     baselineY:  PADDING + ctx.measureText('A').actualBoundingBoxDescent,
@@ -57,13 +69,13 @@ function computeMetricYPositions() {
 //
 // Returns an array of { glyph, x, advPx, kernPx, kernUnits }.
 function computeGlyphPositions(glyphs) {
-  const scale = FONT_SIZE / dinishFont.unitsPerEm;
+  const scale = FONT_SIZE / getActiveFont().unitsPerEm;
   let curX = PADDING;
 
   return glyphs.map((glyph, i) => {
     let kernPx = 0, kernUnits = 0;
     if (i > 0) {
-      kernUnits = dinishFont.getKerningValue(glyphs[i - 1], glyph);
+      kernUnits = getActiveFont().getKerningValue(glyphs[i - 1], glyph);
       kernPx    = kernUnits * scale;
       curX     += kernPx;
     }
@@ -116,8 +128,8 @@ function drawOverlay() {
   const m = computeMetricYPositions();
 
   // --- Font-based overlays: outline, approches (require font to be loaded) ---
-  if ((showOutline || showApproches) && dinishFont && currentText) {
-    const glyphs    = dinishFont.stringToGlyphs(currentText);
+  if ((showOutline || showApproches) && getActiveFont() && currentText) {
+    const glyphs    = getActiveFont().stringToGlyphs(currentText);
     const glyphData = computeGlyphPositions(glyphs);
 
     // Build per-glyph path commands. Each glyph is offset by (x + extraLsb)
@@ -159,7 +171,7 @@ function drawOverlay() {
     // so the balance between left and right approach is preserved.
     // Values shown in font design units (same units as Glyphs, FontLab, etc.).
     if (showApproches) {
-      const scale  = FONT_SIZE / dinishFont.unitsPerEm;
+      const scale  = FONT_SIZE / getActiveFont().unitsPerEm;
       const ga     = svgEl('g', { id: 'overlay-approches' });
       const zoneY  = m.capHeightY;
       const zoneH  = m.baselineY - m.capHeightY;
@@ -202,40 +214,48 @@ function drawOverlay() {
           stroke: '#999', 'stroke-width': 0.6, 'stroke-dasharray': '3 2', opacity: 0.55
         }));
 
-        // Left sidebearing zone — blue
+        // Left sidebearing zone — purple rect (only when positive), label always shown
+        const lsbVal = Math.round(dispLsbPx / scale);
         if (dispLsbPx > 0.5) {
           ga.appendChild(svgEl('rect', {
             x: d.x.toFixed(1), y: zoneY.toFixed(1),
             width: dispLsbPx.toFixed(1), height: zoneH.toFixed(1),
             fill: 'rgba(136, 81, 255)', opacity: 0.3
           }));
-          // Label below baseline, centered on the zone
+        }
+        {
+          // Label centered on zone when positive, anchored at glyph edge when negative
+          const lblX  = dispLsbPx > 0.5 ? (d.x + dispLsbPx / 2).toFixed(1) : d.x.toFixed(1);
+          const lblClr = lsbVal < 0 ? '#ff3333' : 'rgba(136, 81, 255)';
           const lbl = svgEl('text', {
-            x: (d.x + dispLsbPx / 2).toFixed(1), y: lblY,
-            fill: 'rgba(136, 81, 255)', 'font-size': 4,
-            'font-family': 'DINish, sans-serif', 'font-weight': 700, 
+            x: lblX, y: lblY, fill: lblClr, 'font-size': 4,
+            'font-family': 'DINish, sans-serif', 'font-weight': 700,
             'text-anchor': 'middle', opacity: 1
           });
-          lbl.textContent = Math.round(dispLsbPx / scale);
+          lbl.textContent = lsbVal;
           ga.appendChild(lbl);
         }
 
-        // Right sidebearing zone — orange
+        // Right sidebearing zone — green rect (only when positive), label always shown
         const rsbStartX = d.x + dispAdvPx - dispRsbPx;
+        const rsbVal = Math.round(dispRsbPx / scale);
         if (dispRsbPx > 0.5) {
           ga.appendChild(svgEl('rect', {
             x: rsbStartX.toFixed(1), y: zoneY.toFixed(1),
             width: dispRsbPx.toFixed(1), height: zoneH.toFixed(1),
             fill: '#39ff14', opacity: 0.3
           }));
-          // Label below baseline, centered on the zone
+        }
+        {
+          // Label centered on zone when positive, anchored at advance edge when negative
+          const lblX   = dispRsbPx > 0.5 ? (rsbStartX + dispRsbPx / 2).toFixed(1) : rsbStartX.toFixed(1);
+          const lblClr = rsbVal < 0 ? '#ff3333' : '#39ff14';
           const lbl = svgEl('text', {
-            x: (rsbStartX + dispRsbPx / 2).toFixed(1), y: lblY,
-            fill: '#39ff14', 'font-size': 4,
+            x: lblX, y: lblY, fill: lblClr, 'font-size': 4,
             'font-family': 'DINish, sans-serif', 'font-weight': 700,
             'text-anchor': 'middle', opacity: 1
           });
-          lbl.textContent = Math.round(dispRsbPx / scale);
+          lbl.textContent = rsbVal;
           ga.appendChild(lbl);
         }
 
@@ -287,16 +307,17 @@ if ('letterSpacing' in ctx) {
   // leaving the glyph stuck at the left edge of its advance box.
   ctx.fillText = function(text, startX, startY, ...rest) {
     // No tracking or font not yet loaded: render normally
-    if (letterSpacingPx === 0 || !dinishFont) {
+    if (letterSpacingPx === 0 || !getActiveFont()) {
       ctx.letterSpacing = '0px';
       return _origFillText(text, startX, startY, ...rest);
     }
 
     // Disable letterSpacing — we position each character manually
     ctx.letterSpacing = '0px';
-    const scale  = FONT_SIZE / dinishFont.unitsPerEm;
+    const activeFont = getActiveFont();
+    const scale  = FONT_SIZE / activeFont.unitsPerEm;
     const chars  = [...text];  // spread to handle multi-codepoint chars correctly
-    const glyphs = dinishFont.stringToGlyphs(text);
+    const glyphs = activeFont.stringToGlyphs(text);
     let curX = startX;
 
     for (let i = 0; i < glyphs.length; i++) {
@@ -304,7 +325,7 @@ if ('letterSpacing' in ctx) {
 
       // Apply kerning from previous glyph
       if (i > 0) {
-        curX += dinishFont.getKerningValue(glyphs[i - 1], glyph) * scale;
+        curX += activeFont.getKerningValue(glyphs[i - 1], glyph) * scale;
       }
 
       // Proportional left shift — same logic as computeGlyphPositions

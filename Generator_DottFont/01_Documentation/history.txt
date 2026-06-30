@@ -1991,3 +1991,86 @@ PRÉPARATION DÉPÔT PUBLIC (GitHub)
             fonte de référence (DINish), crédits.
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 11/05/2026 (suite)
+------------------------------------------------------------
+
+RENOMMAGE DU FICHIER CSS
+  Le fichier style.css a été déplacé dans un sous-dossier css/ :
+    Avant : style.css (racine)
+    Après : css/style.css
+  Seul index.html référençait ce fichier (ligne 11) — chemin mis à jour.
+  Les fichiers JS ne contiennent aucune référence au CSS.
+
+
+EXPORT OTF/WOFF — MIME TYPE MOBILE (Ecosia/Android)
+  Problème : sur Android (Ecosia), le téléchargement OTF se terminait
+             avec une double extension (.otf.ttf). Le système Android
+             voyait le MIME type 'font/otf', identifiait le fichier
+             comme une police et ajoutait .ttf par-dessus l'extension
+             déjà présente dans l'attribut download.
+
+  Fix (export-otf.js) :
+    exportOTF()  ligne 859 : type: 'font/otf'  → 'application/octet-stream'
+    exportWOFF() ligne 876 : type: 'font/woff' → 'application/octet-stream'
+    application/octet-stream = téléchargement binaire générique,
+    le navigateur/OS ne tente plus d'inférer l'extension.
+    Pas d'impact sur desktop : l'extension est contrôlée par l'attribut
+    download, pas par le MIME type.
+
+============================================================
+
+------------------------------------------------------------
+SESSION 12/05/2026
+------------------------------------------------------------
+
+INPUT ITALIQUE (reglage_advance.js)
+  Ajout du support de la variante italique DINish Bold Italic.
+
+  Chargement :
+    Nouvelle variable dinishFontItalic (null jusqu'au chargement async).
+    opentype.load('DINish/DINish-BoldItalic.woff') chargé en parallèle
+    de DINish-Bold au démarrage du script.
+
+  Sélection de la fonte active :
+    Nouvelle fonction getActiveFont() — lit l'état de la checkbox
+    #adv-italique et retourne dinishFontItalic si cochée et chargée,
+    dinishFont sinon.
+    Tous les appels directs à dinishFont remplacés par getActiveFont() :
+      computeGlyphPositions(), drawOverlay(), ctx.fillText() (patch
+      letterSpacing), computeMetricYPositions().
+
+  Rendu canvas :
+    computeMetricYPositions() : ctx.font inclut désormais 'italic '
+    en préfixe si la checkbox est cochée, afin que les mesures canvas
+    (actualBoundingBoxAscent / Descent) correspondent à la variante
+    italique.
+
+  Fichier modifié : js/reglage_advance.js
+
+
+VALEURS DE TRACKING NÉGATIVES EN ROUGE (reglage_advance.js)
+  Dans l'overlay des approches (drawOverlay), les labels LSB et RSB
+  affichaient déjà la valeur numérique en unités fonte — mais uniquement
+  quand la zone était positive (> 0.5 px). Les valeurs négatives
+  (débordement hors de la boîte d'avance) n'étaient pas signalées.
+
+  Comportement précédent :
+    Rectangle coloré + label affichés seulement si la valeur > 0.5 px.
+    Valeurs négatives silencieuses.
+
+  Nouveau comportement :
+    Rectangle : affiché uniquement si la valeur est positive (inchangé).
+    Label     : toujours affiché, quelle que soit la valeur.
+    Couleur du label :
+      Négative → rouge #ff3333
+      Positive → couleur normale (violet pour LSB, vert pour RSB)
+    Position du label :
+      Positive → centré sur la zone colorée (comportement précédent)
+      Négative → ancré sur le bord du glyphe (LSB) ou le bord de
+                 l'advance (RSB), pour rester lisible sans zone visible.
+
+  Fichier modifié : js/reglage_advance.js
+
+============================================================

@@ -229,7 +229,7 @@ function loadImageFile(file) {
 // Canvas dimensions adapt to the measured text width.
 // Returns { canvasW, canvasH, blurData } — blurData via computeBlurData().
 function renderTextMask(text) {
-  const fontSpec = `700 ${FONT_SIZE}px DINish, sans-serif`;
+  const fontSpec = `${document.getElementById('adv-italique')?.checked ? 'italic ' : ''}700 ${FONT_SIZE}px DINish, sans-serif`;
 
   ctx.font = fontSpec;
   const metrics = ctx.measureText(text);
@@ -756,6 +756,11 @@ shapeColorInput.addEventListener('input', () => {
 document.getElementById('adv-opacity-check').addEventListener('change', e => {
   shapeOpacity = e.target.checked ? 0.5 : 1;
   if (lastCanvasW > 0) generateTextOnly();
+});
+
+// Switches between DINish-Bold and DINish-BoldItalic — requires full re-render
+document.getElementById('adv-italique').addEventListener('change', () => {
+  generate();
 });
 
 // Mode toggle — switches between image and text input

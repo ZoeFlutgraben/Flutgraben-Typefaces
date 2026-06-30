@@ -737,6 +737,32 @@ async function buildFont(progressBtn) {
       ? clipperToOpentypePath(unionPolygons(polygons))
       : directPath;
 
+    // Center the glyph horizontally within the advance box.
+    // Without centering, the glyph body sits at the DINish origin (x=0),
+    // inheriting asymmetric LSB/RSB from DINish Bold. As sizeMultiplier grows,
+    // the side with less room saturates first, making the glyph appear to grow
+    // left-to-right rather than from its center. Centering ensures equal LSB and
+    // RSB at every size, so growth is distributed symmetrically in the variable font.
+    if (path.commands.length > 0) {
+      let minX = Infinity, maxX = -Infinity;
+      for (const cmd of path.commands) {
+        if (cmd.x  !== undefined) { minX = Math.min(minX, cmd.x);  maxX = Math.max(maxX, cmd.x); }
+        if (cmd.x1 !== undefined) { minX = Math.min(minX, cmd.x1); maxX = Math.max(maxX, cmd.x1); }
+        if (cmd.x2 !== undefined) { minX = Math.min(minX, cmd.x2); maxX = Math.max(maxX, cmd.x2); }
+      }
+      if (isFinite(minX) && isFinite(maxX)) {
+        const advW  = metrics.glyphs[char].advanceWidth;
+        const shift = Math.round((advW - (maxX - minX)) / 2 - minX);
+        if (shift !== 0) {
+          for (const cmd of path.commands) {
+            if (cmd.x  !== undefined) cmd.x  += shift;
+            if (cmd.x1 !== undefined) cmd.x1 += shift;
+            if (cmd.x2 !== undefined) cmd.x2 += shift;
+          }
+        }
+      }
+    }
+
     const name = GLYPH_NAMES[char] || char;
     glyphs.push(new opentype.Glyph({
       name,
@@ -856,7 +882,7 @@ async function exportOTF() {
   const result = await buildFont(exportOtfBtn);
   if (!result) { exportOtfBtn.disabled = false; return; }
   const a = document.createElement('a');
-  a.href     = URL.createObjectURL(new Blob([result.buffer], { type: 'font/otf' }));
+  a.href     = URL.createObjectURL(new Blob([result.buffer], { type: 'application/octet-stream' }));
   a.download = result.filename;
   a.click();
   URL.revokeObjectURL(a.href);
@@ -874,7 +900,7 @@ async function exportWOFF() {
   if (!result) { exportWoffBtn.disabled = false; return; }
   const woffBuffer = await sfntToWoff(result.buffer);
   const a = document.createElement('a');
-  a.href     = URL.createObjectURL(new Blob([woffBuffer], { type: 'font/woff' }));
+  a.href     = URL.createObjectURL(new Blob([woffBuffer], { type: 'application/octet-stream' }));
   a.download = result.filename.replace('.otf', '.woff');
   a.click();
   URL.revokeObjectURL(a.href);
