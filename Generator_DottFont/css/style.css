@@ -8,16 +8,28 @@
   /* Computed panel height — shared between text input and gradient preview */
   --panel-height: calc(var(--text-font-size) * var(--text-line-height) + var(--text-padding) * 2);
 
-  /* Colors */
-  --color-dark:  #202020;
-  --color-label: #606060;
+  /* Flutgraben identity palette */
+  --bg:    #e5e9ed;   /* off-white — page and output background */
+  --rust:  #573835;   /* primary text, headings */
+  --terra: #9f6861;   /* secondary text, labels, borders */
+  --ochre: #c17d4c;   /* hover, CTAs, accents */
+  --paper: #efe6dc;   /* warm surface — panel backgrounds */
+  --ink:   #2c1f1d;   /* deepest text */
 
-  /* Button backgrounds */
-  --bg-btn:       rgba(255, 255, 255, 0.54);
-  --bg-btn-hover: rgba(147, 147, 147, 0.54);
+  /* Aliases — used throughout for backward compatibility */
+  --color-dark:  var(--rust);
+  --color-label: var(--terra);
 
-  /* Shared radius */
-  --radius: 5px;
+  /* Button backgrounds — warm paper tones */
+  --bg-btn:       rgba(242, 175, 99, 0.72);
+  --bg-btn-hover: rgba(193, 125, 76, 0.18);
+
+  /* Square-by-design — no rounded corners */
+  --radius: 0px;
+
+  /* Custom pixel-arrow cursors */
+  --cursor-default: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M2 1 L2 14 L5 11 L7 16 L10 15 L8 10 L13 10 Z' fill='%23573835' stroke='%23e5e9ed' stroke-width='1'/></svg>") 2 1, auto;
+  --cursor-pointer: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M2 1 L2 14 L5 11 L7 16 L10 15 L8 10 L13 10 Z' fill='%23c17d4c' stroke='%23e5e9ed' stroke-width='1'/></svg>") 2 1, pointer;
 }
 
 /* === Font loading === */
@@ -49,8 +61,27 @@
 }
 
 *::selection {
-  color: rgb(136, 81, 255);
-  text-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
+  color: var(--ochre);
+  background: #7fb8d7;
+}
+
+/* Rust-arrow default cursor; ochre-arrow on interactive elements */
+html, body {
+  cursor: var(--cursor-default);
+}
+
+button,
+summary,
+label.adv-check,
+.mode-btn,
+.shape-btn {
+  cursor: var(--cursor-pointer) !important;
+}
+
+/* Rust scrollbar on --bg track */
+* {
+  scrollbar-color: var(--rust) var(--bg);
+  scrollbar-width: thin;
 }
 
 body {
@@ -67,7 +98,38 @@ body {
   display: block;
   width: 100%;
   height: 100%;
-  background: #f9f9f9;
+  background: var(--bg);
+}
+
+/* === Panel toggle button — tab on the right edge of the left panel === */
+#panel-toggle {
+  position: fixed;
+  top: 15px;
+  left: calc(23.5vw + 15px);
+  z-index: 100;
+  width: 20px;
+  height: 40px;
+  background: rgba(239, 230, 220, 0.95);
+  color: var(--terra);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DINish', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  box-shadow: 3px 0 8px rgba(87, 56, 53, 0.1);
+  transition: background 0.15s, color 0.15s, left 0.25s ease;
+}
+
+#panel-toggle:hover {
+  color: var(--rust);
+  background: rgba(239, 230, 220, 1);
+}
+
+/* When collapsed, slide the tab to the left edge so it stays reachable */
+#panel-toggle.panel-collapsed {
+  left: 0;
 }
 
 /* === Left panel stack — fixed container, stacks panels vertically === */
@@ -84,11 +146,17 @@ body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  color: var(--color-dark);
-  background-color: rgba(179, 179, 179, 0.90);
-  box-shadow: 0 0 5px rgba(179, 179, 179, 0.90), 0 0 10px rgba(179, 179, 179, 0.90);
+  color: var(--rust);
+  background-color: rgba(239, 230, 220, 0.95);
+  box-shadow: 2px 0 16px rgba(87, 56, 53, 0.14);
   scrollbar-gutter: stable;
-  scrollbar-width: thin;
+  scrollbar-color: var(--terra) var(--paper);
+  transition: transform 0.25s ease;
+}
+
+/* Collapsed state — slides fully off-screen to the left */
+#panels-left.collapsed {
+  transform: translateX(calc(-100% - 20px));
 }
 
 /* === Shared panel base — all left-column panels === */
@@ -110,7 +178,7 @@ body {
 
 /* === Export panel — visually separated from the collapsible settings above === */
 #top-panel-export {
-  border-top: 1px solid rgba(96, 96, 96, 0.25);
+  border-top: 1px solid rgba(159, 104, 97, 0.35);
   margin-top: 2px;
 }
 
@@ -121,7 +189,7 @@ body {
 
 /* Separator between the italic toggle and the action buttons */
 #top-panel-export .export-actions {
-  border-top: 1px solid rgba(96, 96, 96, 0.2);
+  border-top: 1px solid rgba(159, 104, 97, 0.2);
   padding-top: 10px;
 }
 
@@ -137,26 +205,26 @@ body {
 /* === Randomize button — fixed bottom-right === */
 #btn-aleatoire {
   position: fixed;
-  right: 0;
+  left: 50%;
   bottom: 0;
+  transform: translateX(-50%);
   z-index: 99;
   margin: 15px;
   width: 15vw;
   padding: 10px;
   border: none;
-  border-radius: 10px;
+  border-radius: 0;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: azure;
-  background-color: rgba(136, 81, 255, 0.62);
-  box-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
-  text-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
-  transition: background-color 0.2s;
-  cursor: pointer;
+  letter-spacing: 0.18em;
+  color: var(--paper);
+  background-color: var(--ochre);
+  box-shadow: 2px 2px 0 var(--rust);
+  transition: background-color 0.15s, box-shadow 0.15s;
 }
 
 #btn-aleatoire:hover {
-  background-color: #39ff14;
+  background-color: var(--rust);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
 /* === Info panel — fixed top-right === */
@@ -171,9 +239,9 @@ body {
   overflow-y: auto;
   gap: 10px;
   font-family: 'DINish', sans-serif;
-  color: var(--color-label);
-  background-color: rgba(179, 179, 179, 0.54);
-  box-shadow: 0 0 5px rgba(179, 179, 179, 0.54), 0 0 10px rgba(179, 179, 179, 0.54);
+  color: var(--terra);
+  background-color: rgba(239, 230, 220, 0.88);
+  box-shadow: 2px 0 12px rgba(87, 56, 53, 0.1);
 }
 
 /* Shared base for description and reference lines */
@@ -288,7 +356,7 @@ details[open] summary .step-label {
 /* === Step 1 — input mode toggle === */
 #input-mode-toggle {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   margin-bottom: 4px;
 }
 
@@ -308,8 +376,8 @@ details[open] summary .step-label {
 }
 
 .mode-btn.active {
-  background: var(--color-dark);
-  color: #f9f9f9;
+  background: var(--rust);
+  color: var(--paper);
 }
 
 /* Input panels — shared fixed height matching gradient/contour previews */
@@ -399,8 +467,8 @@ details[open] summary .step-label {
   margin: 0;
   padding: 8px 10px;
   list-style: none;
-  background: var(--color-dark);
-  color: #f9f9f9;
+  background: var(--rust);
+  color: var(--paper);
   border-radius: var(--radius);
   font-family: 'DINish', sans-serif;
   font-size: 0.7rem;
@@ -409,7 +477,7 @@ details[open] summary .step-label {
   width: max-content;
   max-width: 240px;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
 #image-hints code {
@@ -482,29 +550,29 @@ details[open] summary .step-label {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
-  height: 2px;
-  background: var(--color-dark);
+  height: 1px;
+  background: var(--terra);
   outline: none;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 #panels-left input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 12px;
-  background: var(--color-dark);
+  width: 10px;
+  height: 10px;
+  background: var(--rust);
   border-radius: 50%;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 #panels-left input[type="range"]::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  background: var(--color-dark);
+  width: 10px;
+  height: 10px;
+  background: var(--rust);
   border: none;
   border-radius: 50%;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 /* === Slider value spans === */
@@ -594,8 +662,8 @@ details[open] summary .step-label {
   top: calc(100% + 4px);
   left: 0;
   z-index: 999;
-  background: var(--color-dark);
-  color: #f9f9f9;
+  background: var(--rust);
+  color: var(--paper);
   padding: 8px 10px;
   border-radius: var(--radius);
   font-family: 'DINish', monospace;
@@ -608,7 +676,7 @@ details[open] summary .step-label {
   max-width: 240px;
   word-break: break-all;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
 .adv-check:hover .charset-tooltip {
@@ -639,7 +707,8 @@ details[open] summary .step-label {
 #panels-left.mode-image #top-panel-charset,
 #panels-left.mode-image #export-otf-btn,
 #panels-left.mode-image #export-woff-btn,
-#panels-left.mode-image #top-panel-advance {
+#panels-left.mode-image #top-panel-advance,
+#panels-left.mode-image #italic-toggle {
   display: none;
 }
 

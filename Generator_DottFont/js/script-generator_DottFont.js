@@ -41,7 +41,7 @@ let currentText = '';
 let inputMode = 'image';
 
 // Current image source fed into the tramage pipeline — defaults to logo.svg
-let currentImageSrc = 'js/sleeping-cat.png';
+let currentImageSrc = 'js/chat.svg';
 
 // Fill color applied to all generated shapes
 let currentColor = '#000000';
@@ -819,4 +819,15 @@ generate();
 document.querySelectorAll('.adv-check[data-chars]').forEach(label => {
   const tooltip = label.querySelector('.charset-tooltip');
   if (tooltip) tooltip.textContent = label.dataset.chars;
+});
+
+// Toggle the left control panel open/closed.
+// The panel slides off-screen via CSS transform; the button shifts to the left edge.
+const panelToggleBtn  = document.getElementById('panel-toggle');
+const panelsLeftEl    = document.getElementById('panels-left');
+panelToggleBtn.addEventListener('click', () => {
+  const isCollapsed = panelsLeftEl.classList.toggle('collapsed');
+  panelToggleBtn.classList.toggle('panel-collapsed', isCollapsed);
+  panelToggleBtn.textContent = isCollapsed ? '›' : '‹';
+  panelToggleBtn.setAttribute('aria-expanded', String(!isCollapsed));
 });

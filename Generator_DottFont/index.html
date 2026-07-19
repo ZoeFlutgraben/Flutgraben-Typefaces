@@ -12,6 +12,9 @@
 </head>
 <body>
 
+  <!-- ===================== PANEL TOGGLE — always visible at top-left ===================== -->
+  <button id="panel-toggle" aria-label="Toggle controls panel" aria-expanded="true">‹</button>
+
   <!-- ===================== LEFT PANELS — vertical stack ===================== -->
   <div id="panels-left">
 
@@ -135,7 +138,7 @@
         <!-- PRESENCE — probabilistic dot filter -->
         <div class="slider-row">
           <label for="presence-slider">Hazard</label>
-          <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
+          <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.1" />
           <span id="presence-value" contenteditable="true">0.5</span>
         </div>
 
@@ -299,8 +302,8 @@
 
   <div id="top-panel-export">
     <span class="step-label">Export</span>
-    <!-- Italic toggle — lives here because it affects the entire export pipeline -->
-    <label class="adv-check">
+    <!-- Italic toggle — text mode only (italic has no effect on image exports) -->
+    <label class="adv-check" id="italic-toggle">
       <input type="checkbox" id="adv-italique">
       <span class="step-label">Italic</span>
     </label>
