@@ -2074,3 +2074,114 @@ VALEURS DE TRACKING NÉGATIVES EN ROUGE (reglage_advance.js)
   Fichier modifié : js/reglage_advance.js
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 19/07/2026
+------------------------------------------------------------
+
+RENOMMAGE — FLUTGRABEN → FLTGRRR
+  Le nom de famille typographique et tous les identifiants associés
+  sont renommés de "FLUTGRABEN" à "FLTGRRR".
+
+  Fichiers modifiés :
+    export-otf.js
+      legacyFamily : "FLUTGRABEN Ci M0 ..." → "FLTGRRR Ci M0 ..."
+      filename OTF : "FLUTGRABEN_..." → "FLTGRRR_..."
+      filename WOFF: idem
+    index.html
+      <title> : "FLUTGRABEN TYPEFACE" → "FLTGRRR TYPEFACE"
+
+  Format legacyFamily conservé :
+    "FLTGRRR {shapeAbbr} M{mesh} T{taille} S{size} H{hazard}"
+    ex. "FLTGRRR Ci M0 T1.00 S1.20 H0.50"
+
+
+FUSION DES FORMES À L'EXPORT SVG (adv-union-svg)
+  Objectif : exporter un SVG dont tous les dots (calque principal +
+             calque halo) sont fusionnés en un seul <path> via union
+             booléenne Clipper.js — supprime les contours superposés
+             et réduit le poids du fichier.
+
+  Nouveau panneau dans index.html :
+    <details id="top-panel-svg-adv"> "SVG export settings"
+      Checkbox id="adv-union-svg" — "Union shapes on SVG export"
+      Description : "Merges all dot shapes (main layer + halo) into a
+        single optimised path via boolean union — removes overlapping
+        contours and reduces file size. May be slow for large inputs."
+
+  Variable et listener dans reglage_advance.js :
+    let unionSvg = false
+    Listener adv-union-svg → unionSvg = e.target.checked
+
+  Branchement dans script-generator_DottFont.js :
+    Le listener du bouton SVG (#export-btn) teste unionSvg au clic :
+      unionSvg = true  → exportSVGUnion()  (nouveau pipeline)
+      unionSvg = false → export SVG standard (XMLSerializer, inchangé)
+
+  Nouvelles fonctions dans export-otf.js :
+
+    getShapePolygon(cx, cy, r)
+      Dispatcher vers la fonction polygon Clipper appropriée selon
+      currentShape (getCirclePolygon, getSquarePolygon, etc.).
+      Coordonnées en pixels canvas (Y-down → winding CW → correct
+      pour fill-rule="nonzero" SVG).
+
+    clipperToSvgPathData(clipperPaths)
+      Convertit un résultat Clipper.Paths en string SVG path data.
+      Chaque polygone → sous-chemin M … L … Z.
+      Coordonnées divisées par CLIPPER_SCALE (÷100) → pixels canvas.
+
+    exportSVGUnion()  [async]
+      Pipeline complet :
+        1. loadClipper() (CDN, ignoré si déjà chargé)
+        2. Calque principal — échantillonnage de gCtx identique à
+           samplePixelsToSVGString() : même step, seuil brightness 245,
+           formule probability (meshSize=0 / meshSize>0), rayon depuis
+           darkness → getShapePolygon() → polygons[].
+        3. Calque halo — échantillonnage de blurData / maskData
+           identique à generateContourSVGString() dans offset.js,
+           appliqué uniquement si outsetRadius > 0.
+        4. unionPolygons(polygons) → ClipperLib ctUnion pftNonZero
+        5. clipperToSvgPathData() → pathData string
+        6. Assemblage SVG :
+             <?xml version="1.0" encoding="UTF-8"?>
+             <svg … viewBox="0 0 canvasW canvasH">
+               <path d="…" fill="{currentColor}" fill-rule="nonzero"/>
+             </svg>
+        7. Téléchargement via Blob + lien temporaire.
+      Nom de fichier :
+        FLTGRRR_union_{shape}_{mesh}_{taille}_{size}_{hazard}.svg
+
+  Note : exportSVGUnion() réutilise loadClipper() et unionPolygons()
+    déjà présents dans export-otf.js pour l'export OTF.
+    La variable unionSvg est déclarée dans reglage_advance.js (scope
+    global partagé) et lue dans script-generator_DottFont.js.
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (19/07/2026)
+------------------------------------------------------------
+
+export-otf.js
+  legacyFamily  : "FLTGRRR {abbr} M T S H" ✓
+  filename OTF  : "FLTGRRR_..." ✓
+  filename WOFF : "FLTGRRR_..." ✓
+  getShapePolygon()      : dispatcher canvas-coords Clipper ✓
+  clipperToSvgPathData() : Clipper.Paths → SVG path data string ✓
+  exportSVGUnion()       : union calque texte + halo → <path> ✓
+  filename union SVG     : "FLTGRRR_union_..." ✓
+
+js/reglage_advance.js
+  unionSvg      : bool, listener adv-union-svg ✓
+
+js/script-generator_DottFont.js
+  export-btn    : branchement unionSvg → exportSVGUnion() ✓
+
+index.html
+  <title>       : "FLTGRRR TYPEFACE" ✓
+  #top-panel-svg-adv : <details> + checkbox adv-union-svg ✓
+
+css/style.css
+  #top-panel-svg-adv : styles panel ✓
+
+============================================================
