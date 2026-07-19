@@ -38,6 +38,9 @@ let contourSizeMultiplier = parseFloat(contourSizeSlider.value);
 // Debounce timer for contour sliders
 let contourSliderDebounceTimer;
 
+// Master toggle — halo is active by default; checkbox disables it when checked
+let haloEnabled = true;
+
 // Samples blurData for pixels in the halo zone (outside text, inside Gaussian blur)
 // and returns an SVG markup string of native shape elements.
 // Near the text edge: blur is dark → larger dots.
@@ -46,7 +49,7 @@ let contourSliderDebounceTimer;
 //   canvasW/H — canvas dimensions matching the hidden canvas
 //   blurData  — ImageData from the Gaussian-blurred text mask
 function generateContourSVGString(canvasW, canvasH, blurData) {
-  if (!blurData || outsetRadius === 0) return '';
+  if (!haloEnabled || !blurData || outsetRadius === 0) return '';
 
   // Read the current text mask from the hidden canvas (set by renderTextMask)
   const maskData = ctx.getImageData(0, 0, canvasW, canvasH);
@@ -242,6 +245,12 @@ function randomizeAll() {
   // Full re-run — outset change requires new blur data
   generate();
 }
+
+// Halo disable toggle — when checked, suppresses the halo layer entirely.
+document.getElementById('halo-enabled').addEventListener('change', (e) => {
+  haloEnabled = !e.target.checked;
+  if (lastCanvasW > 0) generateContourOnly();
+});
 
 document.getElementById('btn-aleatoire').addEventListener('click', randomizeAll);
 

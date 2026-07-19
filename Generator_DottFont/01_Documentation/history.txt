@@ -2333,3 +2333,101 @@ CORRECTIONS APPLIQUÉES (19/07/2026)
     xMin=3 xMax=616 advW=620 pour 'A', soit LSB≈3 RSB≈4 en coordonnées brutes.
 
 ============================================================
+
+------------------------------------------------------------
+AMÉLIORATIONS UI (19/07/2026)
+------------------------------------------------------------
+
+  Dix points traités lors d'une session de refonte de l'interface.
+
+  1. BUG HTML — checkbox Italic (index.html)
+     La checkbox #adv-italique était enveloppée dans un <div class="slider-row">
+     avec un </label> orphelin (sans <label> ouvrant) → clic sur le texte sans effet.
+     Fix : structure remplacée par <label class="adv-check"> correct.
+     Le texte "Italique" traduit en "Italic" pour cohérence linguistique.
+
+  2. FEEDBACK EXPORT — setExportBusy / setExportIdle (export-otf.js)
+     Les boutons OTF et WOFF avaient chacun leur propre gestion d'état (en français).
+     Refactorisé en deux helpers partagés : setExportBusy(btn) désactive les 4 boutons
+     et affiche "...", setExportIdle(btn, label) les réactive. exportSVGUnion() mis à
+     jour de la même façon. Textes d'erreur traduits : "Erreur Clipper" → "Clipper error",
+     "Erreur JSON" → "JSON error".
+     CSS : boutons désactivés → opacity 0.4 + cursor not-allowed.
+
+  3. CONTENTEDITABLE HINT (style.css)
+     Les <span contenteditable="true"> des valeurs de sliders n'indiquaient pas
+     qu'ils étaient éditables. Ajout d'un soulignement pointillé (border-bottom dotted)
+     + cursor text au hover/focus via sélecteur d'attribut. Le responsive ≤1300px
+     conserve un border solid (plus lisible à petite taille).
+
+  4. LANGUE — uniformisation anglais (index.html + export-otf.js)
+     Labels de charset traduits : "Europe Ouest/Nord/Est" → "Western/Northern/Eastern
+     Europe", "Cyrillique" → "Cyrillic", "Mongol" → "Mongolian", "Ponctuation étendue"
+     → "Extended punctuation", "Translitération" → "Transliteration".
+     Note : id="adv-italique" conservé (identifiant interne JS, non affiché).
+
+  5. POSITION CHECKBOX ITALIC (index.html)
+     Déplacée de "Basic settings" (collapsible) vers le bloc export, toujours visible.
+     Masquée en mode Image (#panels-left.mode-image #italic-toggle { display:none }).
+     Séparateur visuel (border-top terra) entre la checkbox et les boutons d'action.
+
+  6. SÉPARATION VISUELLE EXPORT (index.html + style.css)
+     Le label "Export" déplacé sur sa propre ligne en tête du bloc.
+     border-top terra entre le bloc export et les <details> de réglages.
+     Structure du bloc : titre → Italic toggle → séparateur → boutons.
+
+  7. ACCESSIBILITÉ SHAPE BUTTONS (index.html)
+     aria-label explicite ajouté sur chaque bouton de forme.
+     SVG internes marqués aria-hidden="true" (décoratifs).
+     Noms clarifiés : "Polygone" → "Pentagon", "Polygone 8" → "Octagon",
+     "Trait 2" → "Bar", "cross" → "Star".
+
+  8. RESPONSIVE NETTOYAGE (style.css)
+     Les propriétés pointer-events et cursor text devenues redondantes dans le
+     media query ≤1300px (couvertes par la règle globale de l'étape 3) supprimées.
+     Le border solid reste présent pour override le dotted à petite taille.
+
+  9. RACCOURCI CLAVIER FLOP IT! (offset.js + index.html)
+     Listener keydown sur F dans offset.js, avec garde (inactif si input ou
+     contenteditable actif). Label du bouton mis à jour : "Flop it! [F]".
+
+  10. REFONTE ESTHÉTIQUE — identité Flutgraben (style.css)
+      Inspirée de 12_flutgraben-app_v3/apps/website/src/app/globals.css.
+
+      Palette :
+        --bg #e5e9ed, --rust #573835, --terra #9f6861, --ochre #c17d4c,
+        --paper #efe6dc, --ink #2c1f1d
+        --color-dark → alias de --rust
+        --color-label → alias de --terra
+
+      Géométrie : --radius 0px (square-by-design, aucun arrondi)
+
+      Fond output  : #e5e9ed (--bg) au lieu de #f9f9f9 froid
+      Panel gauche : rgba(239,230,220,0.95) + shadow rust
+      Panel info   : rgba(239,230,220,0.88)
+      Boutons      : fonds paper chauds + hover ochre
+      Mode actif   : rust fond + paper texte
+      Tooltips     : fond rust + texte paper + shadow ink
+
+      Curseur pixel-arrow : rust (défaut), ochre (interactif)
+      Scrollbar : rust sur --bg
+      Sélection : ochre sur sky blue
+
+      Bouton Flop it! : ochre → rust au hover, shadow solide 2px,
+        suppression du purple/neon (rgba(136,81,255) + #39ff14).
+      Bouton centré horizontalement en bas de l'écran.
+
+  11. PANEL REPLIABLE (index.html + style.css + script-generator_DottFont.js)
+      Bouton #panel-toggle ajouté : onglet 20×40px sur le bord droit du panel
+      gauche (left: calc(23.5vw + 15px)), même couleur que le panel.
+      Clic → toggle classe .collapsed sur #panels-left (translateX hors écran).
+      En état replié : bouton se déplace à left:0 pour rester accessible.
+      Transition 0.25s ease synchronisée entre panel et bouton.
+      aria-expanded mis à jour dynamiquement.
+
+  12. CHECKBOX ITALIC — visibilité conditionnelle (index.html + style.css)
+      La checkbox Italic n'apparaît qu'en mode Text (masquée en mode Image via
+      #panels-left.mode-image #italic-toggle { display:none }).
+      L'italic n'a d'effet que sur l'export OTF/WOFF de la fonte texte.
+
+============================================================

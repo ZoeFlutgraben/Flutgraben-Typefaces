@@ -831,3 +831,14 @@ panelToggleBtn.addEventListener('click', () => {
   panelToggleBtn.textContent = isCollapsed ? '›' : '‹';
   panelToggleBtn.setAttribute('aria-expanded', String(!isCollapsed));
 });
+
+// Toggle the right info panel open/closed.
+// The panel slides off-screen to the right; the button shifts to the right edge.
+const infoToggleBtn = document.getElementById('info-toggle');
+const infoPanelEl   = document.getElementById('top-panel-info');
+infoToggleBtn.addEventListener('click', () => {
+  const isCollapsed = infoPanelEl.classList.toggle('collapsed');
+  infoToggleBtn.classList.toggle('info-collapsed', isCollapsed);
+  infoToggleBtn.textContent = isCollapsed ? '‹' : '›';
+  infoToggleBtn.setAttribute('aria-expanded', String(!isCollapsed));
+});

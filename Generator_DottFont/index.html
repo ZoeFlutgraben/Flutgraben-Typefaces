@@ -7,7 +7,7 @@
   <meta name="description" content="Dynamic Type Generator">
   <meta name="keywords" content="HTML, CSS, JavaScript-opentype.js">
   <meta name="author" content="Zoé Berthelot @Neutronzoo">
-  <link rel="icon" type="image/x-icon" href="ico/ico_dott_256px_03.png">
+  <link rel="icon" type="image/x-icon" href="ico/favicon.ico">
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -47,7 +47,7 @@
 
       <!-- Text input (visible in text mode) -->
       <div class="panel" id="input-panel-text">
-        <input id="text-input" type="text" value="Flut" maxlength="20" spellcheck="false">
+        <input id="text-input" type="text" value="Flûte" maxlength="20" spellcheck="false">
       </div>
 
   </div>
@@ -131,7 +131,7 @@
         <!-- SIZE POSTGENERATION — scales dot radius only -->
         <div class="slider-row">
           <label for="size-slider">Size postgeneration</label>
-          <input type="range" id="size-slider" min="0.50" max="3" step="0.05" value="1" />
+          <input type="range" id="size-slider" min="0.50" max="3" step="0.05" value="1.5" />
           <span id="size-value" contenteditable="true">1.00</span>
         </div>
 
@@ -139,7 +139,7 @@
         <div class="slider-row">
           <label for="presence-slider">Hazard</label>
           <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.1" />
-          <span id="presence-value" contenteditable="true">0.5</span>
+          <span id="presence-value" contenteditable="true">0.1</span>
         </div>
 
       </div><!-- /adv-controls -->
@@ -150,6 +150,12 @@
     <summary><span class="step-label">Halo settings</span></summary>
 
     <div class="adv-controls">
+      <!-- HALO DISABLE — master toggle; unchecked by default (halo active) -->
+      <label class="adv-check">
+        <input type="checkbox" id="halo-enabled">
+        <span class="step-label">Disable halo</span>
+      </label>
+
       <!-- STEP 3 — contour preview canvas (blurred halo visualization) -->
       <div class="stage" id="stage-contour">
         <!-- <span class="step-label">step 3 — contour</span> -->
@@ -319,11 +325,21 @@
   
   </div><!-- /panels-left -->
   
+  <button id="info-toggle" aria-label="Toggle info panel" aria-expanded="true">›</button>
+
   <div id="top-panel-info">
-    <!-- <span class="step-label">info</span> -->
-    <p class="info-description">A tool for generating typefaces based on the halftone screen principle. <!-- Characters are built from atomic dot patterns whose density and size vary with the underlying gradient. --></p>
+    <p class="info-description">A tool for generating typefaces based on the halftone screen principle.</p>
     <p class="info-ref">Reference typeface: <a href="https://github.com/playbeing/dinish" target="_blank" rel="noopener">DINish</a></p>
-    <p class="info-credit">Zoé Berthelot · Flutgraben e.V. · 2026</p>
+
+    <!-- License block -->
+    <div class="info-license">
+      <p class="info-license-item">Generated fonts — <span class="info-license-tag free">free to use</span><br>SIL Open Font License</p>
+      <p class="info-license-item">Generator — <span class="info-license-tag proprietary">All rights reserved</span><br>© 2026 <a href="https://www.instagram.com/neutronzoo" target="_blank" rel="noopener">Zoé Berthelot</a></p>
+    </div>
+
+    <p class="info-credit">
+     developed for and with the support of <a href="https://flutgraben.org/en/web" target="_blank" rel="noopener">Flutgraben e.V. </a>
+    </p>
   </div>
 
   
