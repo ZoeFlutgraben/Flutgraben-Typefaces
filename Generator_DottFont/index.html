@@ -62,38 +62,38 @@
           
         <!-- SHAPE — selector -->
         <div class="shape-btns">
-            <button class="shape-btn active" data-shape="circle" title="Circle">
-              <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
+            <button class="shape-btn active" data-shape="circle" title="Circle" aria-label="Circle">
+              <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <circle cx="1" cy="1" r="1" fill="#000000" />
               </svg>
             </button>
 
-            <button class="shape-btn" data-shape="square" title="Square">
-              <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg">
+            <button class="shape-btn" data-shape="square" title="Square" aria-label="Square">
+              <svg viewBox="0 0 2 2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <rect x="0" y="0" width="2" height="2" fill="#000000" />
               </svg>
             </button>
 
-            <button class="shape-btn" data-shape="polygone" title="Polygone">
-              <svg viewBox="0 0 2.829 2.691" xmlns="http://www.w3.org/2000/svg">
+            <button class="shape-btn" data-shape="polygone" title="Pentagon" aria-label="Pentagon">
+              <svg viewBox="0 0 2.829 2.691" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <polygon points="1.415,2.691 0,1.663 0.540,0 2.289,0 2.829,1.663" fill="#000000" />
               </svg>
             </button>
 
-            <button class="shape-btn" data-shape="polygone8" title="Polygone 8">
-              <svg viewBox="0 0 2.314 2.314" xmlns="http://www.w3.org/2000/svg">
+            <button class="shape-btn" data-shape="polygone8" title="Octagon" aria-label="Octagon">
+              <svg viewBox="0 0 2.314 2.314" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <polygon points="0.348,0.353 0.012,1.163 0.348,1.973 1.158,2.309 1.968,1.973 2.304,1.163 1.968,0.353 1.158,0.017" fill="#000000" />
               </svg>
             </button>
 
-            <button class="shape-btn" data-shape="trait_2" title="Trait 2">
-              <svg viewBox="0 0 3.614 1.027" xmlns="http://www.w3.org/2000/svg">
+            <button class="shape-btn" data-shape="trait_2" title="Bar" aria-label="Bar">
+              <svg viewBox="0 0 3.614 1.027" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <rect x="0" y="0" width="3.614" height="1.027" fill="#000000" />
               </svg>
             </button>
 
-            <button class="shape-btn" data-shape="cross" title="cross">
-              <svg viewBox="0 0 0.748 0.748" xmlns="http://www.w3.org/2000/svg">
+            <button class="shape-btn" data-shape="cross" title="Star" aria-label="Star">
+              <svg viewBox="0 0 0.748 0.748" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <polygon points="0,0 0.373447,0.154202 0.746893,0 0.592326,0.373081 0.747624,0.747624 0.373447,0.59196 -7.31e-4,0.747624 0.154568,0.373081" fill="#000000"/>
               </svg>
             </button>
@@ -137,12 +137,6 @@
           <label for="presence-slider">Hazard</label>
           <input type="range" id="presence-slider" min="0" max="1" step="0.01" value="0.5" />
           <span id="presence-value" contenteditable="true">0.5</span>
-        </div>
-
-        <div class="slider-row">
-            <input type="checkbox" id="adv-italique">
-              <span class="step-label">Italique</span>
-            </label>
         </div>
 
       </div><!-- /adv-controls -->
@@ -240,27 +234,27 @@
       </label>
       <label class="adv-check" data-charset-file="source_export_otf/charset-west-europe.json" data-chars="¡  «  »  ¿  À  Á  Â  Ã  Ä  Æ  Ç  È  É  Ê  Ë  Ì  Í  Î  Ï  Ñ  Ò  Ó  Ô  Õ  Ö  Ù  Ú  Û  Ü  ß  à  á  â  ã  ä  æ  ç  è  é  ê  ë  ì  í  î  ï  ñ  ò  ó  ô  õ  ö  ù  ú  û  ü  ÿ  Œ  œ  Ÿ  Ŵ  ŵ  Ŷ  ŷ  ·  Ĳ  ĳ  ẞ  Ẁ  ẁ  Ẃ  ẃ  Ẅ  ẅ">
         <input type="checkbox" id="charset-west-europe">
-        <span class="step-label">Europe Ouest (fr, sp, pt, gb, all, ch, it, cy, nl)</span>
+        <span class="step-label">Western Europe (fr, sp, pt, gb, de, ch, it, cy, nl)</span>
         <span class="charset-tooltip"></span>
       </label>
       <label class="adv-check" data-charset-file="source_export_otf/charset-nordic.json" data-chars="Ä  Å  Æ  Ö  Ø  Ð  Þ  ä  å  æ  ö  ø  ð  þ  Ŋ  ŋ  Ŧ  ŧ  Ǧ  ǧ  Ǩ  ǩ  Ǫ  ǫ  Ǭ  ǭ">
         <input type="checkbox" id="charset-nordic">
-        <span class="step-label">Europe Nord (se, dk, fi, no, is, fo)</span>
+        <span class="step-label">Northern Europe (se, dk, fi, no, is, fo)</span>
         <span class="charset-tooltip"></span>
       </label>
       <label class="adv-check" data-charset-file="source_export_otf/charset-east-europe.json" data-chars="Á  Â  Ä  É  Í  Î  Ó  Õ  Ö  Ú  Ü  Ý  á  â  ä  é  í  î  ó  õ  ö  ú  ü  ý  Ā  ā  Ă  ă  Ą  ą  Ć  ć  Č  č  Ď  ď  Đ  đ  Ē  ē  Ė  ė  Ę  ę  Ģ  ģ  Ī  ī  Į  į  Ķ  ķ  Ĺ  ĺ  Ļ  ļ  Ľ  ľ  Ł  ł  Ń  ń  Ņ  ņ  Ň  ň  Ő  ő  Ŕ  ŕ  Ř  ř  Ś  ś  Š  š  Ť  ť  Ū  ū  Ů  ů  Ű  ű  Ų  ų  Ź  ź  Ż  ż  Ž  ž  Ș  ș  Ț  ț  Ě  ě  Ō  ō">
         <input type="checkbox" id="charset-east-europe">
-        <span class="step-label">Europe Est (pl, cz, sk, ee, lv, lt, hu, ro, si, hr)</span>
+        <span class="step-label">Eastern Europe (pl, cz, sk, ee, lv, lt, hu, ro, si, hr)</span>
         <span class="charset-tooltip"></span>
       </label>
       <label class="adv-check" data-charset-file="source_export_otf/charset-cyrillic.json" data-chars="Ё  Є  І  Ї  А  Б  В  Г  Д  Е  Ж  З  И  Й  К  Л  М  Н  О  П  Р  С  Т  У  Ф  Х  Ц  Ч  Ш  Щ  Ъ  Ы  Ь  Э  Ю  Я  а  б  в  г  д  е  ж  з  и  й  к  л  м  н  о  п  р  с  т  у  ф  х  ц  ч  ш  щ  ъ  ы  ь  э  ю  я  ё  є  і  ї  Ґ  ґ  Ў  ў  Ќ  Ѓ  Ј  Ѕ  ќ  ѓ  ј  ѕ  Ђ  Љ  Њ  Ћ  Џ  Ѝ  ђ  љ  њ  ћ  џ  ѝ  Ѐ  ѐ">
         <input type="checkbox" id="charset-cyrillic">
-        <span class="step-label">Cyrillique (bg, ru, uk, sr, by, mk)</span>
+        <span class="step-label">Cyrillic (bg, ru, uk, sr, by, mk)</span>
         <span class="charset-tooltip"></span>
       </label>
       <label class="adv-check" data-charset-file="source_export_otf/charset-mongolian.json" data-chars="Ү  ү  Ө  ө">
         <input type="checkbox" id="charset-mongolian">
-        <span class="step-label">Mongol (mn)</span>
+        <span class="step-label">Mongolian (mn)</span>
         <span class="charset-tooltip"></span>
       </label>
       <label class="adv-check" data-charset-file="source_export_otf/charset-turkish-maltese.json" data-chars="Ğ  ğ  İ  ı  Ş  ş  Ħ  ħ  Ġ  ġ  Ċ  ċ">
@@ -270,7 +264,7 @@
       </label>
       <label class="adv-check" data-charset-file="source_export_otf/charset-punctuation.json" data-chars="¢  £  ¤  ¥  ¦  §  ¨  ©  ª  ¬  ®  ¯  °  ±  ²  ³  ´  µ  ¶  ¸  ¹  º  ¼  ½  ¾  ×  ÷  ‐  –  —  ‘  ’  ‚  “  ”  „  †  ‡  •  …  ‰  ′  ″  ‹  ›  ⁄  €  ™  −  ∕  ◌  ⸗  ʼ  ˆ  ˇ  ˘  ˙  ˚  ˛  ˜  ˝">
         <input type="checkbox" id="charset-punctuation">
-        <span class="step-label">Ponctuation &eacute;tendue</span>
+        <span class="step-label">Extended punctuation</span>
         <span class="charset-tooltip"></span>
       </label>
       <label class="adv-check" data-charset-file="source_export_otf/charset-esperanto.json" data-chars="Ĉ  ĉ  Ĝ  ĝ  Ĥ  ĥ  Ĵ  ĵ  Ŝ  ŝ  Ŭ  ŭ">
@@ -280,7 +274,7 @@
       </label>
       <label class="adv-check" data-charset-file="source_export_otf/charset-transliteration.json" data-chars="Ḍ  ḍ  Ḥ  ḥ  Ḱ  ḱ  Ḷ  ḷ  Ḿ  ḿ  Ṕ  ṕ  Ṛ  ṛ  Ṣ  ṣ  Ṭ  ṭ  Ẓ  ẓ">
         <input type="checkbox" id="charset-transliteration">
-        <span class="step-label">Translitt&eacute;ration</span>
+        <span class="step-label">Transliteration</span>
         <span class="charset-tooltip"></span>
       </label>
             <label class="adv-check" data-charset-file="source_export_otf/charset-pinyin.json" data-chars="Ǎ  ǎ  Ǐ  ǐ  Ǒ  ǒ  Ǔ  ǔ">
@@ -304,15 +298,19 @@
   </details>
 
   <div id="top-panel-export">
-        <!-- EXPORT -->
-    <div class="flex">
-      <span class="step-label">Export</span>
+    <span class="step-label">Export</span>
+    <!-- Italic toggle — lives here because it affects the entire export pipeline -->
+    <label class="adv-check">
+      <input type="checkbox" id="adv-italique">
+      <span class="step-label">Italic</span>
+    </label>
+    <!-- Export action buttons -->
+    <div class="flex export-actions">
       <button id="export-btn">SVG</button>
       <button id="export-png-btn">PNG</button>
       <button id="export-otf-btn">OTF</button>
       <button id="export-woff-btn">WOFF</button>
     </div>
-
   </div>
 
   
@@ -327,7 +325,7 @@
 
   
    
-  <button id="btn-aleatoire">Flop it!</button>
+  <button id="btn-aleatoire">Flop it! [F]</button>
 
 
 

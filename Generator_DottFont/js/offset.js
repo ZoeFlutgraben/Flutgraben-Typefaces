@@ -244,3 +244,13 @@ function randomizeAll() {
 }
 
 document.getElementById('btn-aleatoire').addEventListener('click', randomizeAll);
+
+// Keyboard shortcut: press F to trigger randomizeAll.
+// Guard: skip if the user is typing in a text input or contenteditable element.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'f' && e.key !== 'F') return;
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (document.activeElement?.isContentEditable) return;
+  randomizeAll();
+});

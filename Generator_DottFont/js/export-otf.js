@@ -386,7 +386,7 @@ async function buildFont(progressBtn) {
       await loadClipper();
     } catch (e) {
       console.error('Failed to load Clipper.js:', e);
-      progressBtn.textContent = 'Erreur Clipper';
+      progressBtn.textContent = 'Clipper error';
       return null;
     }
   }
@@ -405,7 +405,7 @@ async function buildFont(progressBtn) {
     metrics = await res.json();
   } catch (e) {
     console.error(`Failed to load ${metricsFile}:`, e);
-    progressBtn.textContent = 'Erreur JSON';
+    progressBtn.textContent = 'JSON error';
     return null;
   }
 
@@ -905,29 +905,43 @@ if (shift !== 0) {
   return { buffer: finalBuf, filename };
 }
 
+// Disables all four export buttons and marks the active one as loading.
+// Prevents concurrent exports from being triggered simultaneously.
+function setExportBusy(activeBtn) {
+  [exportOtfBtn, exportWoffBtn,
+   document.getElementById('export-btn'),
+   document.getElementById('export-png-btn')].forEach(b => { b.disabled = true; });
+  activeBtn.textContent = '...';
+}
+
+// Re-enables all four export buttons and restores the active button's label.
+function setExportIdle(activeBtn, label) {
+  [exportOtfBtn, exportWoffBtn,
+   document.getElementById('export-btn'),
+   document.getElementById('export-png-btn')].forEach(b => { b.disabled = false; });
+  activeBtn.textContent = label;
+}
+
 // Downloads the font as an OTF file.
 async function exportOTF() {
-  exportOtfBtn.textContent = 'En cours...';
-  exportOtfBtn.disabled    = true;
+  setExportBusy(exportOtfBtn);
   const result = await buildFont(exportOtfBtn);
-  if (!result) { exportOtfBtn.disabled = false; return; }
+  if (!result) { setExportIdle(exportOtfBtn, 'OTF'); return; }
   const a = document.createElement('a');
   a.href     = URL.createObjectURL(new Blob([result.buffer], { type: 'application/octet-stream' }));
   a.download = result.filename;
   a.click();
   URL.revokeObjectURL(a.href);
   generate();
-  exportOtfBtn.textContent = 'OTF';
-  exportOtfBtn.disabled    = false;
+  setExportIdle(exportOtfBtn, 'OTF');
 }
 
 // Downloads the font as a WOFF file.
 // Reuses the same glyph pipeline as exportOTF; only the wrapping differs.
 async function exportWOFF() {
-  exportWoffBtn.textContent = 'En cours...';
-  exportWoffBtn.disabled    = true;
+  setExportBusy(exportWoffBtn);
   const result = await buildFont(exportWoffBtn);
-  if (!result) { exportWoffBtn.disabled = false; return; }
+  if (!result) { setExportIdle(exportWoffBtn, 'WOFF'); return; }
   const woffBuffer = await sfntToWoff(result.buffer);
   const a = document.createElement('a');
   a.href     = URL.createObjectURL(new Blob([woffBuffer], { type: 'application/octet-stream' }));
@@ -935,8 +949,7 @@ async function exportWOFF() {
   a.click();
   URL.revokeObjectURL(a.href);
   generate();
-  exportWoffBtn.textContent = 'WOFF';
-  exportWoffBtn.disabled    = false;
+  setExportIdle(exportWoffBtn, 'WOFF');
 }
 
 // Dispatches to the correct Clipper polygon function for the current shape.
@@ -974,15 +987,13 @@ function clipperToSvgPathData(clipperPaths) {
 // but collects Clipper polygons instead of SVG element strings.
 async function exportSVGUnion() {
   const btn = document.getElementById('export-btn');
-  btn.textContent = 'En cours...';
-  btn.disabled    = true;
+  setExportBusy(btn);
 
   try {
     await loadClipper();
   } catch (e) {
     console.error('Failed to load Clipper.js:', e);
-    btn.textContent = 'Erreur';
-    btn.disabled    = false;
+    setExportIdle(btn, 'SVG');
     return;
   }
 
@@ -1060,8 +1071,7 @@ async function exportSVGUnion() {
   }
 
   if (polygons.length === 0) {
-    btn.textContent = 'SVG';
-    btn.disabled    = false;
+    setExportIdle(btn, 'SVG');
     return;
   }
 
@@ -1080,8 +1090,7 @@ async function exportSVGUnion() {
   a.click();
   URL.revokeObjectURL(a.href);
 
-  btn.textContent = 'SVG';
-  btn.disabled    = false;
+  setExportIdle(btn, 'SVG');
 }
 
 const exportWoffBtn = document.getElementById('export-woff-btn');
