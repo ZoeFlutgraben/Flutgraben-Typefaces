@@ -80,7 +80,7 @@ body {
   width: 23.5vw;
   max-height: calc(100vh - 20px);
   padding: 1px;
-  border-radius: 10px;
+  
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -88,6 +88,7 @@ body {
   background-color: rgba(179, 179, 179, 0.90);
   box-shadow: 0 0 5px rgba(179, 179, 179, 0.90), 0 0 10px rgba(179, 179, 179, 0.90);
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
 }
 
 /* === Shared panel base — all left-column panels === */

@@ -391,14 +391,20 @@ async function buildFont(progressBtn) {
     }
   }
 
+  // Read italic state once — used throughout buildFont() for metrics, naming, and binary patches.
+  const isItalic    = document.getElementById('adv-italique')?.checked || false;
+
   // Load font metrics and glyph data from JSON.
-  // Provides UPM, ascender, descender, and per-glyph advance widths.
+  // Italic mode uses dinish-bold-italic-metrics.json (different bbox, same advance widths).
+  const metricsFile = isItalic
+    ? 'source_export_otf/dinish-bold-italic-metrics.json'
+    : 'source_export_otf/dinish-bold-metrics.json';
   let metrics;
   try {
-    const res = await fetch('source_export_otf/dinish-bold-metrics.json');
+    const res = await fetch(metricsFile);
     metrics = await res.json();
   } catch (e) {
-    console.error('Failed to load dinish-bold-metrics.json:', e);
+    console.error(`Failed to load ${metricsFile}:`, e);
     progressBtn.textContent = 'Erreur JSON';
     return null;
   }
@@ -419,7 +425,7 @@ async function buildFont(progressBtn) {
   // alphabeticBaseline with textBaseline='top' returns a negative number in Chrome/FF
   // → BASELINE_Y = PADDING + negative = too small → glyphs shift into negative y.
   // ctx is the global hidden-canvas context defined in script-generator_DottFont.js
-  ctx.font         = `700 ${FONT_SIZE}px DINish, sans-serif`;
+  ctx.font         = `${isItalic ? 'italic ' : ''}700 ${FONT_SIZE}px DINish, sans-serif`;
   ctx.textBaseline = 'top';
   const measured   = ctx.measureText('A');
   const BASELINE_Y = PADDING + measured.actualBoundingBoxDescent;
@@ -743,7 +749,10 @@ async function buildFont(progressBtn) {
     // the side with less room saturates first, making the glyph appear to grow
     // left-to-right rather than from its center. Centering ensures equal LSB and
     // RSB at every size, so growth is distributed symmetrically in the variable font.
-    if (path.commands.length > 0) {
+    // For italic, DINish italic sidebearings are intentionally asymmetric to account
+    // for the slant — centering destroys this (e.g. 'j' gets LSB=RSB=-77 instead of
+    // DINish's -122/−32, pushing it 45 units into the following glyph). Skip for italic.
+    if (!isItalic && path.commands.length > 0) {
       let minX = Infinity, maxX = -Infinity;
       for (const cmd of path.commands) {
         if (cmd.x  !== undefined) { minX = Math.min(minX, cmd.x);  maxX = Math.max(maxX, cmd.x); }
@@ -753,7 +762,7 @@ async function buildFont(progressBtn) {
       if (isFinite(minX) && isFinite(maxX)) {
         const advW  = metrics.glyphs[char].advanceWidth;
         const shift = Math.round((advW - (maxX - minX)) / 2 - minX);
-        if (shift !== 0) {
+if (shift !== 0) {
           for (const cmd of path.commands) {
             if (cmd.x  !== undefined) cmd.x  += shift;
             if (cmd.x1 !== undefined) cmd.x1 += shift;
@@ -800,16 +809,17 @@ async function buildFont(progressBtn) {
     polygone8:'P8',
     cross:    'Cr'
   }[currentShape] || currentShape;
-  const legacyFamily = `FLTGRRR ${shapeAbbr} M${meshSize} T${tailleGenerationMultiplier.toFixed(2)} S${sizeMultiplier.toFixed(2)} H${presenceStrength.toFixed(2)}`;
+
+  const legacyFamily = `FLTGRRR ${shapeAbbr} M${meshSize} T${tailleGenerationMultiplier.toFixed(2)} S${sizeMultiplier.toFixed(2)} H${presenceStrength.toFixed(2)}${isItalic ? ' I' : ''}`;
 
   // Full readable style name used as Typographic Subfamily (nameID 17).
   // Modern apps (Figma, Adobe CC) read nameID 16/17 and group all exports
   // under the shared "FLTGRRR" family, showing this string as the style.
-  const typographicStyle = `${shapeLabel} · Mesh ${meshSize} · Taille ${tailleGenerationMultiplier.toFixed(2)} · Size ${sizeMultiplier.toFixed(2)} · Hazard ${presenceStrength.toFixed(2)}`;
+  const typographicStyle = `${isItalic ? 'Italic ' : ''}${shapeLabel} · Mesh ${meshSize} · Taille ${tailleGenerationMultiplier.toFixed(2)} · Size ${sizeMultiplier.toFixed(2)} · Hazard ${presenceStrength.toFixed(2)}`;
 
   const font = new opentype.Font({
-    familyName:     legacyFamily,   // nameID 1 — unique per export, legacy compat
-    styleName:      'Regular',      // nameID 2 — always Regular for legacy compat
+    familyName:     legacyFamily,             // nameID 1 — unique per export, legacy compat
+    styleName:      isItalic ? 'Italic' : 'Regular', // nameID 2
     unitsPerEm:     UPM,
     ascender:       ASCENDER,
     descender:      DESCENDER,
@@ -823,8 +833,8 @@ async function buildFont(progressBtn) {
     glyphs
   });
 
-  // Build filename from current settings: shape_mesh_tailleGeneration_size_presence
-  const filename = `FLTGRRR_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
+  // Build filename from current settings: shape_mesh_tailleGeneration_size_presence (+ _I if italic)
+  const filename = `FLTGRRR${isItalic ? '_I' : ''}_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
 
   // opentype.js builds OS/2 and post tables lazily during toArrayBuffer().
   // We must serialize first, re-parse the result, then patch the table values
@@ -843,31 +853,51 @@ async function buildFont(progressBtn) {
   if (patchedFont.tables.os2 && metrics.otfTables && metrics.otfTables.OS2) {
     patchedFont.tables.os2.usWinAscent  = metrics.otfTables.OS2.usWinAscent;
     patchedFont.tables.os2.usWinDescent = metrics.otfTables.OS2.usWinDescent;
+    // fsSelection: Bold=160 (0b10100000), Bold+Italic=161 (0b10100001)
+    patchedFont.tables.os2.fsSelection  = isItalic ? 161 : 160;
   }
-  // Binary-patch the post table — opentype.js v1.3.4 caches the raw table bytes
-  // after parse() and recopies them in toArrayBuffer(), so assigning to
-  // patchedFont.tables.post.underlinePosition has no effect on the output.
-  // We locate the post record in the sfnt table directory and write the values
-  // directly into the serialized buffer, then recalculate the table checksum.
+  // Binary-patch the post and head tables.
+  // opentype.js v1.3.4 caches raw table bytes after parse() and recopies them
+  // in toArrayBuffer(), so JS property assignments to post/head have no effect.
+  // We locate each record in the sfnt directory and write values directly,
+  // then recalculate the per-table checksum.
+  //
+  // post: italicAngle (Fixed 16.16 at offset+4), underlinePosition (+8), underlineThickness (+10)
+  // head: macStyle (uint16 at offset+44) — Bold=1, Bold+Italic=3
   const finalBuf = patchedFont.toArrayBuffer();
   const patchDV  = new DataView(finalBuf);
   const patchU8  = new Uint8Array(finalBuf);
   const sfntNumTables = patchDV.getUint16(4);
+
+  // Recalculates and writes the sfnt directory checksum for a table at tableOff of tableLen bytes.
+  function recomputeTableChecksum(recOffset, tableOff, tableLen) {
+    let chk = 0;
+    for (let i = 0; i < Math.ceil(tableLen / 4); i++) {
+      chk = (chk + patchDV.getUint32(tableOff + i * 4)) >>> 0;
+    }
+    patchDV.setUint32(recOffset + 4, chk);
+  }
+
   for (let t = 0; t < sfntNumTables; t++) {
     const rec = 12 + t * 16;
     const tag = String.fromCharCode(patchU8[rec], patchU8[rec + 1], patchU8[rec + 2], patchU8[rec + 3]);
+
     if (tag === 'post') {
       const postOff = patchDV.getUint32(rec + 8);
-      patchDV.setInt16(postOff + 8,  -153);  // underlinePosition  (DINish Bold ref)
-      patchDV.setInt16(postOff + 10,   51);  // underlineThickness (DINish Bold ref)
-      // Recalculate the post table checksum so the sfnt directory stays consistent
       const postLen = patchDV.getUint32(rec + 12);
-      let chk = 0;
-      for (let i = 0; i < Math.ceil(postLen / 4); i++) {
-        chk = (chk + patchDV.getUint32(postOff + i * 4)) >>> 0;
-      }
-      patchDV.setUint32(rec + 4, chk);
-      break;
+      // italicAngle: Fixed 16.16 — -12.0 = -12*65536 = 0xFFF40000, 0.0 = 0
+      patchDV.setInt32(postOff + 4,  isItalic ? -12 * 65536 : 0);
+      patchDV.setInt16(postOff + 8,  -153);  // underlinePosition  (DINish ref)
+      patchDV.setInt16(postOff + 10,   51);  // underlineThickness (DINish ref)
+      recomputeTableChecksum(rec, postOff, postLen);
+    }
+
+    else if (tag === 'head') {
+      const headOff = patchDV.getUint32(rec + 8);
+      const headLen = patchDV.getUint32(rec + 12);
+      // macStyle: Bold=1 (0b01), Bold+Italic=3 (0b11)
+      patchDV.setUint16(headOff + 44, isItalic ? 3 : 1);
+      recomputeTableChecksum(rec, headOff, headLen);
     }
   }
 

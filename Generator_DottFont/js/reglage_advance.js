@@ -92,8 +92,10 @@ function computeGlyphPositions(glyphs) {
     try {
       const bb = glyph.getBoundingBox();
       if (bb && bb.x2 > bb.x1) {
-        const lsbPx = bb.x1 * scale;
-        const rsbPx = ((glyph.advanceWidth || 0) - bb.x2) * scale;
+        // Clamp to 0: italic glyphs can have negative LSB (ink overflows left of
+        // the advance box). A negative LSB must not pull the glyph further left.
+        const lsbPx = Math.max(0, bb.x1 * scale);
+        const rsbPx = Math.max(0, ((glyph.advanceWidth || 0) - bb.x2) * scale);
         const total = lsbPx + rsbPx;
         if (total > 0) extraLsb = letterSpacingPx * (lsbPx / total);
       }
@@ -194,8 +196,10 @@ function drawOverlay() {
 
         const lsbUnits = bb.x1;
         const rsbUnits = (d.glyph.advanceWidth || 0) - bb.x2;
-        const lsbPx    = lsbUnits * scale;
-        const rsbPx    = rsbUnits * scale;
+        // Clamp to 0: italic glyphs can have negative LSB (ink overflows left of
+        // the advance box). A negative value must not invert the distribution ratio.
+        const lsbPx    = Math.max(0, lsbUnits * scale);
+        const rsbPx    = Math.max(0, rsbUnits * scale);
 
         // Proportional distribution of letter-spacing across left and right approaches.
         // Ratio is based on the original sidebearing sizes; if both are zero, split equally.
@@ -337,8 +341,10 @@ if ('letterSpacing' in ctx) {
       try {
         const bb = glyph.getBoundingBox();
         if (bb && bb.x2 > bb.x1) {
-          const lsbPx = bb.x1 * scale;
-          const rsbPx = ((glyph.advanceWidth || 0) - bb.x2) * scale;
+          // Clamp to 0: italic glyphs can have negative LSB (ink overflows left of
+          // the advance box). A negative value must not pull the glyph further left.
+          const lsbPx = Math.max(0, bb.x1 * scale);
+          const rsbPx = Math.max(0, ((glyph.advanceWidth || 0) - bb.x2) * scale);
           const total = lsbPx + rsbPx;
           if (total > 0) extraLsb = letterSpacingPx * (lsbPx / total);
         }

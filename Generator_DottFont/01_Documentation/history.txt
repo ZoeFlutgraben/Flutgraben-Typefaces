@@ -2185,3 +2185,151 @@ css/style.css
   #top-panel-svg-adv : styles panel ✓
 
 ============================================================
+
+------------------------------------------------------------
+SESSION 19/07/2026 — suite
+------------------------------------------------------------
+
+EXPORT OTF/WOFF ITALIQUE
+  Objectif : que les exports OTF et WOFF reflètent correctement la
+             variante DINish Bold Italic quand la checkbox adv-italique
+             est cochée — métadonnées, tables binaires, et métriques
+             issues du bon fichier de référence.
+
+  Nouveau fichier — source_export_otf/dinish-bold-italic-metrics.json :
+    Même structure que dinish-bold-metrics.json.
+    Extrait depuis DINish-BoldItalic.woff via fontTools (Python).
+    482 glyphes — advance widths identiques au Bold (confirmé sur les
+    548 glyphes partagés), mais bbox différentes : les letterforms
+    penchées font déborder l'encre au-delà de l'advance box
+    (ex. 'A' : xMin Bold=4 → xMin Italic=-51).
+    ascender corrigé à 1024 (même logique que session 27/04 sur le Bold :
+    sTypoAscender DINish = UPM, pas usWinAscent=1050).
+
+  buildFont() — export-otf.js :
+    isItalic déclaré en tête de fonction (lu une seule fois depuis
+    #adv-italique, utilisé dans tout buildFont()).
+
+    Sélection du fichier de métriques :
+      isItalic = false → dinish-bold-metrics.json  (inchangé)
+      isItalic = true  → dinish-bold-italic-metrics.json  (nouveau)
+
+    Métadonnées opentype.Font :
+      styleName      : 'Regular' | 'Italic'  (nameID 2)
+      legacyFamily   : suffixe ' I' ajouté si italic
+                       ex. "FLTGRRR Ci M0 T1.00 S1.00 H0.50 I"
+      typographicStyle : préfixe 'Italic ' si italic
+      description    : idem (champ description dynamique)
+
+    Filename OTF/WOFF :
+      FLTGRRR_I_{shape}_... si italic
+      FLTGRRR_{shape}_...   si non-italic
+
+    Patches binaires étendus (même boucle sfnt que la table post) :
+      post  : italicAngle patché en Fixed 16.16
+                italic → -12 * 65536 (= 0xFFF40000, ref DINish Bold Italic)
+                non-italic → 0
+      head  : macStyle (uint16 à offset+44)
+                italic → 3 (Bold + Italic)
+                non-italic → 1 (Bold)
+      OS/2  : fsSelection patché via propriété JS (avant 2e toArrayBuffer)
+                italic → 161 (0b10100001 : Bold + Italic bit)
+                non-italic → 160 (0b10100000 : Bold bit)
+      Checksums recalculés via recomputeTableChecksum() (nouvelle
+      fonction helper factorisée depuis le patch post existant).
+
+  Boucle sfnt refactorisée :
+    Avant : boucle for + break au premier 'post' trouvé.
+    Après : boucle for sans break, gère 'post' et 'head' dans la même
+    passe. recomputeTableChecksum(recOffset, tableOff, tableLen) extrait
+    le calcul de checksum répété.
+
+  BUG — TRACKING ITALIC (identifié, non encore corrigé)
+    Deux problèmes détectés lors de l'analyse du pipeline italic :
+
+    1. BASELINE_Y mesuré en Bold dans buildFont()
+       export-otf.js ligne ~428 : ctx.font est fixé à '700 150px DINish'
+       (Bold) avant de mesurer actualBoundingBoxDescent('A'), même quand
+       isItalic=true. Si la mesure diffère entre Bold et Bold Italic,
+       la conversion canvas px → font units Y est décalée pour tout
+       le glyphe italic.
+       Fix prévu : préfixer 'italic ' dans ctx.font si isItalic.
+
+    2. extraLsb négatif pour les glyphes italic à LSB négatif
+       Le monkey-patch ctx.fillText (reglage_advance.js) distribue le
+       tracking proportionnellement : extraLsb = spacing × (lsb / total).
+       Pour les glyphes italic avec LSB < 0 (ex. 'A' italic : lsb=-51,
+       rsb=59, total=8), extraLsb devient très négatif (≈ -63px pour
+       spacing=10px) → le glyphe est projeté loin à gauche.
+       Fix prévu : Math.max(0, lsbPx) et Math.max(0, rsbPx) avant le
+       calcul du ratio ; fallback à spacing/2 si total ≤ 0.
+
+
+------------------------------------------------------------
+ÉTAT ACTUEL DU CODE (19/07/2026 — suite)
+------------------------------------------------------------
+
+source_export_otf/
+  dinish-bold-italic-metrics.json : 482 glyphes, ascender=1024 ✓
+
+export-otf.js
+  isItalic           : déclaré en tête de buildFont(), lu une fois ✓
+  metricsFile        : sélection dynamique bold/bold-italic ✓
+  styleName          : 'Regular' | 'Italic' ✓
+  legacyFamily       : suffixe ' I' si italic ✓
+  filename           : 'FLTGRRR_I_...' si italic ✓
+  post italicAngle   : -12.0 (Fixed 16.16) | 0.0 ✓
+  head macStyle      : 3 (Bold+Italic) | 1 (Bold) ✓
+  OS/2 fsSelection   : 161 | 160 ✓
+  recomputeTableChecksum() : helper factorisé ✓
+  BASELINE_Y italic  : corrigé ✓
+  extraLsb italic    : corrigé ✓
+  centrage italic    : corrigé ✓
+
+------------------------------------------------------------
+CORRECTIONS APPLIQUÉES (19/07/2026)
+------------------------------------------------------------
+
+  BUG 1 — BASELINE_Y mesuré en Bold pour l'italic (export-otf.js ~428)
+    Symptôme : la mesure actualBoundingBoxDescent('A') utilisait toujours
+    ctx.font = '700 150px DINish' (Bold), même en mode italic → décalage Y
+    de la conversion canvas px → font units pour tous les glyphes italics.
+    Fix : préfixe 'italic ' ajouté si isItalic=true :
+      ctx.font = `${isItalic ? 'italic ' : ''}700 ${FONT_SIZE}px DINish, sans-serif`;
+
+  BUG 2 — extraLsb négatif pour les glyphes italic à LSB négatif
+    (reglage_advance.js — 3 emplacements)
+    Symptôme : le monkey-patch ctx.fillText distribue le tracking selon le
+    ratio lsb/(lsb+rsb). Pour les glyphes italics avec LSB<0 (ex. 'A' italic :
+    lsb=-51, rsb=59, total=8), extraLsb devenait très négatif (≈-63px pour
+    spacing=10px) → projection du glyphe loin à gauche.
+    Fix : Math.max(0, lsbPx) et Math.max(0, rsbPx) avant le calcul du ratio
+    dans les trois emplacements (computeGlyphPositions, sidebar display,
+    fillText monkey-patch). Pour 'A' italic : extraLsb passe de -63px à 0.
+
+  BUG 3 — Centrage forcé LSB=RSB cassant l'espacement italic (export-otf.js ~752)
+    Symptôme : l'algorithme de centrage forçait LSB=RSB pour tous les glyphes,
+    y compris en mode italic. Pour 'j' italic (inkWidth=400, advW=246 UPM),
+    le centrage donnait LSB=RSB=-77, soit 45 unités de débordement droit de
+    plus que le -32 prévu par DINish Italic → 'j' et 'u' se touchaient
+    visuellement dans l'export OTF alors que le générateur était correct.
+    Cause racine : DINish italic a des sidebearings intentionnellement
+    asymétriques pour compenser l'angle de l'italique (-12°). Le centrage
+    symétrique détruit cette logique.
+    Fix : condition !isItalic ajoutée autour du bloc de centrage :
+      if (!isItalic && path.commands.length > 0) { ... }
+    En mode italic, les sidebearings DINish Italic bruts sont conservés tels
+    quels, reflétant fidèlement l'espacement prévu par la fonte source.
+
+  NOTE — Affichage FontLab vs générateur
+    L'écart observé (ex. 'A' : générateur 0/59, export lu dans FontLab 75/-70)
+    s'explique par trois couches distinctes :
+    1. Le générateur affiche les métriques de la fonte source DINish (template).
+    2. L'OTF exporté contient les métriques FLTGRRR recalculées (dots + centrage).
+    3. FontLab ajuste l'affichage LSB/RSB selon l'angle italic (-12°) en
+       projetant les points de contour sur l'axe oblique → valeurs visuelles
+       différentes des coordonnées brutes. Ce comportement est normal et attendu.
+    Debug vérifié : console log après opentype.parse() confirmait
+    xMin=3 xMax=616 advW=620 pour 'A', soit LSB≈3 RSB≈4 en coordonnées brutes.
+
+============================================================
