@@ -618,8 +618,11 @@ meshSlider.addEventListener('input', () => {
   sliderDebounceTimer = setTimeout(regenerateTextWithMesh, 80);
 });
 
-// Export output SVG as a .svg file download
+// Export output SVG as a .svg file download.
+// When adv-union-svg is checked, delegates to exportSVGUnion() (defined in export-otf.js)
+// which merges all dots into a single optimised path via Clipper boolean union.
 exportBtn.addEventListener('click', () => {
+  if (unionSvg) { exportSVGUnion(); return; }
   const serializer = new XMLSerializer();
   const svgStr = '<?xml version="1.0" encoding="UTF-8"?>\n'
     + serializer.serializeToString(outputSvg);
@@ -627,7 +630,7 @@ exportBtn.addEventListener('click', () => {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download =  `${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
+  a.download = `${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
   a.click();
   URL.revokeObjectURL(url);
 });

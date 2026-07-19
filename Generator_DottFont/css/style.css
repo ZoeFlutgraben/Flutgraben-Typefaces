@@ -95,6 +95,7 @@ body {
 #top-panel-offset,
 #top-panel-export,
 #top-panel-advance,
+#top-panel-svg-adv,
 #top-panel-info,
 #top-panel-charset {
   padding: 15px;
@@ -107,6 +108,7 @@ body {
 
 /* Details panels: collapse gap so summary sits flush with its content */
 #top-panel-advance,
+#top-panel-svg-adv,
 #top-panel-offset,
 #top-panel-premier,
 #top-panel-charset {
