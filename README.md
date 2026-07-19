@@ -1,4 +1,4 @@
-# FLUTGRABEN Typeface Generator
+# FLTGRRR Typeface Generator
 
 A browser-based tool for generating typefaces using the halftone screen principle. Characters are built from atomic dot patterns whose density and size vary according to an underlying bilinear gradient — producing shapes that dissolve at their edges like spray paint or halftone ink.
 
@@ -92,7 +92,7 @@ Select which Unicode blocks to include in the OTF/WOFF export:
 
 OTF/WOFF exports use boolean union (via Clipper.js) to merge overlapping dots into a single outline per glyph. Disable this in Advanced settings if you need individual paths.
 
-Font naming: each export is identified by its parameters, e.g. `FLUTGRABEN Ci M0 T1.00 S1.00 H0.50`.
+Font naming: each export is identified by its parameters, e.g. `FLTGRRR Ci M0 T1.00 S1.00 H0.50`.
 
 ---
 

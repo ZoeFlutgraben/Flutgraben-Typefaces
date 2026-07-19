@@ -774,11 +774,11 @@ async function buildFont(progressBtn) {
     polygone8:'P8',
     cross:    'Cr'
   }[currentShape] || currentShape;
-  const legacyFamily = `FLUTGRABEN ${shapeAbbr} M${meshSize} T${tailleGenerationMultiplier.toFixed(2)} S${sizeMultiplier.toFixed(2)} H${presenceStrength.toFixed(2)}`;
+  const legacyFamily = `FLTGRRR ${shapeAbbr} M${meshSize} T${tailleGenerationMultiplier.toFixed(2)} S${sizeMultiplier.toFixed(2)} H${presenceStrength.toFixed(2)}`;
 
   // Full readable style name used as Typographic Subfamily (nameID 17).
   // Modern apps (Figma, Adobe CC) read nameID 16/17 and group all exports
-  // under the shared "FLUTGRABEN" family, showing this string as the style.
+  // under the shared "FLTGRRR" family, showing this string as the style.
   const typographicStyle = `${shapeLabel} · Mesh ${meshSize} · Taille ${tailleGenerationMultiplier.toFixed(2)} · Size ${sizeMultiplier.toFixed(2)} · Hazard ${presenceStrength.toFixed(2)}`;
 
   const font = new opentype.Font({
@@ -798,7 +798,7 @@ async function buildFont(progressBtn) {
   });
 
   // Build filename from current settings: shape_mesh_tailleGeneration_size_presence
-  const filename = `FLUTGRABEN_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
+  const filename = `FLTGRRR_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.otf`;
 
   // opentype.js builds OS/2 and post tables lazily during toArrayBuffer().
   // We must serialize first, re-parse the result, then patch the table values
@@ -881,6 +881,151 @@ async function exportWOFF() {
   generate();
   exportWoffBtn.textContent = 'WOFF';
   exportWoffBtn.disabled    = false;
+}
+
+// Dispatches to the correct Clipper polygon function for the current shape.
+// Used by exportSVGUnion to build polygons in canvas pixel coordinates.
+// Canvas Y-down coordinates give CW winding — SVG fill-rule="nonzero" renders this correctly.
+function getShapePolygon(cx, cy, r) {
+  if (currentShape === 'square')    return getSquarePolygon(cx, cy, r);
+  if (currentShape === 'trait_2')   return getTrait2Polygon(cx, cy, r);
+  if (currentShape === 'polygone')  return getPolygone5Polygon(cx, cy, r);
+  if (currentShape === 'polygone8') return getPolygone8Polygon(cx, cy, r);
+  if (currentShape === 'cross')     return getCrossPolygon(cx, cy, r);
+  return getCirclePolygon(cx, cy, r);
+}
+
+// Converts a Clipper Paths result to an SVG path data string.
+// Each polygon becomes a closed subpath; coordinates are divided by CLIPPER_SCALE
+// to recover canvas pixel units.
+function clipperToSvgPathData(clipperPaths) {
+  let d = '';
+  for (const poly of clipperPaths) {
+    if (poly.length === 0) continue;
+    d += `M${(poly[0].X / CLIPPER_SCALE).toFixed(2)} ${(poly[0].Y / CLIPPER_SCALE).toFixed(2)}`;
+    for (let i = 1; i < poly.length; i++) {
+      d += ` L${(poly[i].X / CLIPPER_SCALE).toFixed(2)} ${(poly[i].Y / CLIPPER_SCALE).toFixed(2)}`;
+    }
+    d += ' Z';
+  }
+  return d;
+}
+
+// Builds and downloads a union-optimised SVG where all dots (main + halo layers) are
+// merged into a single <path> via Clipper boolean union.
+// Called by the SVG export button when the adv-union-svg checkbox is checked.
+// Mirrors the sampling logic of samplePixelsToSVGString() and generateContourSVGString()
+// but collects Clipper polygons instead of SVG element strings.
+async function exportSVGUnion() {
+  const btn = document.getElementById('export-btn');
+  btn.textContent = 'En cours...';
+  btn.disabled    = true;
+
+  try {
+    await loadClipper();
+  } catch (e) {
+    console.error('Failed to load Clipper.js:', e);
+    btn.textContent = 'Erreur';
+    btn.disabled    = false;
+    return;
+  }
+
+  const canvasW  = lastCanvasW;
+  const canvasH  = lastCanvasH;
+  const polygons = [];
+
+  // --- Main layer ---
+  // Mirrors samplePixelsToSVGString(): samples gCtx (gradient canvas output).
+  const pixels   = gCtx.getImageData(0, 0, canvasW, canvasH).data;
+  const stepMain = DOT_SPACING * tailleGenerationMultiplier;
+
+  for (let y = stepMain / 2; y < canvasH; y += stepMain) {
+    for (let x = stepMain / 2; x < canvasW; x += stepMain) {
+      const i          = (Math.floor(y) * canvasW + Math.floor(x)) * 4;
+      const brightness = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+      if (brightness >= 245) continue;
+
+      const probability = meshSize === 0
+        ? 1 - presenceStrength
+        : Math.max(0, 1 - (brightness / 204) * presenceStrength * 2);
+      if (Math.random() > probability) continue;
+
+      const darkness = Math.max(0, 1 - brightness / 204);
+      const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * sizeMultiplier * tailleGenerationMultiplier;
+
+      polygons.push(getShapePolygon(x, y, radius));
+    }
+  }
+
+  // --- Halo/contour layer ---
+  // Mirrors generateContourSVGString() in offset.js: samples blurData against the text mask.
+  if (lastBlurData && outsetRadius > 0) {
+    const maskData    = ctx.getImageData(0, 0, canvasW, canvasH);
+    const stepContour = DOT_SPACING * contourTailleGenerationMultiplier;
+
+    for (let y = stepContour / 2; y < canvasH; y += stepContour) {
+      for (let x = stepContour / 2; x < canvasW; x += stepContour) {
+        const i              = (Math.floor(y) * canvasW + Math.floor(x)) * 4;
+        const maskBrightness = (maskData.data[i] + maskData.data[i + 1] + maskData.data[i + 2]) / 3;
+        if (maskBrightness < THRESHOLD) continue;
+
+        const blurBrightness = (lastBlurData.data[i] + lastBlurData.data[i + 1] + lastBlurData.data[i + 2]) / 3;
+        if (blurBrightness >= THRESHOLD) continue;
+
+        const gray = Math.round(120 + (blurBrightness / THRESHOLD) * 80);
+
+        let probability;
+        if (contourMeshSize === 0) {
+          probability = Math.max(0, 1 - (gray / 204) * contourPresenceStrength * 2);
+        } else {
+          const gx  = (x / canvasW) * contourMeshSize;
+          const gy  = (y / canvasH) * contourMeshSize;
+          const c0  = Math.min(Math.floor(gx), contourMeshSize - 1);
+          const r0  = Math.min(Math.floor(gy), contourMeshSize - 1);
+          const tx  = gx - c0;
+          const ty  = gy - r0;
+          const cv  = (r, c) => (r + c) % 2 === 0 ? 204 : 0;
+          const meshValue = Math.round(
+            cv(r0,     c0)     * (1 - tx) * (1 - ty) +
+            cv(r0,     c0 + 1) * tx       * (1 - ty) +
+            cv(r0 + 1, c0)     * (1 - tx) * ty       +
+            cv(r0 + 1, c0 + 1) * tx       * ty
+          );
+          probability = Math.max(0, 1 - (meshValue / 204) * contourPresenceStrength * 2);
+        }
+        if (Math.random() > probability) continue;
+
+        const darkness = Math.max(0, 1 - gray / 204);
+        const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * contourSizeMultiplier * contourTailleGenerationMultiplier;
+
+        polygons.push(getShapePolygon(x, y, radius));
+      }
+    }
+  }
+
+  if (polygons.length === 0) {
+    btn.textContent = 'SVG';
+    btn.disabled    = false;
+    return;
+  }
+
+  const unionResult = unionPolygons(polygons);
+  const pathData    = clipperToSvgPathData(unionResult);
+
+  const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${canvasW}" height="${canvasH}" viewBox="0 0 ${canvasW} ${canvasH}">
+  <path d="${pathData}" fill="${currentColor}" fill-rule="nonzero"/>
+</svg>`;
+
+  const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `FLTGRRR_union_${currentShape}_${meshSize}_${tailleGenerationMultiplier.toFixed(2)}_${sizeMultiplier.toFixed(2)}_${presenceStrength.toFixed(2)}.svg`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  btn.textContent = 'SVG';
+  btn.disabled    = false;
 }
 
 const exportWoffBtn = document.getElementById('export-woff-btn');

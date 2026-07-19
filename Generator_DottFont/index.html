@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FLUTGRABEN TYPEFACE</title>
+  <title>FLTGRRR TYPEFACE</title>
   <meta name="description" content="Dynamic Type Generator">
   <meta name="keywords" content="HTML, CSS, JavaScript-opentype.js">
   <meta name="author" content="Zoé Berthelot @Neutronzoo">
@@ -215,7 +215,7 @@
 
       <label class="adv-check">
         <input type="checkbox" id="adv-no-union">
-        <span class="step-label">keep shapes separate on export 
+        <span class="step-label">keep shapes separate on export
           <p class="documentation">Enable only if you want each component shape within a glyph to be exported as an individual path, rather than merged in to a single outline</p>
         </span>
       </label>
@@ -279,6 +279,18 @@
         <input type="checkbox" id="charset-pinyin">
         <span class="step-label">Pinyin (zh)</span>
         <span class="charset-tooltip"></span>
+      </label>
+    </div>
+  </details>
+
+  <details id="top-panel-svg-adv">
+    <summary><span class="step-label">SVG export settings</span></summary>
+    <div class="adv-controls">
+      <label class="adv-check">
+        <input type="checkbox" id="adv-union-svg">
+        <span class="step-label">Union shapes on SVG export
+          <p class="documentation">Merges all dot shapes (main layer + halo) into a single optimised path via boolean union — removes overlapping contours and reduces file size. May be slow for large inputs.</p>
+        </span>
       </label>
     </div>
   </details>

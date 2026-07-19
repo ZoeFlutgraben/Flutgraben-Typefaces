@@ -28,6 +28,10 @@ let showApproches = false;
 // Exported as a global so export-otf.js can read it without a module system.
 let skipUnion = false;
 
+// When true, the SVG export button uses Clipper boolean union to merge all dots
+// (main layer + halo) into a single optimised <path> instead of serialising the DOM.
+let unionSvg = false;
+
 // Additional letter-spacing added to each inter-glyph gap, in canvas pixels (default 0)
 let letterSpacingPx = 0;
 
@@ -340,6 +344,7 @@ generateTextOnly    = function()     { _origGenerateTextOnly();     drawOverlay(
 document.getElementById('adv-show-outline' ).addEventListener('change', e => { showOutline   = e.target.checked; drawOverlay(); });
 document.getElementById('adv-show-approches').addEventListener('change', e => { showApproches = e.target.checked; drawOverlay(); });
 document.getElementById('adv-no-union'      ).addEventListener('change', e => { skipUnion     = e.target.checked; });
+document.getElementById('adv-union-svg'     ).addEventListener('change', e => { unionSvg      = e.target.checked; });
 
 // --- Tracking (letter-spacing) slider ---
 // Writes letterSpacingPx to the canvas context and triggers a full re-render
