@@ -228,13 +228,13 @@ function drawOverlay() {
           ga.appendChild(svgEl('rect', {
             x: d.x.toFixed(1), y: zoneY.toFixed(1),
             width: dispLsbPx.toFixed(1), height: zoneH.toFixed(1),
-            fill: 'rgba(136, 81, 255)', opacity: 0.3
+            fill: '#a887cfff', opacity: 0.3
           }));
         }
         {
           // Label centered on zone when positive, anchored at glyph edge when negative
           const lblX  = dispLsbPx > 0.5 ? (d.x + dispLsbPx / 2).toFixed(1) : d.x.toFixed(1);
-          const lblClr = lsbVal < 0 ? '#ff3333' : 'rgba(136, 81, 255)';
+          const lblClr = lsbVal < 0 ? '#ff3333' : '#a887cfff';
           const lbl = svgEl('text', {
             x: lblX, y: lblY, fill: lblClr, 'font-size': 4,
             'font-family': 'DINish, sans-serif', 'font-weight': 700,
@@ -251,13 +251,13 @@ function drawOverlay() {
           ga.appendChild(svgEl('rect', {
             x: rsbStartX.toFixed(1), y: zoneY.toFixed(1),
             width: dispRsbPx.toFixed(1), height: zoneH.toFixed(1),
-            fill: '#39ff14', opacity: 0.3
+            fill: '#d87b68ff', opacity: 0.3
           }));
         }
         {
           // Label centered on zone when positive, anchored at advance edge when negative
           const lblX   = dispRsbPx > 0.5 ? (rsbStartX + dispRsbPx / 2).toFixed(1) : rsbStartX.toFixed(1);
-          const lblClr = rsbVal < 0 ? '#ff3333' : '#39ff14';
+          const lblClr = rsbVal < 0 ? '#ff3333' : '#d87b68ff';
           const lbl = svgEl('text', {
             x: lblX, y: lblY, fill: lblClr, 'font-size': 4,
             'font-family': 'DINish, sans-serif', 'font-weight': 700,

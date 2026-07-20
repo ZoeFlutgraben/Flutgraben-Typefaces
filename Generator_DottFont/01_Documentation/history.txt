@@ -2430,4 +2430,49 @@ AMÉLIORATIONS UI (19/07/2026)
       #panels-left.mode-image #italic-toggle { display:none }).
       L'italic n'a d'effet que sur l'export OTF/WOFF de la fonte texte.
 
+------------------------------------------------------------
+AMÉLIORATIONS UI — SUITE (19/07/2026)
+------------------------------------------------------------
+
+  13. TOGGLE HALO (index.html + offset.js)
+      Checkbox "Disable halo" ajoutée en tête du panel "Halo settings".
+      Décochée par défaut → halo actif au chargement.
+      Variable haloEnabled = true ; cochée → haloEnabled = false.
+      Guard ajouté dans generateContourSVGString() :
+        if (!haloEnabled || !blurData || outsetRadius === 0) return '';
+      Listener sur #halo-enabled → generateContourOnly() sans re-render complet.
+
+  14. PANEL INFO — contenu enrichi (index.html + style.css)
+      Ajout d'un bloc licence :
+        - Fonts générées : SIL Open Font License (libre)
+        - Générateur : © 2026 Zoé Berthelot — tous droits réservés
+      Lien Instagram @neutronzoo ajouté dans le crédit.
+      Typographie harmonisée : une seule taille (0.6em définie sur #top-panel-info),
+      une seule couleur (--terra), règle unique #top-panel-info a pour tous les liens.
+      Bloc licence séparé par border-top terra léger.
+
+  15. TOGGLE PANEL INFO (index.html + style.css + script-generator_DottFont.js)
+      Bouton #info-toggle ajouté : onglet 20×40px sur le bord gauche du panel info
+      (right: calc(15vw + 15px)), même couleur que le panel.
+      Clic → toggle classe .collapsed sur #top-panel-info (translateX hors écran droite).
+      En état replié : bouton se déplace à right:0.
+      Icône : › (ouvert) / ‹ (replié) — symétrique au panel gauche.
+
+  16. SUPPRESSION CUSTOM CURSOR (style.css)
+      Variables --cursor-default et --cursor-pointer supprimées.
+      Règles html/body et interactifs avec cursor:var(...) supprimées.
+      Sliders repassés à cursor:pointer standard.
+
+  17. AJUSTEMENTS PALETTE (style.css — modifications manuelles)
+      Palette retravaillée par l'utilisatrice :
+        --rust:  #555273  (violet-gris)
+        --terra: #4a5843  (vert foncé)
+        --ochre: #d87b68  (saumon)
+        --ink:   #4a5843  (= terra)
+        --bg-div: #83a6e3d9  (bleu clair semi-transparent — fond des panels)
+        --bg-btn:       #efe6dc
+        --bg-btn-hover: #83a6e3
+      Scrollbar : --rust sur --bg-div.
+      border-top export : var(--ink).
+
 ============================================================

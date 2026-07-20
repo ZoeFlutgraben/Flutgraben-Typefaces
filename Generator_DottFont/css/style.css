@@ -2,6 +2,7 @@
 :root {
   /* Typography */
   --text-font-size:   0.8em;
+  --text-font-size-02: 0.6em;
   --text-padding:     0.75rem;
   --text-line-height: 1.1;
 
@@ -11,11 +12,11 @@
   /* Flutgraben identity palette */
   --bg:    #e5e9ed;   /* off-white — page and output background */
   --rust:  #555273;   /* primary text, headings */
-  --terra: #5b6c53;   /* secondary text, labels, borders */
+  --terra: #394434;   /* secondary text, labels, borders */
   --ochre: #d87b68;   /* hover, CTAs, accents */
   --paper: #efe6dc;   /* warm surface — panel backgrounds */
-  --ink:   #697c61;   /* deepest text */
-  --bg-div: #83a6e3;
+  --ink:   #394434;   /* deepest text */
+  --bg-div: #83a6e3d9;
 
   /* Aliases — used throughout for backward compatibility */
   --color-dark:  var(--rust);
@@ -28,9 +29,6 @@
   /* Square-by-design — no rounded corners */
   --radius: 0px;
 
-  /* Custom pixel-arrow cursors */
-  --cursor-default: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M2 1 L2 14 L5 11 L7 16 L10 15 L8 10 L13 10 Z' fill='%23573835' stroke='%23e5e9ed' stroke-width='1'/></svg>") 2 1, auto;
-  --cursor-pointer: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M2 1 L2 14 L5 11 L7 16 L10 15 L8 10 L13 10 Z' fill='%23c17d4c' stroke='%23e5e9ed' stroke-width='1'/></svg>") 2 1, pointer;
 }
 
 /* === Font loading === */
@@ -63,25 +61,12 @@
 
 *::selection {
   color: var(--ochre);
-  background: #7fb8d7;
-}
-
-/* Rust-arrow default cursor; ochre-arrow on interactive elements */
-html, body {
-  cursor: var(--cursor-default);
-}
-
-button,
-summary,
-label.adv-check,
-.mode-btn,
-.shape-btn {
-  cursor: var(--cursor-pointer) !important;
+  background: var(--ink);
 }
 
 /* Rust scrollbar on --bg track */
 * {
-  scrollbar-color: var(--rust) var(--bg);
+  scrollbar-color: var(--rust) var(--bg-div);
   scrollbar-width: thin;
 }
 
@@ -117,7 +102,7 @@ body {
   align-items: center;
   justify-content: center;
   font-family: 'DINish', sans-serif;
-  font-size: 0.7rem;
+  font-size: var(--text-font-size);
   font-weight: 700;
   transition: background 0.15s, color 0.15s, left 0.25s ease;
 }
@@ -242,7 +227,7 @@ body {
   align-items: center;
   justify-content: center;
   font-family: 'DINish', sans-serif;
-  font-size: 0.7rem;
+  font-size: var(--text-font-size);
   font-weight: 700;
   transition: background 0.15s, color 0.15s, right 0.25s ease;
 }
@@ -269,7 +254,7 @@ body {
   overflow-y: auto;
   gap: 10px;
   font-family: 'DINish', sans-serif;
-  font-size: 0.6em;
+  font-size: var(--text-font-size-02);
   font-weight: 400;
   line-height: 1.6;
   color: var(--terra);
@@ -330,7 +315,7 @@ body {
 #export-woff-btn {
   font-family: 'DINish', sans-serif;
   font-weight: 700;
-  font-size: 0.6em;
+  font-size: var(--text-font-size-02);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -410,7 +395,7 @@ details[open] summary .step-label {
   border: none;
   border-radius: var(--radius);
   font-family: 'DINish', sans-serif;
-  font-size: 0.6em;
+  font-size: var(--text-font-size-02);
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -513,7 +498,7 @@ details[open] summary .step-label {
   color: var(--paper);
   border-radius: var(--radius);
   font-family: 'DINish', sans-serif;
-  font-size: 0.7rem;
+  font-size: var(--text-font-size);
   font-weight: 400;
   line-height: 1.8;
   width: max-content;
@@ -595,7 +580,7 @@ details[open] summary .step-label {
   height: 1px;
   background: var(--terra);
   outline: none;
-  cursor: var(--cursor-pointer);
+  cursor: pointer;
 }
 
 #panels-left input[type="range"]::-webkit-slider-thumb {
@@ -605,7 +590,7 @@ details[open] summary .step-label {
   height: 10px;
   background: var(--rust);
   border-radius: 50%;
-  cursor: var(--cursor-pointer);
+  cursor: pointer;
 }
 
 #panels-left input[type="range"]::-moz-range-thumb {
@@ -614,7 +599,7 @@ details[open] summary .step-label {
   background: var(--rust);
   border: none;
   border-radius: 50%;
-  cursor: var(--cursor-pointer);
+  cursor: pointer;
 }
 
 /* === Slider value spans === */
@@ -709,7 +694,7 @@ details[open] summary .step-label {
   padding: 8px 10px;
   border-radius: var(--radius);
   font-family: 'DINish', monospace;
-  font-size: 0.7rem;
+  font-size: var(--text-font-size);
   font-weight: 400;
   letter-spacing: 0.08em;
   line-height: 1.8;
