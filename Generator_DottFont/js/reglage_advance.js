@@ -118,6 +118,13 @@ function svgEl(tag, attrs) {
 // Clears any existing #overlay group and rebuilds it from current toggle state.
 // Called after every dot-generation pass and whenever a control changes.
 function drawOverlay() {
+  // Overlays are text-mode only — skip entirely when rendering an image
+  if (inputMode !== 'text') {
+    const existing = outputSvg.querySelector('#overlay');
+    if (existing) existing.remove();
+    return;
+  }
+
   const w = lastCanvasW;
   const h = lastCanvasH;
   if (!w || !h) return;

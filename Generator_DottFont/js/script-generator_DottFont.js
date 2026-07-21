@@ -460,6 +460,10 @@ function samplePixelsToSVGString(canvasW, canvasH) {
 // Main generation function — called on page load, shape change, or size slider change.
 // Async because renderImageMask() loads an image via Promise.
 async function generate() {
+  // Clear immediately — prevents stale dots from showing during async image load
+  // or when switching between image and text modes
+  clearOutputs();
+
   // Update the base clone shape in SVG defs
   updateBaseShape(currentShape);
 
