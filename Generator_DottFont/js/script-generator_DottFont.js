@@ -129,6 +129,22 @@ const SHAPES = {
   cross:{
     viewBox: '0 0 0.748 0.748',
     content: '<polygon points="0,0 0.373447,0.154202 0.746893,0 0.592326,0.373081 0.747624,0.747624 0.373447,0.59196 -7.31e-4,0.747624 0.154568,0.373081" fill="#000000"/>'
+  },
+
+  // Hollow square (square frame) — clone/square_outline.svg
+  // viewBox 0 0 2 2 — square bounding box, fill-rule evenodd creates the hole.
+  // Inner rect inset = 0.279067 on each side in viewBox units.
+  square_outline: {
+    viewBox: '0 0 2 2',
+    content: '<path fill-rule="evenodd" d="M 0,0 v 2 h 2 v -2 Z M 0.279067,0.279067 h 1.441866 v 1.441866 h -1.441866 Z" fill="#000000"/>'
+  },
+
+  // Diagonal bar (same rect as trait_2 rotated -45°) — clone/trait_incline.svg
+  // viewBox 0 0 3.2815498 3.2815497 — square bounding box.
+  // Vertex ratios derived from the 4 rotated corners normalized by viewBox half-size.
+  trait_incline: {
+    viewBox: '0 0 3.2815498 3.2815497',
+    content: '<polygon points="0,2.555 2.555,0 3.2815,0.726 0.726,3.2815" fill="#000000"/>'
   }
 };
 
@@ -408,6 +424,33 @@ function shapeDotSVG(cx, cy, r) {
       const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');
       return `<polygon points="${pts}" fill="${currentColor}"${op}/>`;
     }
+
+  if (currentShape === 'square_outline') {
+    // viewBox 0 0 2 2 — square bounding box. scale = size/2 = r.
+    // Hollow square: outer rect covers the full bounding box; inner rect creates the hole.
+    // Inner inset = 0.279067 * r on each side (ratio from normalized viewBox coords).
+    const inset     = 0.279067 * r;
+    const outerSize = (r * 2).toFixed(2);
+    const innerSize = (1.441866 * r).toFixed(2);
+    const ox = (cx - r).toFixed(2);
+    const oy = (cy - r).toFixed(2);
+    const ix = (cx - r + inset).toFixed(2);
+    const iy = (cy - r + inset).toFixed(2);
+    return `<path fill-rule="evenodd" d="M ${ox},${oy} v ${outerSize} h ${outerSize} v -${outerSize} Z M ${ix},${iy} h ${innerSize} v ${innerSize} h -${innerSize} Z" fill="${currentColor}"${op}/>`;
+  }
+
+  if (currentShape === 'trait_incline') {
+    // viewBox 0 0 3.2815498 3.2815497 — square bounding box. scale = size/3.2815498.
+    // Same rectangle as trait_2 rotated -45°. Vertex ratios normalized by viewBox half-size.
+    const verts = [
+      [-1.0000,  0.5573],
+      [ 0.5573, -1.0000],
+      [ 1.0000, -0.5573],
+      [-0.5573,  1.0000]
+    ];
+    const pts = verts.map(([dx, dy]) => `${(cx + dx * r).toFixed(2)},${(cy + dy * r).toFixed(2)}`).join(' ');
+    return `<polygon points="${pts}" fill="${currentColor}"${op}/>`;
+  }
 
   // Default: circle
   return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="${currentColor}"${op}/>`;

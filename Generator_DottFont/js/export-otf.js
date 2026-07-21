@@ -122,6 +122,44 @@ function getCrossPolygon(cx, cy, r) {
   }));
 }
 
+// Returns two Clipper polygons for a hollow square (outer CCW + inner CW hole).
+// viewBox 0 0 2 2 — inner rect inset = 0.279067 on each side → inner half-size = 0.720933 * r.
+// Outer: CCW Y-up (positive area). Inner: CW Y-up (NonZero hole).
+function getSquareOutlinePolygons(cx, cy, r) {
+  const s  = r;
+  const si = 0.720933 * r;
+  const outer = [
+    { X: Math.round((cx - s)  * CLIPPER_SCALE), Y: Math.round((cy + s)  * CLIPPER_SCALE) },
+    { X: Math.round((cx - s)  * CLIPPER_SCALE), Y: Math.round((cy - s)  * CLIPPER_SCALE) },
+    { X: Math.round((cx + s)  * CLIPPER_SCALE), Y: Math.round((cy - s)  * CLIPPER_SCALE) },
+    { X: Math.round((cx + s)  * CLIPPER_SCALE), Y: Math.round((cy + s)  * CLIPPER_SCALE) },
+  ];
+  // Inner is reversed (CW) to create a hole under NonZero fill rule
+  const inner = [
+    { X: Math.round((cx - si) * CLIPPER_SCALE), Y: Math.round((cy + si) * CLIPPER_SCALE) },
+    { X: Math.round((cx + si) * CLIPPER_SCALE), Y: Math.round((cy + si) * CLIPPER_SCALE) },
+    { X: Math.round((cx + si) * CLIPPER_SCALE), Y: Math.round((cy - si) * CLIPPER_SCALE) },
+    { X: Math.round((cx - si) * CLIPPER_SCALE), Y: Math.round((cy - si) * CLIPPER_SCALE) },
+  ];
+  return [outer, inner];
+}
+
+// Returns a CCW polygon for a diagonal bar (-45° rotated rect) in Y-up font coordinates.
+// viewBox 0 0 3.2815498 3.2815497 — same rect as trait_2 rotated -45°.
+// Vertex ratios: negated SVG dy, reversed order for CCW winding in Y-up.
+function getTraitInclinePolygon(cx, cy, r) {
+  const verts = [
+    [-0.5573, -1.0000],
+    [ 1.0000,  0.5573],
+    [ 0.5573,  1.0000],
+    [-1.0000, -0.5573]
+  ];
+  return verts.map(([dx, dy]) => ({
+    X: Math.round((cx + dx * r) * CLIPPER_SCALE),
+    Y: Math.round((cy + dy * r) * CLIPPER_SCALE),
+  }));
+}
+
 // Cubic Bezier circle approximation constant: (4/3) × tan(π/8) ≈ 0.5523.
 // Each of 4 quadrant segments has < 0.03% radial error — indistinguishable from a true circle.
 const BEZIER_K = 0.5522847498;
@@ -202,6 +240,42 @@ function addCrossBezier(path, cx, cy, r) {
   path.close();
 }
 
+// Appends a hollow square to an opentype.Path, CCW outer + CW inner, Y-up.
+// viewBox 0 0 2 2 — inner half-size = 0.720933 * r (inset 0.279067 on each side).
+// The inner CW contour creates a hole under the NonZero fill rule used by OTF/CFF fonts.
+function addSquareOutlineBezier(path, cx, cy, r) {
+  const si = 0.720933 * r;
+  // Outer square — CCW in Y-up (positive area)
+  path.moveTo(cx - r,  cy + r);
+  path.lineTo(cx - r,  cy - r);
+  path.lineTo(cx + r,  cy - r);
+  path.lineTo(cx + r,  cy + r);
+  path.close();
+  // Inner square — CW in Y-up (hole under NonZero fill)
+  path.moveTo(cx - si, cy + si);
+  path.lineTo(cx + si, cy + si);
+  path.lineTo(cx + si, cy - si);
+  path.lineTo(cx - si, cy - si);
+  path.close();
+}
+
+// Appends a diagonal bar (-45° rotated rect) to an opentype.Path, CCW in Y-up.
+// viewBox 0 0 3.2815498 3.2815497 — same rect as trait_2 rotated -45°.
+// Vertex ratios: negated SVG dy, reversed order for CCW winding.
+function addTraitInclineBezier(path, cx, cy, r) {
+  const verts = [
+    [-0.5573, -1.0000],
+    [ 1.0000,  0.5573],
+    [ 0.5573,  1.0000],
+    [-1.0000, -0.5573]
+  ];
+  path.moveTo(cx + verts[0][0] * r, cy + verts[0][1] * r);
+  for (let i = 1; i < verts.length; i++) {
+    path.lineTo(cx + verts[i][0] * r, cy + verts[i][1] * r);
+  }
+  path.close();
+}
+
 // Dispatches to the correct Bezier function for the current shape.
 // Used when dots cannot overlap (no Clipper union needed).
 function addShapeBezierToPath(path, cx, cy, r) {
@@ -220,6 +294,10 @@ function addShapeBezierToPath(path, cx, cy, r) {
     addPolygone8Bezier(path, cx, cy, r);
   } else if (currentShape === 'cross') {
     addCrossBezier(path, cx, cy, r);
+  } else if (currentShape === 'square_outline') {
+    addSquareOutlineBezier(path, cx, cy, r);
+  } else if (currentShape === 'trait_incline') {
+    addTraitInclineBezier(path, cx, cy, r);
   } else {
     addCircleBezier(path, cx, cy, r, false);
   }
@@ -729,6 +807,12 @@ async function buildFont(progressBtn) {
             polygons.push(getPolygone8Polygon(fx, fy, fr));
           } else if (currentShape === 'cross') {
             polygons.push(getCrossPolygon(fx, fy, fr));
+          } else if (currentShape === 'square_outline') {
+            const [outer, inner] = getSquareOutlinePolygons(fx, fy, fr);
+            polygons.push(outer);
+            polygons.push(inner);
+          } else if (currentShape === 'trait_incline') {
+            polygons.push(getTraitInclinePolygon(fx, fy, fr));
           } else {
             polygons.push(getCirclePolygon(fx, fy, fr));
           }
@@ -794,7 +878,9 @@ if (shift !== 0) {
     trait_2:  'Trait 2',
     polygone: 'Polygone',
     polygone8:'Polygone 8',
-    cross:    'Cross'
+    cross:          'Cross',
+    square_outline: 'Square Outline',
+    trait_incline:  'Trait Incliné'
   }[currentShape] || currentShape;
 
   // Abbreviated shape key for the legacy family name (nameID 1).
@@ -802,12 +888,14 @@ if (shift !== 0) {
   // so each export needs a unique familyName to avoid conflicts when multiple
   // variants are installed simultaneously.
   const shapeAbbr = {
-    circle:   'Ci',
-    square:   'Sq',
-    trait_2:  'T2',
-    polygone: 'P5',
-    polygone8:'P8',
-    cross:    'Cr'
+    circle:         'Ci',
+    square:         'Sq',
+    trait_2:        'T2',
+    polygone:       'P5',
+    polygone8:      'P8',
+    cross:          'Cr',
+    square_outline: 'SO',
+    trait_incline:  'TI'
   }[currentShape] || currentShape;
 
   const legacyFamily = `FLTGRRR ${shapeAbbr} M${meshSize} T${tailleGenerationMultiplier.toFixed(2)} S${sizeMultiplier.toFixed(2)} H${presenceStrength.toFixed(2)}${isItalic ? ' I' : ''}`;
@@ -955,12 +1043,26 @@ async function exportWOFF() {
 // Dispatches to the correct Clipper polygon function for the current shape.
 // Used by exportSVGUnion to build polygons in canvas pixel coordinates.
 // Canvas Y-down coordinates give CW winding — SVG fill-rule="nonzero" renders this correctly.
+// Pushes the correct polygon(s) for the current shape onto the given array.
+// square_outline requires two polygons (outer + inner hole); all other shapes push one.
+function pushShapePolygons(polygons, cx, cy, r) {
+  if (currentShape === 'square_outline') {
+    const [outer, inner] = getSquareOutlinePolygons(cx, cy, r);
+    polygons.push(outer);
+    polygons.push(inner);
+  } else {
+    polygons.push(getShapePolygon(cx, cy, r));
+  }
+}
+
+// Note: square_outline requires two polygons (outer + inner hole) — use pushShapePolygons().
 function getShapePolygon(cx, cy, r) {
-  if (currentShape === 'square')    return getSquarePolygon(cx, cy, r);
-  if (currentShape === 'trait_2')   return getTrait2Polygon(cx, cy, r);
-  if (currentShape === 'polygone')  return getPolygone5Polygon(cx, cy, r);
-  if (currentShape === 'polygone8') return getPolygone8Polygon(cx, cy, r);
-  if (currentShape === 'cross')     return getCrossPolygon(cx, cy, r);
+  if (currentShape === 'square')         return getSquarePolygon(cx, cy, r);
+  if (currentShape === 'trait_2')        return getTrait2Polygon(cx, cy, r);
+  if (currentShape === 'polygone')       return getPolygone5Polygon(cx, cy, r);
+  if (currentShape === 'polygone8')      return getPolygone8Polygon(cx, cy, r);
+  if (currentShape === 'cross')          return getCrossPolygon(cx, cy, r);
+  if (currentShape === 'trait_incline')  return getTraitInclinePolygon(cx, cy, r);
   return getCirclePolygon(cx, cy, r);
 }
 
@@ -1020,7 +1122,7 @@ async function exportSVGUnion() {
       const darkness = Math.max(0, 1 - brightness / 204);
       const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * sizeMultiplier * tailleGenerationMultiplier;
 
-      polygons.push(getShapePolygon(x, y, radius));
+      pushShapePolygons(polygons, x, y, radius);
     }
   }
 
@@ -1065,7 +1167,7 @@ async function exportSVGUnion() {
         const darkness = Math.max(0, 1 - gray / 204);
         const radius   = (MIN_RADIUS + darkness * (MAX_RADIUS - MIN_RADIUS)) * contourSizeMultiplier * contourTailleGenerationMultiplier;
 
-        polygons.push(getShapePolygon(x, y, radius));
+        pushShapePolygons(polygons, x, y, radius);
       }
     }
   }

@@ -170,7 +170,7 @@ function drawOverlay() {
       const go = svgEl('g', { id: 'overlay-outline' });
       go.appendChild(svgEl('path', {
         d: pathData, fill: 'none',
-        stroke: '#0055ff', 'stroke-width': 0.5, opacity: 0.5
+        stroke: ' #d87b68', 'stroke-width': 0.5
       }));
       overlay.appendChild(go);
     }
